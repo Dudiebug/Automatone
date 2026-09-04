@@ -79,7 +79,8 @@ try {
 
     $firstPath = Join-Path $testRoot '.agents/evidence/bootstrap/independent/first.json'
     $secondPath = Join-Path $testRoot '.agents/evidence/bootstrap/independent/second.json'
-    $first = Invoke-VerificationController -Root $testRoot -TaskId BOOTSTRAP -Profile bootstrap -ReportPath $firstPath
+    $stateBefore = Get-Content (Join-Path $testRoot '.agents/STATE.yaml') -Raw
+    $first = Invoke-VerificationController -Root $testRoot -TaskId BOOTSTRAP -Profile @('bootstrap') -GradleTasks @('sensorAll') -RiskReason 'fixture broad sensor coverage' -ReportPath $firstPath
     $firstRawHash = (Get-FileHash $first.Runs[0].artifact).Hash
     Check 'H-001 all-selected PASS plus unexplained process failure blocks report' {
         Expect ($first.Report.verdict -eq 'FAIL' -and $first.ExitCode -eq 1) 'failed process yielded green report'
@@ -89,7 +90,10 @@ try {
     Check 'H-004 no accepted baseline is invented from HEAD' {
         Expect ($first.Report.baseline -eq 'UNACCEPTED') 'baseline was not UNACCEPTED'
         Expect ($first.Report.Contains('accepted_baseline') -and $null -eq $first.Report.accepted_baseline) 'explicit null accepted_baseline metadata missing'
-        Expect ((@($first.Report.acceptance | Where-Object id -eq 'AC-8')[0]).status -eq 'UNVERIFIED') 'AC-8 claimed complete independent evidence'
+        Expect (@($first.Report.acceptance | Where-Object { $_.id -match '^AC-' }).Count -eq 0) 'controller fabricated product acceptance stubs'
+        Expect ($first.Report.Contains('deferred_checks')) 'deferred_checks metadata missing'
+        Expect (@($first.Report.deferred_checks).Count -eq 0) 'emitted sensor checks were incorrectly deferred'
+        Expect ((Get-Content (Join-Path $testRoot '.agents/STATE.yaml') -Raw) -ceq $stateBefore) 'controller mutated acceptance state'
     }
     Check 'H-004 report validator rejects null accepted baseline with commit baseline' {
         $inconsistent = $first.Report | ConvertTo-Json -Depth 50 | ConvertFrom-Json
@@ -99,7 +103,7 @@ try {
         Expect (-not (Test-VerificationReport -ReportPath $inconsistentPath -Root $testRoot).Valid) 'inconsistent baseline metadata validated'
     }
     Set-Content $wrapper "@echo off`necho AUTOMATONE_SENSOR id=compile status=PASS summary=second run`necho AUTOMATONE_SENSOR id=error_prone status=PASS summary=checked`necho ClientDependentFixture serverCoreMustNotDependOnClientClasses`nexit /b 0"
-    $second = Invoke-VerificationController -Root $testRoot -TaskId BOOTSTRAP -Profile bootstrap -ReportPath $secondPath
+    $second = Invoke-VerificationController -Root $testRoot -TaskId BOOTSTRAP -Profile @('bootstrap') -GradleTasks @('sensorAll') -RiskReason 'fixture broad sensor coverage' -ReportPath $secondPath
     Check 'I-001 destination and report stem isolate raw outputs' {
         $expected = Join-Path (Split-Path $firstPath -Parent) 'first.raw'
         Expect ((Split-Path $first.Runs[0].artifact -Parent) -eq $expected) 'raw directory was not derived from report destination and stem'
@@ -120,13 +124,14 @@ try {
         $provisional = New-VerificationReport -Root $testRoot -TaskId FIXTURE -Candidate fixture-dirty -Baseline UNACCEPTED -FreshContext $false -Sensors @(@{ id = 'inventory'; required = $true; status = $inventory.Status }) -Acceptance $fixtureAcceptance -Failures @()
         Expect ($provisional.verdict -eq 'PASS' -and (Get-VerificationExitCode $provisional) -eq 0) 'legitimate complete-evidence provisional pass prohibited'
     }
-    Check 'H-008 automatic partial measurements do not pass full criteria' {
-        foreach ($id in @('AC-1', 'AC-2', 'AC-3', 'AC-4', 'AC-5', 'AC-7', 'AC-8')) {
-            Expect ((@($second.Report.acceptance | Where-Object id -eq $id)[0]).status -eq 'UNVERIFIED') "$id inferred full-criterion PASS"
-        }
-        Expect ((@($second.Report.acceptance | Where-Object id -eq 'AC-6')[0]).status -eq 'PASS') 'complete inventory measurement did not pass AC-6'
-        Expect ((@($second.Report.sensors | Where-Object id -eq 'report_schema')[0]).status -eq 'PASS') 'schema sensor success was discarded'
-        Expect ($second.Report.verdict -eq 'INCOMPLETE' -and $second.ExitCode -eq 2) 'unmeasured full criteria did not keep controller incomplete'
+    Check 'H-008 focused measurements do not claim task or milestone acceptance' {
+        Expect ($second.Report.verification_scope -eq 'Task') 'focused measurement was not labeled Task scope'
+        Expect ($second.Report.baseline -eq 'UNACCEPTED') 'focused measurement invented a baseline'
+        Expect ($null -eq $second.Report.accepted_baseline) 'focused measurement invented an accepted baseline'
+        Expect (@($second.Report.acceptance | Where-Object { $_.id -match '^AC-' }).Count -eq 0) 'focused measurement fabricated product acceptance stubs'
+        Expect (@($second.Report.deferred_checks).Count -eq 0) 'emitted sensor checks were incorrectly deferred'
+        Expect ($second.Report.verdict -eq 'PASS' -and $second.ExitCode -eq 0) 'successful focused measurement did not report its selected checks'
+        Expect ((Get-Content (Join-Path $testRoot '.agents/STATE.yaml') -Raw) -ceq $stateBefore) 'focused measurement mutated acceptance state'
     }
 
     # Acceptance evidence is measured against this fixture's complete contract, not BOOTSTRAP.
@@ -182,14 +187,19 @@ try {
         Write-VerificationReport -Report $result -Path $path | Out-Null
         Expect (-not (Test-VerificationReport -ReportPath $path -Root $testRoot).Valid) 'schema accepted missing acceptance property'
     }
-    Check 'C2 actual schema failure fails AC-5 rather than passing it' {
+    Check 'C2 actual schema failure blocks report validation' {
         $schemaPath = Join-Path $testRoot '.agents/verification/report.schema.json'
         $originalSchema = Get-Content -LiteralPath $schemaPath -Raw
         try {
             Set-Content -LiteralPath $schemaPath -Value '{"not":{}}'
-            $invalid = Invoke-VerificationController -Root $testRoot -TaskId BOOTSTRAP -Profile bootstrap -ReportPath (Join-Path $testRoot '.agents/evidence/bootstrap/schema-failure.json')
-            Expect ((@($invalid.Report.acceptance | Where-Object id -eq 'AC-5')[0]).status -eq 'FAIL') 'schema failure did not fail AC-5'
-            Expect ($invalid.Report.verdict -eq 'FAIL' -and $invalid.ExitCode -eq 1) 'schema failure did not block report'
+            $threw = $false
+            try {
+                Invoke-VerificationController -Root $testRoot -TaskId BOOTSTRAP -Profile @('bootstrap') -GradleTasks @('sensorAll') -RiskReason 'fixture broad sensor coverage' -ReportPath (Join-Path $testRoot '.agents/evidence/bootstrap/schema-failure.json') | Out-Null
+            } catch {
+                $threw = $true
+                Expect ($_.Exception.Message -match 'validation|schema') 'schema failure raised an unrelated error'
+            }
+            Expect $threw 'schema failure did not block report validation'
         } finally { Set-Content -LiteralPath $schemaPath -Value $originalSchema -NoNewline }
     }
     Write-Output "Repair regression tests: $script:passed passed, $script:failed failed"

@@ -1,0 +1,146 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import groovy.xml.XmlSlurper
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+
+// The eligibility inventory is frozen to the independently measured e81 candidate.
+def eligibilityDigest = '873d6dc2e5ba53d148210b159ddd92ba9c787f04975ec97595936ce73870d50e'
+def baselineCommit = 'e81dbad7ab53647920c61d824fb927f15ef67a89'
+def identityFields = ['pattern', 'class', 'method', 'methodSignature', 'field',
+                      'fieldSignature', 'sourcePath', 'start', 'end', 'message']
+def canonicalHash = { File file ->
+    byte[] content = file.getText('UTF-8').replace('\r\n', '\n').getBytes(StandardCharsets.UTF_8)
+    MessageDigest.getInstance('SHA-256').digest(content).encodeHex().toString()
+}
+def identity = { Map finding -> JsonOutput.toJson(identityFields.collect { finding[it] }) }
+def reject = { String reason -> throw new GradleException("SpotBugs disposition gate: ${reason}") }
+def readJson = { File file ->
+    if (!file.isFile()) {
+        reject("missing JSON file ${file}")
+    }
+    try {
+        return new JsonSlurper().parse(file, 'UTF-8')
+    } catch (Exception failure) {
+        throw new GradleException("SpotBugs disposition gate: malformed JSON ${file}", failure)
+    }
+}
+
+rootProject.ext.verifySpotBugsDispositions = {
+    File rawReport, File eligibilityFile, File approvalFile, File sourceRoot, File generatedBaseline ->
+    File temporary = new File(generatedBaseline.path + '.tmp')
+    if (rawReport.canonicalFile in [generatedBaseline.canonicalFile, temporary.canonicalFile]) {
+        reject('raw and generated report paths must differ')
+    }
+    [generatedBaseline, temporary].each { output ->
+        if (output.exists() && !output.delete()) {
+            reject("cannot clear stale output ${output}")
+        }
+    }
+    def eligible = readJson(eligibilityFile)
+    def approvals = readJson(approvalFile)
+    if (!(eligible instanceof Map) || eligible.schemaVersion != 1 || eligible.hashEncoding != 'utf8-lf'
+            || eligible.baselineCommit != baselineCommit || eligible.analyzerVersion != '4.10.2'
+            || !(eligible.entries instanceof List) || canonicalHash(eligibilityFile) != eligibilityDigest) {
+        reject('eligibility inventory differs from the frozen e81 inventory')
+    }
+    if (!(approvals instanceof Map) || approvals.schemaVersion != 1 || approvals.hashEncoding != 'utf8-lf'
+            || approvals.eligibilitySha256 != eligibilityDigest || !(approvals.entries instanceof List)) {
+        reject('invalid approval manifest or eligibility reference')
+    }
+    def eligibleById = eligible.entries.collectEntries { [(it.id): it] }
+    def eligibleByIdentity = eligible.entries.collectEntries { [(identity(it)): it] }
+    if (eligibleById.size() != eligible.entries.size() || eligibleByIdentity.size() != eligible.entries.size()) {
+        reject('duplicate frozen eligibility identity')
+    }
+    File root = sourceRoot.canonicalFile
+    if (!root.isDirectory()) {
+        reject('source root is not a directory')
+    }
+    def rootedFile = { String path ->
+        File resolved = new File(root, path).canonicalFile
+        if (new File(path).isAbsolute() || !resolved.toPath().startsWith(root.toPath()) || !resolved.isFile()) {
+            reject("missing or out-of-root file ${path}")
+        }
+        resolved
+    }
+    Map approvedById = [:]
+    approvals.entries.each { approval ->
+        if (!(approval instanceof Map) || !(approval.id instanceof Integer)
+                || approval.status != 'APPROVED' || approval.reviewer != 'luna_old_coder'
+                || !(approval.sourceSha256 instanceof String) || !(approval.sourceSha256 ==~ /[0-9a-f]{64}/)
+                || !(approval.contract instanceof String) || !approval.contract.trim()
+                || !(approval.evidence instanceof String) || !approval.evidence.trim()) {
+            reject('an entry lacks an exact independent approval, source hash, contract, or evidence')
+        }
+        if (!eligibleById.containsKey(approval.id) || approvedById.containsKey(approval.id)) {
+            reject("ineligible or duplicate approval id ${approval.id}")
+        }
+        rootedFile(approval.evidence.split('#', 2)[0])
+        def eligibleEntry = eligibleById[approval.id]
+        def recordedIdentity = eligibleEntry + [baselineCommit: baselineCommit]
+        (identityFields + ['sourceFile', 'baselineCommit']).each { key ->
+            if (approval.containsKey(key) && approval[key] != recordedIdentity[key]) {
+                reject("contradictory ${key} in approval ${approval.id}")
+            }
+        }
+        if (canonicalHash(rootedFile(eligibleEntry.sourceFile)) != approval.sourceSha256) {
+            reject("source changed for approved finding ${approval.id}: ${eligibleEntry.sourceFile}")
+        }
+        approvedById[approval.id] = approval
+    }
+    if (!rawReport.isFile()) {
+        reject('missing unsuppressed report')
+    }
+    def report
+    try {
+        report = new XmlSlurper(false, false).parse(rawReport)
+    } catch (Exception failure) {
+        throw new GradleException('SpotBugs disposition gate: malformed unsuppressed XML', failure)
+    }
+    if (report.name() != 'BugCollection' || report.@version.text() != '4.10.2'
+            || report.Errors.size() != 1 || report.Errors.@errors.text() != '0'
+            || report.Errors.@missingClasses.text() != '0' || report.Errors.children().size() != 0
+            || report.FindBugsSummary.size() != 1
+            || !(report.FindBugsSummary.@total_classes.text() ==~ /[1-9][0-9]*/)
+            || report.FindBugsSummary.@total_bugs.text() != report.BugInstance.size().toString()) {
+        reject('incomplete analysis, analyzer errors, missing classes, or inconsistent report totals')
+    }
+    def primary = { node, String name ->
+        def annotations = node.children().findAll { it.name() == name }
+        annotations.find { it.@primary.text() == 'true' } ?: annotations.find { true }
+    }
+    def attribute = { node, String name -> node ? (node.attributes()[name] ?: '').toString() : '' }
+    Set seen = [] as Set
+    List unapproved = []
+    report.BugInstance.each { bug ->
+        def owner = primary(bug, 'Class')
+        def method = primary(bug, 'Method')
+        def field = primary(bug, 'Field')
+        def location = primary(bug, 'SourceLine')
+        Map finding = [pattern: bug.@type.text(), 'class': attribute(owner, 'classname'),
+                       method: attribute(method, 'name'), methodSignature: attribute(method, 'signature'),
+                       field: attribute(field, 'name'), fieldSignature: attribute(field, 'signature'),
+                       sourcePath: attribute(location, 'sourcepath'), start: attribute(location, 'start'),
+                       end: attribute(location, 'end'), message: bug.LongMessage.text()]
+        def entry = eligibleByIdentity[identity(finding)]
+        if (entry == null || !approvedById.containsKey(entry.id)) {
+            unapproved.add("${finding.pattern} ${finding['class']} ${finding.method ?: finding.field}")
+        } else if (!seen.add(entry.id)) {
+            reject("extra occurrence of approved finding ${entry.id}")
+        }
+    }
+    if (!unapproved.isEmpty()) {
+        reject("${unapproved.size()} unapproved finding(s): ${unapproved.take(8).join('; ')}; raw=${rawReport}")
+    }
+    if (seen != approvedById.keySet()) {
+        reject('approval manifest contains findings absent from this analysis')
+    }
+    generatedBaseline.parentFile.mkdirs()
+    Files.copy(rawReport.toPath(), temporary.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    Files.move(temporary.toPath(), generatedBaseline.toPath(),
+            StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+    logger.lifecycle("SpotBugs exact disposition gate: ${seen.size()} reviewed finding(s); raw=${rawReport}")
+}

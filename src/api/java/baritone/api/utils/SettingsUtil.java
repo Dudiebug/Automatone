@@ -53,6 +53,7 @@ import java.util.stream.Stream;
 
 public class SettingsUtil {
 
+    private static final Object SAVE_LOCK = new Object();
     public static final String SETTINGS_DEFAULT_NAME = "settings.txt";
     private static final Pattern SETTING_PATTERN = Pattern.compile("^(?<setting>[^ ]+) +(?<value>.+)"); // key and value split by the first space
 
@@ -105,17 +106,22 @@ public class SettingsUtil {
         }
     }
 
-    public static synchronized void save(Settings settings) {
-        try {
-            Path settingsFile = settingsByName(SETTINGS_DEFAULT_NAME);
-            Files.createDirectories(settingsFile.getParent());
-            try (BufferedWriter out = Files.newBufferedWriter(settingsFile)) {
-                for (Settings.Setting setting : modifiedSettings(settings)) {
-                    out.write(settingToString(setting) + "\n");
+    public static void save(Settings settings) {
+        synchronized (SAVE_LOCK) {
+            try {
+                Path settingsFile = settingsByName(SETTINGS_DEFAULT_NAME);
+                Path parent = settingsFile.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
                 }
+                try (BufferedWriter out = Files.newBufferedWriter(settingsFile)) {
+                    for (Settings.Setting setting : modifiedSettings(settings)) {
+                        out.write(settingToString(setting) + "\n");
+                    }
+                }
+            } catch (Exception ex) {
+                log(settings, "Exception thrown while saving Baritone settings: " + ex);
             }
-        } catch (Exception ex) {
-            log(settings, "Exception thrown while saving Baritone settings: " + ex);
         }
     }
 

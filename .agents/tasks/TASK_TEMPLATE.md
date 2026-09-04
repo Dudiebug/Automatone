@@ -2,11 +2,11 @@
 
 ## Metadata
 
-- **State:** `PLANNED | READY | PREFLIGHT | IMPLEMENTING | VERIFYING | REPAIRING | ACCEPTED | REJECTED | BLOCKED`
+- **Task state:** `PLANNED | READY | IMPLEMENTING | COMPLETE | BLOCKED`
 - **Milestone:** {{MILESTONE}}
 - **Depends on:** {{DEPENDENCIES}}
 - **Risk:** `low | medium | high | critical`
-- **Sensor profiles:** {{PROFILES}}
+- **Applicable milestone profiles:** {{PROFILES}} (PENDING until the milestone gate)
 - **Approved plan reference:** {{PLAN_SECTION}}
 
 ## Objective
@@ -66,13 +66,17 @@ Every criterion needs an observable measurement.
 
 Avoid acceptance criteria such as "code looks good" when a deterministic observation can be defined.
 
-## Required sensor profile
+## Proportional verification
 
 Inherited profiles are defined in `.agents/verification/SENSOR_POLICY.yaml`.
 
-Task-specific required checks:
+Focused checks required for this task (including bug regression and affected compilation where practical):
 
 - ...
+
+Earlier broad checks, only if a concrete risk requires them: {{CHECK_AND_REASON_OR_NONE}}.
+Reuse passing evidence unless a subsequent change could invalidate it; state that reason before repeating checks.
+Deferred milestone checks: {{PENDING_CHECKS}}. These are not PASS and do not block the next task after focused acceptance passes.
 
 ## Expected touched areas
 
@@ -90,13 +94,15 @@ Stop and report rather than inventing architecture if:
 
 ## Completion evidence
 
-The final verifier report must record:
+Use one concise record, not separate duplicate reports:
 
-- accepted candidate commit SHA;
+- candidate identity;
 - changed files;
 - acceptance criterion -> evidence mapping;
 - exact commands/checks executed;
 - sensor statuses;
-- fresh-context verification result;
+- deferred milestone checks as PENDING;
 - remaining warnings/uncertainty;
 - any approved waivers.
+
+The controller confirms COMPLETE after focused acceptance. One fresh independent clean-candidate verification supplies the full applicable profile at milestone completion; only then may the milestone become ACCEPTED. Do not require mutation, coverage targets, property-based tests or multiple review rounds by default.

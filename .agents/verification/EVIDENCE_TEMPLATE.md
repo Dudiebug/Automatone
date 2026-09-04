@@ -1,69 +1,18 @@
-# Evidence — {{TASK_ID}} {{TITLE}}
+# {{TASK_OR_MILESTONE}} — verification
 
-## Verdict
+- Scope: focused task / milestone gate
+- Candidate and verifier: {{IDENTITY}}; clean/fresh: {{YES_NO_OR_NOT_REQUIRED}}
+- Changed: {{BEHAVIOR_AND_SCOPE}}
 
-`PASS | FAIL | INCOMPLETE | BLOCKED_RECOMMENDED`
+| Check / criterion | Command or linked evidence | Result |
+| --- | --- | --- |
+| ... | ... | PASS / FAIL / UNVERIFIED |
 
-- **Candidate commit:** `...`
-- **Accepted baseline:** `...`
-- **Verifier:** `...`
-- **Fresh-context run:** `yes/no`
-- **Timestamp:** `...`
+Reused evidence: {{REFERENCE_AND_WHY_STILL_APPLICABLE_OR_NONE}}.
+Deferred to milestone gate: {{PENDING_CHECKS_OR_NONE}} (never PASS).
+Failures / exceptions / uncertainty: {{DETAILS_OR_NONE}}.
+Decision: task COMPLETE / milestone ACCEPTED / still pending, with evidence.
 
-## Scope check
-
-- Expected touched areas: ...
-- Actual changed files: ...
-- Unexpected changes: `none | list`
-
-## Acceptance matrix
-
-| Criterion | Expected | Measurement | Result | Evidence |
-| --- | --- | --- | --- | --- |
-| AC-1 | ... | ... | PASS/FAIL/UNVERIFIED | report/test/log reference |
-
-## Sensor results
-
-| Sensor | Required? | Command/method | Status | New findings | Notes |
-| --- | ---: | --- | --- | ---: | --- |
-| compile | yes | `...` | PASS | 0 | |
-| unit_tests | yes | `...` | PASS | 0 | |
-
-## Blocking failures
-
-For each blocking failure:
-
-### {{FAILURE_ID}}
-
-- **Classification:** `LOCAL_DEFECT | HARNESS_OR_SENSOR_DEFECT | SCOPE_VIOLATION | ARCHITECTURE_VIOLATION | REPEATED_FAILURE | ASSUMPTION_DISPROVEN | ENVIRONMENT_FAILURE`
-- **Sensor/check:** ...
-- **Expected:** ...
-- **Observed:** ...
-- **Reproduction:** ...
-- **Relevant files/symbols:** ...
-- **Recommended controller action:** targeted repair / reject approach / fresh attempt / block
-
-## Warnings / advisory findings
-
-- ...
-
-## Unverified items
-
-Anything that did not execute must appear here. Required entries make the overall result INCOMPLETE.
-
-- ...
-
-## Baseline debt comparison
-
-- Known pre-existing findings: ...
-- New findings introduced by candidate: ...
-
-## Graph / architecture observations
-
-Advisory unless mapped to a deterministic task gate.
-
-- ...
-
-## Final statement
-
-State exactly what the evidence proves and what it does not prove. Do not claim broader correctness than the configured sensors and approved specification support.
+Use this record or the runner JSON with the same information; do not require both.
+Link raw output instead of copying it into separate reports. PENDING deferrals
+permit focused task completion but do not permit milestone acceptance.

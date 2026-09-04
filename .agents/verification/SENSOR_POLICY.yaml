@@ -1,4 +1,13 @@
-schema_version: 2
+schema_version: 3
+
+cadence:
+  task: focused behavior checks and affected compilation; milestone profiles are PENDING
+  milestone: one fresh independent clean-candidate run of the applicable profile union
+  repetition: only changes that could invalidate a result or specific new evidence
+  early_broad_checks: select for build/dependency, shared infrastructure, cross-cutting, concurrency, data loss or server/client risk
+  optional_layers: mutation, coverage targets, property-based testing and multiple reviews require specific justification
+  prerequisite_gate: QUALITY-CLEANUP must be accepted before M2; reuse relevant existing evidence
+  required_by_default_meaning: required in the applicable milestone default profile, not on each task edit
 
 status_values:
   PASS: executed and satisfied configured criterion
@@ -6,13 +15,15 @@ status_values:
   WARN: executed and produced non-blocking findings requiring visibility
   UNVERIFIED: required measurement could not be obtained
   SKIPPED: explicitly not applicable under the selected profile
+  PENDING: deferred milestone obligation outside focused task checks; never a passing measurement
 
 verdict_rules:
-  - Any required FAIL => task FAIL.
-  - Any required UNVERIFIED => task INCOMPLETE; it cannot be ACCEPTED.
+  - Any selected required FAIL => verification FAIL.
+  - Any selected required UNVERIFIED => verification INCOMPLETE.
+  - PENDING milestone obligations permit focused task COMPLETE, but block milestone ACCEPTED.
   - WARN does not block unless a task explicitly promotes that warning class.
   - SKIPPED is valid only when policy/task profile makes the sensor non-applicable.
-  - Final ACCEPTED evidence must come from a fresh-context clean run.
+  - Milestone ACCEPTED requires one fresh-context clean verification; do not duplicate its full run first.
 
 workflow_sensors:
   graphify_preflight:

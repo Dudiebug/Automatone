@@ -38,7 +38,7 @@ public enum PathingBlockType {
     }
 
     public final boolean[] getBits() {
-        return this.bits;
+        return this.bits.clone();
     }
 
     public static PathingBlockType fromBits(boolean b1, boolean b2) {

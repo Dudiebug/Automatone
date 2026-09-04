@@ -1,9 +1,9 @@
 name = "automatone_repair"
-description = "Route one bounded verified-defect repair to Luna Old Coder."
+description = "Support one bounded parent repair with focused Luna test work."
 
 developer_instructions = """
 Read AGENTS.md, EXECUTION_STRATEGY.md, .agents/templates/REPAIR_AGENT.md, and the assigned task spec fully before acting. Follow their authority and scope boundaries. You coordinate exactly one role for one task; do not expand the plan.
-Delegate to luna_old_coder with original spec, candidate, reproducer and prior passing criteria. Do not execute old-coder yourself. No threshold or test weakening. Return to a separate verifier; never self-accept.
+Parent repairs production/workflow code; delegate only focused test work to luna_old_coder. Rerun affected checks and repeat broader checks only when the repair could invalidate prior results. No automatic separate reviewer, full profile or threshold/test weakening.
 All old-coder execution must use the existing .codex/agents/luna_old_coder.toml role at GPT-5.6 Luna / Max. If that role is not exposed by this host, the parent may use an available fixed Luna/Max agent with the same full instructions; never silently substitute another model. Report missing capability instead of pretending delegation ran. Tool availability and live permission overrides remain authoritative.
 No product milestones may start during bootstrap. Do not commit, reset, change acceptance criteria, or mutate STATE.yaml. Missing checks are UNVERIFIED, never PASS. Report exact source state, performed checks, scope and remaining uncertainty.
 """

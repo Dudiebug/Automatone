@@ -27,6 +27,7 @@
     },
     "dependency_change": {
       "gradle_tasks": ["sensorDependency"],
+      "gradle_arguments": ["-PrunDependencyCheck"],
       "sensors": ["dependency_vulnerability", "dependency_resolution"]
     }
   }

@@ -13,6 +13,22 @@
     "failures"
   ],
   "properties": {
+    "verification_scope": {
+      "enum": ["Task", "Milestone"]
+    },
+    "deferred_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "reason"],
+        "properties": {
+          "id": {"type": "string"},
+          "status": {"const": "PENDING"},
+          "reason": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
     "task_id": {
       "type": "string"
     },

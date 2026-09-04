@@ -1,9 +1,9 @@
 # Bootstrap verification toolchain
 
-This is the candidate bootstrap manifest, not an accepted baseline. The
-independent verifier must rerun the entry point from a fresh context and keep
-the resulting verdict. Product source and existing product tests are outside
-this tooling change.
+This file retains historical bootstrap observations, not an accepted baseline.
+Current cadence and commands follow EXECUTION_STRATEGY.md: focused task checks
+and one independent clean milestone gate. Historical unavailable tools, automatic
+AC stubs and per-task rerun descriptions below are not current requirements.
 
 ## Pinned versions
 
@@ -35,7 +35,7 @@ are not hidden.
 .\gradlew.bat sensorIntegration --no-daemon --console=plain
 .\gradlew.bat sensorServerRuntime --no-daemon --console=plain
 .\gradlew.bat sensorAll --continue --no-daemon --console=plain
-pwsh -NoProfile -File scripts/workflow/Invoke-AutomatoneVerification.ps1 -TaskId BOOTSTRAP -Profile bootstrap
+pwsh -NoProfile -File scripts/workflow/Invoke-AutomatoneVerification.ps1 -TaskId BOOTSTRAP -Scope Milestone -Profile bootstrap -FreshContext
 ```
 
 The controller adds `--continue`, captures raw output beside the report in
@@ -45,10 +45,11 @@ recomputes the source fingerprint before accepting the report as structurally
 valid. It does not dispatch agents, repair code, commit, mutate
 `.agents/STATE.yaml`, or assign acceptance.
 
-`BOOTSTRAP` is the only autonomously eligible controller task. Product task
-IDs are intentionally refused; their YAML front matter (including mapped
-`depends_on` and list-valued `sensor_profiles`) is not parsed by this small
-entry point, so no unsupported eligibility claim is made.
+The runner measures checks for an existing task spec, including QUALITY-CLEANUP;
+it does not dispatch product implementation or infer dependency acceptance. Task
+mode requires explicit focused Gradle tasks; milestone mode requires a clean
+candidate and fresh-context attestation. The controller selects the applicable
+profile union and decides task completion/milestone acceptance from real criteria.
 
 ## Known availability and candidate observations
 

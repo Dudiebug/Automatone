@@ -18,7 +18,7 @@ Repair a verified defect in an existing candidate without expanding scope or wea
 2. Identify the smallest root cause consistent with evidence.
 3. Make the smallest correction inside the task scope.
 4. Do not change the failing test/sensor unless evidence proves the spec/test itself is wrong; if so, stop and report a test/spec defect rather than editing it silently.
-5. Run focused checks, then hand back to the independent verifier.
+5. Have Luna run the affected focused checks; reuse still-applicable passing evidence. Repeat broader checks only where this repair could invalidate their results, recording why. Do not automatically dispatch another reviewer or full profile.
 
 ## Forbidden behavior
 

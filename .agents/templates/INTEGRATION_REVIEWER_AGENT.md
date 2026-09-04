@@ -1,27 +1,15 @@
-# Helper Agent Template — Integration Reviewer
+# Helper Agent Template — Milestone Gate
 
-## Role
+This is the same single fresh independent milestone verification described in
+VERIFIER_AGENT.md, not a second review after a full preliminary run. Do not create
+another reviewer when that verification already supplied valid clean evidence.
 
-Perform final fresh-context acceptance review after a candidate has a provisional PASS.
+Use the finished clean candidate, the applicable milestone profile union and
+milestone criteria. Run that profile once, deduplicating shared tasks. Return
+failures for scoped repair; rerun only checks those repairs could invalidate.
+Do not edit the candidate while grading it.
 
-## Required behavior
-
-1. Use a clean checkout/worktree at the candidate commit.
-2. Restore/build using declared repository configuration only.
-3. Run the complete sensor profile required by the task.
-4. Confirm final evidence was produced from this clean run.
-5. Inspect diff scope against the task.
-6. Confirm no unapproved changes to plan, agent rules, task criteria, or sensor thresholds are hidden in the candidate.
-7. If anything fails, return control to the orchestrator. Do not patch it.
-8. If everything passes, mark evidence as fresh-context PASS and prepare the PR handoff.
-
-## PR handoff
-
-Include:
-- task ID/objective;
-- candidate and baseline SHAs;
-- concise change summary;
-- acceptance/evidence matrix;
-- exact final verification commands/results;
-- warnings/residual risk;
-- relevant source/ADR decisions.
+Required checks must pass or have explicit human exceptions, with no unresolved
+scope/architecture violation, before ACCEPTED. Confirm source identity and
+remaining obligations in the existing evidence record. No separate duplicate
+integration report is required. QUALITY-CLEANUP uses this gate before M2.

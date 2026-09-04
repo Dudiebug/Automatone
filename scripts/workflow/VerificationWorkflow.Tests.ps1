@@ -48,7 +48,7 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $testRoot 'config/verification') -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $testRoot 'tracked.txt') -Value 'source' -NoNewline
     Set-Content -LiteralPath (Join-Path $testRoot '.agents/tasks/BOOTSTRAP.md') -Value '# BOOTSTRAP' -NoNewline
-    Set-Content -LiteralPath (Join-Path $testRoot 'config/verification/profiles.json') -Value '{"profiles":{"bootstrap":{"gradle_tasks":["sensorAll"],"sensors":["compile"]}}}'
+    Set-Content -LiteralPath (Join-Path $testRoot 'config/verification/profiles.json') -Value '{"profiles":{"default":{"gradle_tasks":["sensorAll"],"sensors":["compile"]},"bootstrap":{"gradle_tasks":["sensorAll"],"sensors":["compile"]}}}'
     $schemaPath = Join-Path $testRoot '.agents/verification/report.schema.json'
     $repositorySchemaPath = Join-Path $PSScriptRoot '../../.agents/verification/report.schema.json'
     Set-Content -LiteralPath $schemaPath -Value (Get-Content -LiteralPath $repositorySchemaPath -Raw)
@@ -126,11 +126,18 @@ try {
     Assert-Equal -Expected 0 -Actual @($failedRecords | Where-Object id -eq 'product_source_hashes').Count -Message 'controller-only source hash sensor must not be duplicated by Gradle record parsing'
     Assert-Equal -Expected @($failedRecords.id).Count -Actual @(@($failedRecords.id) | Select-Object -Unique).Count -Message 'sensor IDs from one Gradle run must be unique'
 
-    Set-Content -LiteralPath (Join-Path $testRoot '.agents/tasks/M1.1.md') -Value '# M1.1' -NoNewline
-    Assert-Throws -Script { Invoke-VerificationController -Root $testRoot -TaskId 'M1.1' -Profile 'bootstrap' -ReportPath (Join-Path $testRoot 'refused.json') } -Message 'controller must conservatively refuse product task dispatch'
+    Set-Content -LiteralPath (Join-Path $testRoot '.agents/tasks/QUALITY-CLEANUP.md') -Value '# QUALITY-CLEANUP' -NoNewline
+    Set-Content -LiteralPath (Join-Path $testRoot 'gradlew.bat') -Value "@echo off`necho AUTOMATONE_SENSOR id=compile status=PASS summary=fixture`nexit /b 0" -NoNewline
+    $statePath = Join-Path $testRoot '.agents/STATE.yaml'
+    Set-Content -LiteralPath $statePath -Value 'accepted_baseline: null' -NoNewline
+    $stateBefore = Get-Content -LiteralPath $statePath -Raw
+    $measurement = Invoke-VerificationController -Root $testRoot -TaskId 'QUALITY-CLEANUP' -Profile @('bootstrap') -GradleTasks @('compileJava') -ReportPath (Join-Path $testRoot '.agents/evidence/measurement.json')
+    Assert-Equal -Expected 'PASS' -Actual (@($measurement.Report.sensors | Where-Object id -eq 'compile')[0].status) -Message 'authorized task measurement must retain the selected check result'
+    Assert-Equal -Expected $stateBefore -Actual (Get-Content -LiteralPath $statePath -Raw) -Message 'measurement must not mutate acceptance state'
 
     Write-Output 'VerificationWorkflow tests: PASS (21 assertions)'
     & (Join-Path $PSScriptRoot 'VerificationWorkflow.Repair.Tests.ps1')
+    & (Join-Path $PSScriptRoot 'VerificationWorkflow.Proportional.Tests.ps1')
 } finally {
     if (Test-Path -LiteralPath $testRoot) {
         Remove-Item -LiteralPath $testRoot -Recurse -Force

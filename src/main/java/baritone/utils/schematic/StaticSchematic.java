@@ -35,7 +35,17 @@ public class StaticSchematic extends AbstractSchematic implements IStaticSchemat
     public StaticSchematic() {}
 
     public StaticSchematic(BlockState[][][] states) {
-        this.states = states;
+        this.states = new BlockState[states.length][][];
+        for (int x = 0; x < states.length; x++) {
+            if (states[x] != null) {
+                this.states[x] = states[x].clone();
+                for (int z = 0; z < states[x].length; z++) {
+                    if (states[x][z] != null) {
+                        this.states[x][z] = states[x][z].clone();
+                    }
+                }
+            }
+        }
         boolean empty = states.length == 0 || states[0].length == 0 || states[0][0].length == 0;
         this.x = empty ? 0 : states.length;
         this.z = empty ? 0 : states[0].length;
@@ -54,6 +64,6 @@ public class StaticSchematic extends AbstractSchematic implements IStaticSchemat
 
     @Override
     public BlockState[] getColumn(int x, int z) {
-        return this.states[x][z];
+        return this.states[x][z].clone();
     }
 }

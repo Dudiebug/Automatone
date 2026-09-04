@@ -1,0 +1,23 @@
+<BugInstance type="EI_EXPOSE_REP" priority="2" rank="18" abbrev="EI" category="MALICIOUS_CODE" instanceHash="f28d953e490dcf5a3907f16b08d5a6a" instanceOccurrenceNum="0" instanceOccurrenceMax="0" cweid="374">
+    <ShortMessage>May expose internal representation by returning reference to mutable object</ShortMessage>
+    <LongMessage>baritone.Baritone.getBuilderProcess() may expose internal representation by returning Baritone.builderProcess</LongMessage>
+    <Class classname="baritone.Baritone" primary="true">
+      <SourceLine classname="baritone.Baritone" start="54" end="286" sourcefile="Baritone.java" sourcepath="baritone/Baritone.java" relSourcepath="src\main\java\baritone\Baritone.java">
+        <Message>At Baritone.java:[lines 54-286]</Message>
+      </SourceLine>
+      <Message>In class baritone.Baritone</Message>
+    </Class>
+    <Method classname="baritone.Baritone" name="getBuilderProcess" signature="()Lbaritone/process/BuilderProcess;" isStatic="false" primary="true">
+      <SourceLine classname="baritone.Baritone" start="176" end="176" startBytecode="0" endBytecode="46" sourcefile="Baritone.java" sourcepath="baritone/Baritone.java" relSourcepath="src\main\java\baritone\Baritone.java"/>
+      <Message>In method baritone.Baritone.getBuilderProcess()</Message>
+    </Method>
+    <Field classname="baritone.Baritone" name="builderProcess" signature="Lbaritone/process/BuilderProcess;" isStatic="false" primary="true">
+      <SourceLine classname="baritone.Baritone" sourcefile="Baritone.java" sourcepath="baritone/Baritone.java" relSourcepath="src\main\java\baritone\Baritone.java">
+        <Message>In Baritone.java</Message>
+      </SourceLine>
+      <Message>Field baritone.Baritone.builderProcess</Message>
+    </Field>
+    <SourceLine classname="baritone.Baritone" primary="true" start="176" end="176" startBytecode="4" endBytecode="4" sourcefile="Baritone.java" sourcepath="baritone/Baritone.java" relSourcepath="src\main\java\baritone\Baritone.java">
+      <Message>At Baritone.java:[line 176]</Message>
+    </SourceLine>
+  </BugInstance>

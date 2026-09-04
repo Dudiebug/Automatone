@@ -19,6 +19,7 @@ package baritone.utils.pathing;
 
 import org.junit.Test;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertTrue;
 
 public class PathingBlockTypeTest {
@@ -28,6 +29,28 @@ public class PathingBlockTypeTest {
         for (PathingBlockType type : PathingBlockType.values()) {
             boolean[] bits = type.getBits();
             assertTrue(type == PathingBlockType.fromBits(bits[0], bits[1]));
+        }
+    }
+
+    @Test
+    public void testMutatingReturnedBitsDoesNotCorruptFutureEncoding() {
+        boolean[][] expectedBits = {
+                {false, false},
+                {false, true},
+                {true, false},
+                {true, true}
+        };
+
+        PathingBlockType[] types = PathingBlockType.values();
+        for (int i = 0; i < types.length; i++) {
+            PathingBlockType type = types[i];
+            boolean[] returnedBits = type.getBits();
+            returnedBits[0] = !returnedBits[0];
+            returnedBits[1] = !returnedBits[1];
+
+            boolean[] serializedBits = type.getBits();
+            assertArrayEquals(expectedBits[i], serializedBits);
+            assertTrue(type == PathingBlockType.fromBits(serializedBits[0], serializedBits[1]));
         }
     }
 }

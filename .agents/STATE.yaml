@@ -5,8 +5,15 @@ accepted_baseline: null
 active_task: QUALITY-CLEANUP
 
 tasks:
+  WORKFLOW-PROPORTIONAL:
+    state: COMPLETE
+    execution_authorization: "2026-09-04: human explicitly approved proportional workflow policy, template and orchestration changes; no product implementation."
+    evidence: .agents/evidence/workflow-proportional-20260904/
+    last_verdict: PASS
+    last_evidence: .agents/evidence/workflow-proportional-20260904/EVIDENCE.md
+    deferred: "QUALITY-CLEANUP prerequisite acceptance remains pending; reuse existing measurements."
   QUALITY-CLEANUP:
-    state: BLOCKED
+    state: IMPLEMENTING
     baseline: null
     candidate: "Dirty M1 candidate at d555e41d0beb96194de5ff7c0a8dac7b701d0581; frozen source digest CB37F7959CD574ABD74C5626F34AE43A8955AFBD3D721E99992C3433BC3DD065 (435 entries). Raw baseline includes 617 generated Graphify entries; actual baseline source/config has 405 entries."
     implementation_attempt: 1
@@ -14,8 +21,10 @@ tasks:
     verification_rounds: 1
     last_verdict: FAIL
     last_evidence: .agents/evidence/quality-cleanup-20260902/independent/round-1/report.json
-    blocker: "Independent round 1 reproduced 84 retained SpotBugs findings with no new keys; required gate remains FAIL without a waiver. Live/public contracts cannot be broken solely to silence findings. Q2/Q4 full concurrency/parity coverage remains UNVERIFIED. No accepted clean baseline or authorized candidate commit exists. Changes retained; no M2 or self-acceptance."
-    execution_authorization: "Human requested workflow bug and duplicate-code cleanup on the current work; no waiver, commit, or M2."
+    blocker: "Resumed under proportional policy. Existing focused regressions retained; correcting exact eligibility row 81 metadata, then remaining dispositions and one clean prerequisite acceptance gate."
+    execution_authorization: "2026-09-04: user approved the exception policy and explicitly instructed fixing bugs found in the workflow. Continue prerequisite cleanup and then M2 in approved dependency order."
+    continuation_candidate: e81dbad7ab53647920c61d824fb927f15ef67a89
+    continuation_evidence: .agents/evidence/quality-cleanup-20260904/
   BOOTSTRAP:
     state: BLOCKED
     baseline: null
@@ -75,7 +84,11 @@ tasks:
     baseline: null
     candidate: null
     last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    implementation_plan: docs/M2_WORKER_IMPLEMENTATION_PLAN.md
+    execution_authorization: "User approved the proposed M2 plan and requested implementation on 2026-09-04; its baseline acceptance gate remains required."
+    entry_gate_candidate: e81dbad7ab53647920c61d824fb927f15ef67a89
+    entry_gate_evidence: .agents/evidence/M2-entry-20260904/independent/
+    blocker: "Fresh clean-commit entry verification reproduced 84 main SpotBugs findings; no accepted baseline or approved waiver exists. See .agents/decisions/BLOCKED-M2-entry-20260904.md. No M2 production implementation started."
   M2.2:
     state: PLANNED
     baseline: null
@@ -211,6 +224,8 @@ tasks:
 #     blocker: null
 
 rules:
-  max_repair_cycles_per_candidate: 2
-  max_fresh_reimplementations_after_initial: 1
-  required_fresh_context_pass_for_acceptance: true
+  task_completion_requires_focused_acceptance: true
+  deferred_milestone_checks_status: PENDING
+  milestone_independent_verifications: 1
+  milestone_requires_clean_candidate: true
+  repeat_checks_only_when_evidence_could_be_invalidated: true

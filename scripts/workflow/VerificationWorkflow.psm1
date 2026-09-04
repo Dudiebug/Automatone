@@ -107,7 +107,9 @@ function New-VerificationReport {
         [Parameter(Mandatory)] [AllowEmptyCollection()] [object[]] $Failures,
         [string[]] $Warnings = @(),
         [string[]] $Unverified = @(),
-        [string] $SourceFingerprint
+        [string] $SourceFingerprint,
+        [ValidateSet('Task', 'Milestone')] [string] $Scope = 'Task',
+        [object[]] $DeferredChecks = @()
     )
 
     $normalizedSensors = @($Sensors)
@@ -132,6 +134,8 @@ function New-VerificationReport {
         accepted_baseline = $null
         verdict = $verdict
         fresh_context = $FreshContext
+        verification_scope = $Scope
+        deferred_checks = @($DeferredChecks)
         source_fingerprint = $SourceFingerprint
         sensors = $normalizedSensors
         acceptance = @($Acceptance)
@@ -193,6 +197,10 @@ function Test-VerificationReport {
             throw 'Report does not satisfy the configured JSON schema.'
         }
         $report = $reportJson | ConvertFrom-Json -Depth 100
+        if ((Get-ObjectProperty $report 'verification_scope') -eq 'Milestone' -and
+            (-not $report.fresh_context -or @(Get-ObjectProperty $report 'deferred_checks' | Where-Object { $null -ne $_ }).Count -gt 0)) {
+            throw 'Milestone evidence requires a fresh context and no deferred checks.'
+        }
         if ($null -eq (Get-ObjectProperty $report 'accepted_baseline') -and $report.baseline -ne 'UNACCEPTED') {
             throw 'A report without an accepted baseline must use the UNACCEPTED baseline sentinel.'
         }
@@ -225,7 +233,7 @@ function Resolve-WorkflowTask {
         [Parameter(Mandatory)] [string] $TaskId
     )
 
-    if ([string]::IsNullOrWhiteSpace($TaskId) -or $TaskId -notmatch '^(?:BOOTSTRAP|M[1-6]\.[1-5])$') {
+    if ([string]::IsNullOrWhiteSpace($TaskId) -or $TaskId -notmatch '^[A-Z][A-Z0-9]*(?:[.-][A-Z0-9]+)*$') {
         throw "Unknown or invalid task ID '$TaskId'."
     }
     if ($TaskId -eq 'BOOTSTRAP') {
@@ -267,11 +275,12 @@ function Resolve-WorkflowProfile {
     if ($gradleTasks.Count -eq 0 -or $sensorIds.Count -eq 0) {
         throw "Profile '$Profile' must define at least one Gradle task and sensor."
     }
-    return [pscustomobject]@{ Name = $Profile; GradleTasks = $gradleTasks; SensorIds = $sensorIds; ConfigPath = (Resolve-Path -LiteralPath $ConfigPath).Path }
+    $arguments = @(Get-ObjectProperty $selected 'gradle_arguments' | Where-Object { $null -ne $_ })
+    return [pscustomobject]@{ Name = $Profile; GradleTasks = $gradleTasks; SensorIds = $sensorIds; Arguments = $arguments; ConfigPath = (Resolve-Path -LiteralPath $ConfigPath).Path }
 }
 
 function Get-GradleSensorMarkers {
-    param([Parameter(Mandatory)] [string] $Output)
+    param([Parameter(Mandatory)] [AllowEmptyString()] [string] $Output)
 
     $markers = @{}
     $pattern = 'AUTOMATONE_SENSOR\s+id=(?<id>[A-Za-z0-9_.-]+)\s+status=(?<status>PASS|FAIL|WARN|UNVERIFIED|SKIPPED)\s+summary=(?<summary>.*)'
@@ -289,8 +298,10 @@ function Invoke-GradleSensor {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [string] $Root,
-        [Parameter(Mandatory)] [string] $GradleTask,
-        [Parameter(Mandatory)] [string] $RawOutputPath
+        [Parameter(Mandatory)] [string[]] $GradleTask,
+        [Parameter(Mandatory)] [string] $RawOutputPath,
+        [string[]] $TestFilter = @(),
+        [string[]] $GradleArguments = @()
     )
 
     $wrapper = Join-Path $Root 'gradlew.bat'
@@ -301,7 +312,15 @@ function Invoke-GradleSensor {
     New-Item -ItemType Directory -Path $parent -Force | Out-Null
     Push-Location $Root
     try {
-        $output = (& $wrapper $GradleTask '--no-daemon' '--continue' '--console=plain' 2>&1 | Out-String)
+        $arguments = @()
+        foreach ($name in $GradleTask) {
+            $arguments += $name
+            if ($name -match '(?:^|:)(?:test|sensorTest)$') {
+                foreach ($filter in $TestFilter) { $arguments += @('--tests', $filter) }
+            }
+        }
+        $arguments += $GradleArguments
+        $output = (& $wrapper @arguments '--no-daemon' '--continue' '--console=plain' 2>&1 | Out-String)
         $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int] $LASTEXITCODE }
     } finally {
         Pop-Location
@@ -310,7 +329,7 @@ function Invoke-GradleSensor {
     $markers = Get-GradleSensorMarkers -Output $output
     $status = if ($exitCode -eq 0) { 'PASS' } elseif ($output -match '(?i)\bUNVERIFIED\b') { 'UNVERIFIED' } else { 'FAIL' }
     return [pscustomobject]@{
-        task = $GradleTask
+        task = $GradleTask -join ', '
         exit_code = $exitCode
         status = $status
         output = $output
@@ -323,11 +342,11 @@ function Get-TaskCandidateLabel {
     param([Parameter(Mandatory)] [string] $Root)
 
     $head = (& git -C $Root rev-parse HEAD 2>$null | Out-String).Trim()
-    if ([string]::IsNullOrWhiteSpace($head)) {
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($head)) {
         return 'working-tree'
     }
-    & git -C $Root diff --quiet 2>$null
-    if ($LASTEXITCODE -eq 0) {
+    $changes = (& git -C $Root status --porcelain --untracked-files=all 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -eq 0 -and [string]::IsNullOrWhiteSpace($changes)) {
         return $head
     }
     return "$head-dirty"
@@ -371,7 +390,7 @@ function Get-TaskSensorRecords {
             'unit_tests' { @($Runs | Where-Object { $_.output -match '(?m):test FAILED' }).Count -gt 0 }
             'checkstyle' { @($Runs | Where-Object { $_.output -match '(?m):checkstyle(?:Main|Test|SensorTest) FAILED' }).Count -gt 0 }
             'error_prone' { @($Runs | Where-Object { $_.output -match '(?m):compile(?:Java|TestJava|SensorTestJava) FAILED' -and $_.output -match '(?i)errorprone\.info/bugpattern/' }).Count -gt 0 }
-            'spotbugs' { @($Runs | Where-Object { $_.output -match '(?m):spotbugs(?:Main|Test|SensorTest) FAILED' }).Count -gt 0 }
+            'spotbugs' { @($Runs | Where-Object { $_.output -match '(?m):(?:spotbugs(?:Main|Test|SensorTest)|verifyMainSpotBugsDispositions|analyzeRawMainSpotBugs) FAILED' }).Count -gt 0 }
             'archunit' { @($Runs | Where-Object { $_.output -match '(?m):sensor(?:Test|Archunit) FAILED' }).Count -gt 0 }
             'duplication' { @($Runs | Where-Object { $_.output -match '(?m):cpdCheck FAILED' }).Count -gt 0 }
             default { @($Runs | Where-Object { $_.output -match "(?m):$taskName FAILED" }).Count -gt 0 }
@@ -445,126 +464,128 @@ function Invoke-VerificationController {
     param(
         [Parameter(Mandatory)] [string] $Root,
         [Parameter(Mandatory)] [string] $TaskId,
-        [Parameter(Mandatory)] [string] $Profile,
+        [string[]] $Profile = @('default'),
         [Parameter(Mandatory)] [string] $ReportPath,
+        [ValidateSet('Task', 'Milestone')] [string] $Scope = 'Task',
+        [string[]] $GradleTasks = @(),
+        [string[]] $TestFilter = @(),
+        [string] $RiskReason,
         [switch] $FreshContext
     )
 
     $rootPath = (Resolve-Path -LiteralPath $Root).Path
     $task = Resolve-WorkflowTask -Root $rootPath -TaskId $TaskId
-    if ($TaskId -ne 'BOOTSTRAP') {
-        throw "Controller eligibility refuses '$TaskId'; only the explicitly authorized BOOTSTRAP path is runnable."
+    if ($Profile.Count -eq 0) { throw 'Select the applicable milestone profiles explicitly.' }
+    $profiles = @($Profile | Select-Object -Unique | ForEach-Object {
+        Resolve-WorkflowProfile -Root $rootPath -Profile $_
+    })
+    $selectedProfile = [pscustomobject]@{
+        Name = $Profile -join ', '
+        GradleTasks = @($profiles.GradleTasks | Select-Object -Unique)
+        SensorIds = @($profiles.SensorIds | Select-Object -Unique)
     }
-    $selectedProfile = Resolve-WorkflowProfile -Root $rootPath -Profile $Profile
+    $candidate = Get-TaskCandidateLabel -Root $rootPath
+    $arguments = @()
+    if ($Scope -eq 'Milestone') {
+        if (-not $FreshContext -or $candidate -notmatch '^[0-9a-f]{40,64}$') {
+            throw 'Milestone verification requires a fresh independent context and a clean committed candidate (including staged and untracked files).'
+        }
+        if ($GradleTasks.Count -gt 0 -or $TestFilter.Count -gt 0) {
+            throw 'Milestone verification cannot use focused task or test-filter overrides.'
+        }
+        $GradleTasks = $selectedProfile.GradleTasks
+        $arguments = @($profiles | ForEach-Object { $_.Arguments } | Select-Object -Unique)
+    } elseif ($GradleTasks.Count -eq 0) {
+        throw 'Task verification requires explicit focused -GradleTasks; a profile is not an automatic task run.'
+    }
+    foreach ($name in $GradleTasks) {
+        if ($name -notmatch '^:?[A-Za-z][A-Za-z0-9_.-]*(?::[A-Za-z][A-Za-z0-9_.-]*)*$') {
+            throw "Invalid Gradle task name: $name"
+        }
+    }
+    if ($TestFilter.Count -gt 0 -and
+        (@($GradleTasks | Where-Object { $_ -match '(?:^|:)(?:test|sensorTest)$' }).Count -eq 0 -or
+         @($TestFilter | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0)) {
+        throw 'Test filters must be nonblank and accompany a test or sensorTest task.'
+    }
+    if ($Scope -eq 'Task' -and [string]::IsNullOrWhiteSpace($RiskReason)) {
+        $focusedFilter = $TestFilter.Count -gt 0 -and '*' -notin $TestFilter
+        $broad = @($GradleTasks | Where-Object {
+            ($_ -match '(?:^|:)(?:sensor.*|check|build|runGameTestServer|spotbugs.*|checkstyle.*|cpdCheck|analyzeRawMainSpotBugs|verifyMainSpotBugsDispositions|dependencyCheckAnalyze)$' -and
+                -not ($_ -match '(?:^|:)sensorTest$' -and $focusedFilter)) -or
+            ($_ -match '(?:^|:)test$' -and -not $focusedFilter)
+        })
+        if ($broad.Count -gt 0) { throw "Earlier broad checks require -RiskReason: $($broad -join ', ')" }
+    }
+
     $ReportPath = [IO.Path]::GetFullPath($ReportPath, $rootPath)
     $rawDirectory = Join-Path (Split-Path -Parent $ReportPath) "$([IO.Path]::GetFileNameWithoutExtension($ReportPath)).raw"
-    New-Item -ItemType Directory -Path $rawDirectory -Force | Out-Null
-
-    $runs = @()
-    foreach ($gradleTask in @($selectedProfile.GradleTasks)) {
-        if ([string] $gradleTask -notmatch '^[A-Za-z0-9_.-]+$') {
-            throw "Invalid Gradle task name in profile '$Profile': $gradleTask"
+    $runs = @(Invoke-GradleSensor -Root $rootPath -GradleTask @($GradleTasks | Select-Object -Unique) `
+        -TestFilter $TestFilter -GradleArguments $arguments -RawOutputPath (Join-Path $rawDirectory 'checks.txt'))
+    $deferred = @()
+    if ($Scope -eq 'Task') {
+        # Preserve actual emitted markers; markerless focused tests still have a process result.
+        $measuredProfile = [pscustomobject]@{ GradleTasks = $GradleTasks; SensorIds = @($runs[0].markers.Keys) }
+        $records = @(Get-TaskSensorRecords -Profile $measuredProfile -Runs $runs -Root $rootPath)
+        if ($records.Count -eq 0) {
+            $records += [ordered]@{
+                id = 'selected_checks'; required = $true; status = $runs[0].status
+                command = ($GradleTasks + $TestFilter) -join ' '; summary = "Selected check process exited $($runs[0].exit_code)."
+                artifact = $runs[0].artifact; new_findings = $null
+            }
         }
-        $rawPath = Join-Path $rawDirectory "$TaskId-$Profile-$gradleTask.txt"
-        $runs += Invoke-GradleSensor -Root $rootPath -GradleTask ([string] $gradleTask) -RawOutputPath $rawPath
-    }
-
-    $records = @(Get-TaskSensorRecords -Profile $selectedProfile -Runs $runs -Root $rootPath)
-    $hashResult = Test-ProductSourceHashes -Root $rootPath
-    if (@($selectedProfile.SensorIds) -contains 'product_source_hashes') {
-        $records += [ordered]@{
-            id = 'product_source_hashes'
-            required = $true
-            status = $hashResult.Status
-            command = '.agents/evidence/bootstrap/before.json'
-            summary = $hashResult.Summary
-            artifact = (Join-Path $rootPath '.agents/evidence/bootstrap/before.json')
-            new_findings = $null
-        }
-    }
-    $records += [ordered]@{
-        id = 'report_schema'
-        required = $true
-        status = 'UNVERIFIED'
-        command = 'PowerShell Test-Json'
-        summary = 'Report schema validation is pending.'
-        artifact = (Join-Path $rootPath '.agents/verification/report.schema.json')
-        new_findings = $null
-    }
-
-    # BOOTSTRAP has no accepted baseline. Captured HEAD identifies the candidate only.
-    $baseline = 'UNACCEPTED'
-
-    $acceptance = @(
-        [ordered]@{ id = 'AC-1'; status = 'UNVERIFIED'; evidence = 'Task path resolved, but this CLI does not measure graph/source-map grounding.' },
-        [ordered]@{ id = 'AC-2'; status = 'UNVERIFIED'; evidence = 'Task inventory comparison was not performed by this small controller.' },
-        [ordered]@{ id = 'AC-3'; status = 'UNVERIFIED'; evidence = 'Individual run results are recorded; this CLI does not measure the full entrypoint/execution/unavailable-sensor criterion.' },
-        [ordered]@{ id = 'AC-4'; status = 'UNVERIFIED'; evidence = 'This CLI does not verify architecture control behavior or non-vacuity; test-name text is not proof.' },
-        [ordered]@{ id = 'AC-5'; status = 'UNVERIFIED'; evidence = 'Schema validation alone does not measure the full controller eligibility, negative-control, exit-code and state-preservation criterion.' },
-        [ordered]@{ id = 'AC-6'; status = $hashResult.Status; evidence = $hashResult.Summary },
-        [ordered]@{ id = 'AC-7'; status = 'UNVERIFIED'; evidence = 'Role-definition comparison is reserved for independent verification.' },
-        [ordered]@{ id = 'AC-8'; status = 'UNVERIFIED'; evidence = 'No accepted baseline exists (UNACCEPTED; accepted_baseline=null). Candidate fingerprint and raw runs are recorded; independent clean-state verification is pending.' }
-    )
-
-    $failures = @($records | Where-Object { $_.required -and $_.id -ne 'report_schema' -and $_.status -in @('FAIL', 'UNVERIFIED') } | ForEach-Object {
-        $classification = if ($_.id -eq 'archunit' -and $_.status -eq 'FAIL') { 'ARCHITECTURE_VIOLATION' } elseif ($_.status -eq 'UNVERIFIED') { 'ENVIRONMENT_FAILURE' } else { 'LOCAL_DEFECT' }
-        [ordered]@{
-            id = "sensor-$($_.id)"
-            classification = $classification
-            sensor = $_.id
-            expected = 'PASS'
-            observed = $_.summary
-            reproduction = $_.command
-        }
-    })
-    foreach ($run in $runs) {
-        $runRecords = @(Get-TaskSensorRecords -Profile $selectedProfile -Runs @($run) -Root $rootPath)
-        if ($run.exit_code -ne 0 -and @($runRecords | Where-Object { $_.status -in @('FAIL', 'UNVERIFIED') }).Count -eq 0) {
-            $failures += [ordered]@{
-                id = "gradle-run-$($run.task)"
-                classification = 'HARNESS_OR_SENSOR_DEFECT'
-                expected = 'Successful process exit or a blocking selected sensor result.'
-                observed = "Gradle exited $($run.exit_code) despite nonblocking selected sensor results; successful sensor results are retained, but the run cannot pass. Raw: $($run.artifact)"
-                reproduction = $run.task
+        $deferred = @($selectedProfile.SensorIds | Where-Object { $_ -notin @($records.id) } | ForEach-Object {
+            [ordered]@{ id = $_; status = 'PENDING'; reason = 'Not measured by this task run; required at the milestone gate.' }
+        })
+    } else {
+        $records = @(Get-TaskSensorRecords -Profile $selectedProfile -Runs $runs -Root $rootPath)
+        if ($selectedProfile.SensorIds -contains 'product_source_hashes') {
+            $hashResult = Test-ProductSourceHashes -Root $rootPath
+            $records += [ordered]@{
+                id = 'product_source_hashes'; required = $true; status = $hashResult.Status
+                command = '.agents/evidence/bootstrap/before.json'; summary = $hashResult.Summary
+                artifact = (Join-Path $rootPath '.agents/evidence/bootstrap/before.json'); new_findings = $null
             }
         }
     }
-
-    $report = New-VerificationReport -Root $rootPath -TaskId $TaskId -Candidate (Get-TaskCandidateLabel -Root $rootPath) -Baseline $baseline -FreshContext $FreshContext -Sensors $records -Acceptance $acceptance -Failures $failures -Warnings @('Controller does not dispatch agents, repair code, commit changes, or alter acceptance state.')
-    $writtenPath = Write-VerificationReport -Report $report -Path $ReportPath
-    $validation = Test-VerificationReport -ReportPath $writtenPath -Root $rootPath
-    $schemaSensor = @($records | Where-Object { $_.id -eq 'report_schema' })[0]
-    $schemaAcceptance = @($acceptance | Where-Object { $_.id -eq 'AC-5' })[0]
-    if ($validation.Valid) {
-        $schemaSensor.status = 'PASS'
-        $schemaSensor.summary = 'PowerShell Test-Json accepted the configured report schema.'
-    } else {
-        $schemaSensor.status = 'FAIL'
-        $schemaSensor.summary = ($validation.Errors -join '; ')
-        $schemaAcceptance.status = 'FAIL'
-        $schemaAcceptance.evidence = ($validation.Errors -join '; ')
+    $failures = @($records | Where-Object { $_.required -and $_.status -in @('FAIL', 'UNVERIFIED') } | ForEach-Object {
+        [ordered]@{
+            id = "sensor-$($_.id)"; sensor = $_.id
+            classification = if ($_.status -eq 'UNVERIFIED') { 'ENVIRONMENT_FAILURE' } else { 'LOCAL_DEFECT' }
+            expected = 'PASS'; observed = $_.summary; reproduction = $_.command
+        }
+    })
+    if ($runs[0].exit_code -ne 0 -and @($records | Where-Object { $_.status -in @('FAIL', 'UNVERIFIED') }).Count -eq 0) {
         $failures += [ordered]@{
-            id = 'report-schema'
-            classification = 'HARNESS_OR_SENSOR_DEFECT'
-            sensor = 'report_schema'
-            expected = 'schema-valid report'
-            observed = $schemaSensor.summary
-            reproduction = 'PowerShell Test-Json'
+            id = 'gradle-process'; classification = 'HARNESS_OR_SENSOR_DEFECT'
+            expected = 'Successful process exit'; observed = "Gradle exited $($runs[0].exit_code); successful markers cannot hide process failure."
+            reproduction = $runs[0].task
         }
     }
-
-    $report = New-VerificationReport -Root $rootPath -TaskId $TaskId -Candidate (Get-TaskCandidateLabel -Root $rootPath) -Baseline $baseline -FreshContext $FreshContext -Sensors $records -Acceptance $acceptance -Failures $failures -Warnings @('Controller does not dispatch agents, repair code, commit changes, or alter acceptance state.')
-    $writtenPath = Write-VerificationReport -Report $report -Path $writtenPath
+    if ($Scope -eq 'Milestone' -and (Get-TaskCandidateLabel -Root $rootPath) -ne $candidate) {
+        $failures += [ordered]@{
+            id = 'candidate-changed'; classification = 'HARNESS_OR_SENSOR_DEFECT'
+            expected = 'The clean candidate remains unchanged by verification.'
+            observed = 'Tracked or untracked candidate files changed during the run; keep generated evidence in ignored output paths.'
+        }
+    }
+    # This criterion measures only execution, not all product acceptance criteria.
+    $acceptance = @([ordered]@{
+        id = 'selected-check-execution'; status = $runs[0].status
+        evidence = "Selected checks exited $($runs[0].exit_code); raw=$($runs[0].artifact). Product/task criteria still require controller review."
+    })
+    $report = New-VerificationReport -Root $rootPath -TaskId $TaskId -Candidate $candidate -Baseline UNACCEPTED `
+        -FreshContext $FreshContext -Sensors $records -Acceptance $acceptance -Failures $failures `
+        -Scope $Scope -DeferredChecks $deferred -Warnings @('Measurement only: no task completion, milestone acceptance, baseline or STATE mutation.')
+    $report['risk_reason'] = $RiskReason
+    $writtenPath = Write-VerificationReport -Report $report -Path $ReportPath
     $validation = Test-VerificationReport -ReportPath $writtenPath -Root $rootPath
+    if (-not $validation.Valid) {
+        throw "Verification report failed validation: $($validation.Errors -join '; ')"
+    }
     return [pscustomobject]@{
-        Task = $task
-        Profile = $selectedProfile
-        Report = $report
-        ReportPath = $writtenPath
-        Validation = $validation
-        Runs = $runs
-        ExitCode = Get-VerificationExitCode -Report $report
+        Task = $task; Profile = $selectedProfile; Report = $report; ReportPath = $writtenPath
+        Validation = $validation; Runs = $runs; ExitCode = Get-VerificationExitCode -Report $report
     }
 }
-
 Export-ModuleMember -Function Get-SourceFingerprint, Get-NormalizedVerdict, New-VerificationReport, Get-VerificationExitCode, Write-VerificationReport, Test-VerificationReport, Resolve-WorkflowTask, Resolve-WorkflowProfile, Get-GradleSensorMarkers, Invoke-GradleSensor, Get-TaskCandidateLabel, Get-TaskSensorRecords, Test-ProductSourceHashes, Invoke-VerificationController

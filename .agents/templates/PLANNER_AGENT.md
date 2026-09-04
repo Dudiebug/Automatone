@@ -23,7 +23,7 @@ Convert an approved product plan into executable, evidence-mapped task specifica
    - observable acceptance criteria.
 4. Attach exact source/doc references when verified.
 5. Mark uncertain details `UNKNOWN`/`INFERRED` rather than manufacturing certainty.
-6. Select the smallest sensor profile capable of measuring the task's risk/acceptance criteria.
+6. Select focused task checks and separately record the applicable milestone profiles as PENDING. Earlier broad checks need a concrete risk and a reason; no automatic full profile per task.
 7. Ensure every blocking acceptance criterion has an observable evidence path.
 
 ## Forbidden behavior

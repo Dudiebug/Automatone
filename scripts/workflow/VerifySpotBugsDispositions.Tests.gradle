@@ -1,0 +1,410 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import groovy.xml.XmlSlurper
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import java.util.Arrays
+
+// This is an init script deliberately kept outside the build.  It exercises the
+// production rootProject.ext.verifySpotBugsDispositions seam against temporary
+// fixtures and checks the installed Gradle wiring without adding a build task.
+def taskName = 'verifySpotBugsDispositionsContract'
+
+gradle.projectsEvaluated {
+    def root = gradle.rootProject
+    if (root.tasks.findByName(taskName) != null) {
+        return
+    }
+
+    root.tasks.register(taskName) {
+        group = 'verification'
+        description = 'Exercises the exact SpotBugs disposition gate with fail-closed controls.'
+
+        doLast {
+            def require = { boolean condition, String message ->
+                if (!condition) {
+                    throw new GradleException("SpotBugs disposition contract: ${message}")
+                }
+            }
+            require(root.ext.has('verifySpotBugsDispositions'),
+                    'rootProject.ext.verifySpotBugsDispositions is not installed')
+            def checker = root.ext.get('verifySpotBugsDispositions')
+            require(checker instanceof Closure, 'the installed disposition checker is not callable')
+
+            def utf8 = StandardCharsets.UTF_8
+            def canonicalHash = { File file ->
+                byte[] bytes = Files.readAllBytes(file.toPath())
+                String text = new String(bytes, utf8).replace('\r\n', '\n')
+                MessageDigest.getInstance('SHA-256').digest(text.getBytes(utf8)).encodeHex().toString()
+            }
+            def writeText = { File file, String text ->
+                file.parentFile.mkdirs()
+                Files.write(file.toPath(), text.getBytes(utf8))
+            }
+            def writeJson = { File file, Object value ->
+                writeText(file, JsonOutput.prettyPrint(JsonOutput.toJson(value)) + '\n')
+            }
+            def readBytes = { File file -> Files.readAllBytes(file.toPath()) }
+            def expectFailure = { String label, Closure action ->
+                Throwable failure = null
+                try {
+                    action.call()
+                } catch (Throwable thrown) {
+                    failure = thrown
+                }
+                require(failure != null, "${label} unexpectedly passed")
+                require(failure.message != null && !failure.message.trim().isEmpty(),
+                        "${label} failed without a diagnostic")
+                logger.lifecycle("SpotBugs disposition expected failure: ${label}")
+                failure
+            }
+
+            File frozenEligibility = root.file('config/verification/spotbugs-e81-eligibility.json')
+            File exactBugFixture = root.file('scripts/workflow/fixtures/spotbugs-e81-finding-1.xml')
+            File row81BugFixture = root.file('scripts/workflow/fixtures/spotbugs-e81-finding-81.xml')
+            require(frozenEligibility.isFile(), 'frozen eligibility JSON is unavailable')
+            require(exactBugFixture.isFile(), 'tracked e81 BugInstance fixture is unavailable')
+            require(row81BugFixture.isFile(), 'tracked row 81 BugInstance fixture is unavailable')
+
+            def eligibility = new JsonSlurper().parse(frozenEligibility, 'UTF-8')
+            require(eligibility instanceof Map && eligibility.entries instanceof List,
+                    'frozen eligibility JSON has no entries')
+            def chosen = eligibility.entries.find { it.id == 1 }
+            require(chosen instanceof Map, 'frozen eligibility entry 1 is unavailable')
+
+            def row81 = eligibility.entries.find { it.id == 81 }
+            require(row81 instanceof Map, 'frozen eligibility entry 81 is unavailable')
+            String row81Xml = row81BugFixture.getText('UTF-8')
+            require((row81Xml =~ /(?s)^\s*<BugInstance\b.*?<\/BugInstance>\s*$/).matches(),
+                    'tracked row 81 fixture is not one complete XML node')
+            def row81Node = new XmlSlurper().parseText(row81Xml)
+            String row81PatternAttribute = row81Node.@type.text()
+            require(row81Node.name() == 'BugInstance' && row81Node.Type.size() == 2,
+                    'tracked row 81 fixture lost the two child Type annotations')
+            require(row81PatternAttribute == row81.pattern as String,
+                    "row 81 pattern must match the BugInstance @type attribute; metadata='${row81.pattern}', XML='${row81PatternAttribute}'")
+            require(row81PatternAttribute == 'BC_IMPOSSIBLE_CAST',
+                    "row 81 BugInstance @type changed unexpectedly: '${row81PatternAttribute}'")
+
+            // This tracked file is an exact BugInstance node copied from the
+            // retained e81 analyzer report.  Keep the source itself synthetic and
+            // temporary: the checker only needs its approved hash/path contract.
+            String exactBugXml = exactBugFixture.getText('UTF-8')
+            require((exactBugXml =~ /(?s)^\s*<BugInstance\b.*?<\/BugInstance>\s*$/).matches(),
+                    'tracked BugInstance fixture is not one complete XML node')
+            require(
+                exactBugXml.contains('type="' + chosen.pattern + '"')
+                        && exactBugXml.contains('name="' + chosen.method + '"')
+                        && exactBugXml.contains('signature="' + chosen.methodSignature + '"')
+                        && exactBugXml.contains('sourcepath="' + chosen.sourcePath + '"')
+                        && exactBugXml.contains('<LongMessage>' + chosen.message + '</LongMessage>'),
+                    'tracked BugInstance fixture does not match e81 eligibility entry 1')
+
+            def makeRaw = { List<String> bugs, Map options = [:] ->
+                String errors = options.containsKey('errorsXml')
+                        ? options.errorsXml
+                        : '<Errors errors="0" missingClasses="0"/>'
+                String summary = options.containsKey('summaryXml')
+                        ? options.summaryXml
+                        : '<FindBugsSummary total_classes="1" total_bugs="' + bugs.size() + '"/>'
+                '''<?xml version="1.0" encoding="UTF-8"?>
+<BugCollection version="4.10.2" sequence="0" timestamp="1" analysisTimestamp="2" release="0.11.0">
+  ''' + errors + '''
+  ''' + summary + '''
+  ''' + bugs.join('\n  ') + '''
+</BugCollection>
+'''
+            }
+
+            def makeFixture = {
+                File fixtureRoot = Files.createTempDirectory(
+                        root.layout.buildDirectory.dir('tmp').get().asFile.toPath(), 'spotbugs-gate-').toFile()
+                // This source is intentionally a temporary fixture.  Its hash is
+                // approved in the synthetic manifest, while the frozen eligibility
+                // file remains the real repository-controlled e81 inventory.
+                File sourceFile = new File(fixtureRoot, chosen.sourceFile as String)
+                writeText(sourceFile, 'class Baritone {\n    Object liveOwner;\n}\n')
+
+                File eligibilityFile = new File(fixtureRoot, 'eligibility.json')
+                Files.copy(frozenEligibility.toPath(), eligibilityFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                File evidenceFile = new File(fixtureRoot, 'review.md')
+                writeText(evidenceFile,
+                        'Independent technical review fixture: exact live-owner contract exercised.\n')
+
+                File approvalFile = new File(fixtureRoot, 'approved.json')
+                Map approvalEntry = [
+                        id: chosen.id,
+                        baselineCommit: eligibility.baselineCommit,
+                        pattern: chosen.pattern,
+                        'class': chosen['class'],
+                        method: chosen.method,
+                        methodSignature: chosen.methodSignature,
+                        field: chosen.field,
+                        fieldSignature: chosen.fieldSignature,
+                        sourcePath: chosen.sourcePath,
+                        start: chosen.start,
+                        end: chosen.end,
+                        message: chosen.message,
+                        sourceFile: chosen.sourceFile,
+                        status: 'APPROVED',
+                        reviewer: 'luna_old_coder',
+                        sourceSha256: canonicalHash(sourceFile),
+                        contract: 'The public accessor returns the exact native live process required by callers.',
+                        evidence: 'review.md#live-owner-contract'
+                ]
+                writeJson(approvalFile, [
+                        schemaVersion: 1,
+                        hashEncoding: 'utf8-lf',
+                        eligibilitySha256: canonicalHash(eligibilityFile),
+                        entries: [approvalEntry]
+                ])
+
+                File rawFile = new File(fixtureRoot, 'main-raw.xml')
+                writeText(rawFile, makeRaw([exactBugXml]))
+                File generatedFile = new File(fixtureRoot, 'main-approved.xml')
+                [root: fixtureRoot, source: sourceFile, eligibility: eligibilityFile,
+                 approval: approvalFile, evidence: evidenceFile, raw: rawFile,
+                 generated: generatedFile, bug: exactBugXml, approvalEntry: approvalEntry]
+            }
+            def invoke = { Map fixture ->
+                checker.call(fixture.raw, fixture.eligibility, fixture.approval,
+                        fixture.root, fixture.generated)
+            }
+            def discard = { Map fixture ->
+                if (fixture.root?.exists()) {
+                    fixture.root.deleteDir()
+                }
+            }
+
+            File temporaryParent = root.layout.buildDirectory.dir('tmp').get().asFile
+            temporaryParent.mkdirs()
+            Map positive = null
+            try {
+                // Genuine exact reviewed fixture: generated output is an exact
+                // copy, raw output is retained, and stale output is replaced.
+                positive = makeFixture()
+                byte[] rawBefore = readBytes(positive.raw)
+                writeText(positive.generated, 'stale generated exclusion\n')
+                invoke(positive)
+                require(positive.raw.isFile(), 'successful validation removed the raw report')
+                require(Arrays.equals(rawBefore, readBytes(positive.raw)),
+                        'successful validation changed the raw report')
+                require(positive.generated.isFile(), 'successful validation emitted no generated report')
+                String generatedText = positive.generated.getText('UTF-8')
+                def generatedBugs = generatedText =~ /(?s)<BugInstance\b.*?<\/BugInstance>/
+                List generatedNodes = []
+                while (generatedBugs.find()) {
+                    generatedNodes.add(generatedBugs.group())
+                }
+                require(generatedNodes.size() == 1,
+                        'generated baseline does not contain exactly the validated finding')
+                require(generatedText.contains(chosen.message as String),
+                        'generated baseline does not retain the validated finding identity')
+                require(!new File(positive.generated.path + '.tmp').exists(),
+                        'temporary generated report remained after atomic publication')
+
+                // Secondary annotations are common in SpotBugs XML.  The primary
+                // Class/Method/Field/SourceLine values must define identity.
+                Map primaryFixture = makeFixture()
+                try {
+                    String secondary = '<Class classname="fixture.Secondary" primary="false"/>' +
+                            '<Method name="secondary" signature="()V" primary="false"/>' +
+                            '<Field name="secondary" signature="Ljava/lang/Object;" primary="false"/>'
+                    writeText(primaryFixture.raw,
+                            makeRaw([primaryFixture.bug.substring(0, primaryFixture.bug.lastIndexOf('</BugInstance>'))
+                                    + secondary + '</BugInstance>']))
+                    invoke(primaryFixture)
+                    require(primaryFixture.generated.isFile(),
+                            'primary annotations were not used to validate the exact finding')
+                } finally {
+                    discard(primaryFixture)
+                }
+
+                // Every identity component is protected independently.
+                Map<String, Closure> identityMutations = [
+                        pattern: { String text -> text.replaceFirst(/(<BugInstance\b[^>]*\btype=")[^"]+(" )/, '$1NEW_PATTERN$2') },
+                        'class': { String text -> text.replaceFirst(/(<Class\b(?=[^>]*\bprimary="true")[^>]*\bclassname=")[^"]+(" )/, '$1fixture.NewClass$2') },
+                        method: { String text -> text.replaceFirst(/(<Method\b(?=[^>]*\bprimary="true")[^>]*\bname=")[^"]+(" )/, '$1newMethod$2') },
+                        methodSignature: { String text -> text.replaceFirst(/(<Method\b(?=[^>]*\bprimary="true")[^>]*\bsignature=")[^"]+(" )/, '$1()Lfixture/New;$2') },
+                        field: { String text -> text.replaceFirst(/(<Field\b(?=[^>]*\bprimary="true")[^>]*\bname=")[^"]+(" )/, '$1newField$2') },
+                        fieldSignature: { String text -> text.replaceFirst(/(<Field\b(?=[^>]*\bprimary="true")[^>]*\bsignature=")[^"]+(" )/, '$1Lfixture/New;$2') },
+                        sourcePath: { String text -> text.replaceFirst(/(<SourceLine\b(?=[^>]*\bprimary="true")[^>]*\bsourcepath=")[^"]+(" )/, '$1fixture/New.java$2') },
+                        start: { String text -> text.replaceFirst(/(<SourceLine\b(?=[^>]*\bprimary="true")[^>]*\bstart=")[^"]+(" )/, '$1999$2') },
+                        end: { String text -> text.replaceFirst(/(<SourceLine\b(?=[^>]*\bprimary="true")[^>]*\bend=")[^"]+(" )/, '$1999$2') },
+                        message: { String text -> text.replaceFirst(/(?s)<LongMessage>.*?<\/LongMessage>/,
+                                '<LongMessage>changed exact message</LongMessage>') }
+                ]
+                identityMutations.each { String component, Closure mutate ->
+                    Map fixture = makeFixture()
+                    try {
+                        String changed = mutate.call(fixture.bug)
+                        require(changed != fixture.bug, "${component} control did not mutate its fixture")
+                        writeText(fixture.raw, makeRaw([changed]))
+                        expectFailure("changed ${component}") { invoke(fixture) }
+                        require(!fixture.generated.exists(),
+                                "changed ${component} left a usable generated report")
+                    } finally {
+                        discard(fixture)
+                    }
+                }
+
+                Map extra = makeFixture()
+                try {
+                    writeText(extra.raw, makeRaw([extra.bug, extra.bug]))
+                    expectFailure('extra occurrence of approved finding') { invoke(extra) }
+                    require(!extra.generated.exists(), 'extra occurrence left a generated report')
+                } finally {
+                    discard(extra)
+                }
+
+                Map changedSource = makeFixture()
+                try {
+                    writeText(changedSource.source,
+                            changedSource.source.getText('UTF-8') + '\n// source drift\n')
+                    expectFailure('approved source drift') { invoke(changedSource) }
+                    require(!changedSource.generated.exists(), 'source drift left a generated report')
+                } finally {
+                    discard(changedSource)
+                }
+
+                // Canonical UTF-8/LF hashing must survive a supported CRLF checkout.
+                Map crlf = makeFixture()
+                try {
+                    def toCrlf = { String text -> text.replace('\r\n', '\n').replace('\n', '\r\n') }
+                    writeText(crlf.source, toCrlf(crlf.source.getText('UTF-8')))
+                    writeText(crlf.eligibility, toCrlf(crlf.eligibility.getText('UTF-8')))
+                    invoke(crlf)
+                    require(crlf.generated.isFile(), 'CRLF/LF canonical hash rejected an equivalent fixture')
+                } finally {
+                    discard(crlf)
+                }
+
+                // Manifest and eligibility controls fail closed before any output
+                // can become a usable exclusion report.
+                [
+                        ['UNREVIEWED approval', { it.approvalEntry.status = 'UNREVIEWED' }],
+                        ['wrong reviewer', { it.approvalEntry.reviewer = 'implementer' }],
+                        ['wrong approval id', { it.approvalEntry.id = 999 }],
+                        ['wrong eligibility reference', { it.approvals.eligibilitySha256 = '0' * 64 }],
+                        ['missing source hash', { it.approvalEntry.remove('sourceSha256') }],
+                        ['malformed source hash', { it.approvalEntry.sourceSha256 = 'not-a-sha' }],
+                        ['missing contract', { it.approvalEntry.remove('contract') }],
+                        ['missing evidence', { it.approvalEntry.remove('evidence') }],
+                        ['blank contract', { it.approvalEntry.contract = '  ' }],
+                        ['blank evidence', { it.approvalEntry.evidence = '  ' }],
+                        ['evidence outside source root', { it.approvalEntry.evidence = '../outside.md#review' }],
+                        ['approval identity drift', { it.approvalEntry.methodSignature = '()V' }],
+                        ['approval baseline drift', { it.approvalEntry.baselineCommit = '0000000000000000000000000000000000000000' }],
+                        ['duplicate approval id', { it.approvals.entries << new LinkedHashMap(it.approvalEntry) }],
+                        ['unapproved finding absent from manifest', { it.approvals.entries.clear() }]
+                ].each { List control ->
+                    Map fixture = makeFixture()
+                    try {
+                        fixture.approvals = new JsonSlurper().parse(fixture.approval, 'UTF-8')
+                        fixture.approvalEntry = fixture.approvals.entries[0]
+                        control[1].call(fixture)
+                        writeJson(fixture.approval, fixture.approvals)
+                        expectFailure(control[0]) { invoke(fixture) }
+                        require(!fixture.generated.exists(), "${control[0]} left a generated report")
+                    } finally {
+                        discard(fixture)
+                    }
+                }
+
+                Map nonE81 = makeFixture()
+                try {
+                    Map altered = new JsonSlurper().parse(nonE81.eligibility, 'UTF-8')
+                    altered.baselineCommit = '0000000000000000000000000000000000000000'
+                    writeJson(nonE81.eligibility, altered)
+                    expectFailure('non-e81 eligibility') { invoke(nonE81) }
+                    require(!nonE81.generated.exists(), 'non-e81 eligibility left a generated report')
+                } finally {
+                    discard(nonE81)
+                }
+
+                Map invalidSourcePath = makeFixture()
+                try {
+                    Map altered = new JsonSlurper().parse(invalidSourcePath.eligibility, 'UTF-8')
+                    altered.entries[0].sourceFile = '../outside.java'
+                    writeJson(invalidSourcePath.eligibility, altered)
+                    expectFailure('invalid eligibility source path') { invoke(invalidSourcePath) }
+                    require(!invalidSourcePath.generated.exists(),
+                            'invalid eligibility source path left a generated report')
+                } finally {
+                    discard(invalidSourcePath)
+                }
+
+                [
+                        ['missing approval manifest', { it.approval.delete() }],
+                        ['malformed approval manifest', { writeText(it.approval, '{') }],
+                        ['missing raw report', { it.raw.delete() }],
+                        ['malformed raw report', { writeText(it.raw, '<BugCollection>') }],
+                        ['wrong raw root', { writeText(it.raw, '<NotBugCollection/>') }],
+                        ['analyzer errors', { writeText(it.raw, makeRaw([it.bug], [errorsXml: '<Errors errors="1" missingClasses="0"/>'])) }],
+                        ['missing classes', { writeText(it.raw, makeRaw([it.bug], [errorsXml: '<Errors errors="0" missingClasses="1"/>'])) }],
+                        ['missing Errors element', { writeText(it.raw, makeRaw([it.bug], [errorsXml: ''])) }],
+                        ['zero analyzed classes', { writeText(it.raw, makeRaw([it.bug], [summaryXml: '<FindBugsSummary total_classes="0" total_bugs="1"/>'])) }],
+                        ['inconsistent bug total', { writeText(it.raw, makeRaw([it.bug], [summaryXml: '<FindBugsSummary total_classes="1" total_bugs="2"/>'])) }]
+                ].each { List control ->
+                    Map fixture = makeFixture()
+                    try {
+                        writeText(fixture.generated, 'stale generated exclusion\n')
+                        writeText(new File(fixture.generated.path + '.tmp'), 'stale temporary exclusion\n')
+                        control[1].call(fixture)
+                        expectFailure(control[0]) { invoke(fixture) }
+                        require(!fixture.generated.exists(), "${control[0]} left a generated report")
+                        require(!new File(fixture.generated.path + '.tmp').exists(),
+                                "${control[0]} left stale temporary output")
+                    } finally {
+                        discard(fixture)
+                    }
+                }
+
+                Map samePath = makeFixture()
+                try {
+                    expectFailure('raw and generated path alias') {
+                        checker.call(samePath.raw, samePath.eligibility, samePath.approval,
+                                samePath.root, samePath.raw)
+                    }
+                } finally {
+                    discard(samePath)
+                }
+
+                // Inspect the task graph and strict finding behavior installed by
+                // the production build.  This prevents an aggregate-only gate from
+                // being bypassed by invoking spotbugsMain directly.
+                def named = { String name ->
+                    require(root.tasks.findByName(name) != null, "required Gradle task ${name} is unavailable")
+                    root.tasks.named(name).get()
+                }
+                def directDependencyNames = { task ->
+                    task.taskDependencies.getDependencies(task).collect { it.name } as Set
+                }
+                def mainSpotBugs = named('spotbugsMain')
+                def gateTask = named('verifyMainSpotBugsDispositions')
+                def rawTask = named('analyzeRawMainSpotBugs')
+                require(directDependencyNames(mainSpotBugs).contains(gateTask.name),
+                        'spotbugsMain does not directly depend on the exact disposition gate')
+                require(directDependencyNames(gateTask).contains(rawTask.name),
+                        'the disposition gate does not directly depend on fresh raw analysis')
+                ['spotbugsMain', 'spotbugsTest', 'spotbugsSensorTest'].each { String name ->
+                    def task = named(name)
+                    require(task.ignoreFailures == false, "${name} is not strict")
+                    require(task.reports.xml.required.get(), "${name} does not retain XML output")
+                }
+                def aggregate = named('sensorSpotBugs')
+                Set aggregateDependencies = directDependencyNames(aggregate)
+                ['spotbugsMain', 'spotbugsTest', 'spotbugsSensorTest'].each { String name ->
+                    require(aggregateDependencies.contains(name),
+                            "sensorSpotBugs does not include ${name}")
+                }
+
+                logger.lifecycle('SpotBugs disposition contract: PASS (positive fixture, exact identity controls, fail-closed controls, hashing, and wiring)')
+            } finally {
+                discard(positive)
+            }
+        }
+    }
+}

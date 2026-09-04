@@ -242,3 +242,95 @@ dependencyCheck {
     outputDirectory = layout.buildDirectory.dir('reports/dependency-check').get().asFile
     failBuildOnCVSS = 7.0
 }
+
+// Direct main analysis and aggregate sensors both require fresh exact disposition checks.
+apply from: rootProject.file('gradle/spotbugs-dispositions.gradle')
+
+def mainSpotBugs = tasks.named('spotbugsMain').get()
+def rawMainReport = layout.buildDirectory.file('reports/spotbugs/main-raw.xml')
+def approvedMainReport = layout.buildDirectory.file('reports/spotbugs/main-approved.xml')
+def eligibilityFile = rootProject.file('config/verification/spotbugs-e81-eligibility.json')
+def approvalFile = rootProject.file('config/verification/spotbugs-approved.json')
+
+def rawMainAnalysis = tasks.register('analyzeRawMainSpotBugs', JavaExec) {
+    group = 'verification'
+    description = 'Retains a fresh, unsuppressed main SpotBugs report for exact disposition checking.'
+    dependsOn 'classes'
+    mainClass = 'edu.umd.cs.findbugs.FindBugs2'
+    classpath = mainSpotBugs.spotbugsClasspath
+    if (mainSpotBugs.launcher.isPresent()) {
+        javaLauncher.set(mainSpotBugs.launcher)
+    } else {
+        javaLauncher.set(javaToolchains.launcherFor(project.java.toolchain))
+    }
+    inputs.files(mainSpotBugs.classDirs, mainSpotBugs.auxClassPaths, mainSpotBugs.pluginJarFiles)
+    outputs.file(rawMainReport)
+    outputs.upToDateWhen { false }
+    doFirst {
+        File raw = rawMainReport.get().asFile
+        File approved = approvedMainReport.get().asFile
+        [raw, approved, new File(approved.path + '.tmp')].each { output ->
+            if (output.exists() && !output.delete()) {
+                throw new GradleException("Cannot clear stale SpotBugs output ${output}")
+            }
+        }
+        if (mainSpotBugs.includeFilter.isPresent() || mainSpotBugs.excludeFilter.isPresent()
+                || !mainSpotBugs.onlyAnalyze.getOrElse([]).isEmpty()
+                || !mainSpotBugs.visitors.getOrElse([]).isEmpty()
+                || !mainSpotBugs.omitVisitors.getOrElse([]).isEmpty()
+                || !mainSpotBugs.chooseVisitors.getOrElse([]).isEmpty()
+                || !mainSpotBugs.extraArgs.getOrElse([]).isEmpty()
+                || mainSpotBugs.baselineFile.get().asFile.canonicalFile != approved.canonicalFile) {
+            throw new GradleException('Main SpotBugs must retain its unsuppressed analyzer configuration and exact generated baseline.')
+        }
+        raw.parentFile.mkdirs()
+        File classList = new File(temporaryDir, 'classes.txt')
+        File auxiliaryList = new File(temporaryDir, 'auxiliary-classpath.txt')
+        def analyzedClasses = mainSpotBugs.classes.files.toList().sort { it.absolutePath }
+        if (analyzedClasses.isEmpty()) {
+            throw new GradleException('No main classes were supplied to the unsuppressed SpotBugs analysis.')
+        }
+        classList.setText(analyzedClasses.collect { it.absolutePath }.join('\n') + '\n', 'UTF-8')
+        auxiliaryList.setText(mainSpotBugs.auxClassPaths.files.collect { it.absolutePath }.join('\n') + '\n', 'UTF-8')
+        def analyzerArgs = ['-timestampNow', '-xml:withMessages', '-output', raw.absolutePath,
+                            '-auxclasspathFromFile', auxiliaryList.absolutePath,
+                            '-sourcepath', mainSpotBugs.sourceDirs.asPath,
+                            '-analyzeFromFile', classList.absolutePath]
+        if (!mainSpotBugs.pluginJarFiles.isEmpty()) {
+            analyzerArgs.addAll(['-pluginList', mainSpotBugs.pluginJarFiles.asPath])
+        }
+        if (mainSpotBugs.effort.isPresent()) {
+            analyzerArgs.add('-effort:' + mainSpotBugs.effort.get().name().toLowerCase(Locale.ROOT))
+        }
+        if (mainSpotBugs.reportLevel.isPresent()) {
+            String confidence = mainSpotBugs.reportLevel.get().name().toLowerCase(Locale.ROOT)
+            analyzerArgs.add('-' + (confidence == 'default' ? 'medium' : confidence))
+        }
+        if (mainSpotBugs.projectName.isPresent()) {
+            analyzerArgs.addAll(['-projectName', mainSpotBugs.projectName.get()])
+        }
+        if (mainSpotBugs.release.isPresent()) {
+            analyzerArgs.addAll(['-release', mainSpotBugs.release.get()])
+        }
+        // Omit -exitcode: the following gate rejects every unapproved finding and analyzer error.
+        // JavaExec itself remains strict about process failures.
+        setArgs(analyzerArgs)
+        setJvmArgs(mainSpotBugs.jvmArgs.getOrElse([]))
+        maxHeapSize = mainSpotBugs.maxHeapSize.getOrElse('512m')
+    }
+}
+
+def dispositionCheck = tasks.register('verifyMainSpotBugsDispositions') {
+    group = 'verification'
+    dependsOn rawMainAnalysis
+    inputs.files(rawMainReport, eligibilityFile, approvalFile)
+    outputs.file(approvedMainReport)
+    outputs.upToDateWhen { false }
+    doLast {
+        rootProject.ext.verifySpotBugsDispositions(rawMainReport.get().asFile, eligibilityFile,
+                approvalFile, rootProject.projectDir, approvedMainReport.get().asFile)
+    }
+}
+
+mainSpotBugs.dependsOn(dispositionCheck)
+mainSpotBugs.baselineFile.set(approvedMainReport)

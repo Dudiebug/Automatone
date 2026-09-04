@@ -1,0 +1,32 @@
+<BugInstance type="BC_IMPOSSIBLE_CAST" priority="1" rank="9" abbrev="BC" category="CORRECTNESS" instanceHash="d4ff37adc0ce1943cb4af0d17dfe67c5" instanceOccurrenceNum="0" instanceOccurrenceMax="0" cweid="704">
+    <ShortMessage>Impossible cast</ShortMessage>
+    <LongMessage>Impossible cast from String to com.github.lunatrius.core.util.math.MBlockPos in new com.github.lunatrius.schematica.client.world.SchematicWorld()</LongMessage>
+    <Class classname="com.github.lunatrius.schematica.client.world.SchematicWorld" primary="true">
+      <SourceLine classname="com.github.lunatrius.schematica.client.world.SchematicWorld" start="23" end="28" sourcefile="SchematicWorld.java" sourcepath="com/github/lunatrius/schematica/client/world/SchematicWorld.java" relSourcepath="src\schematica_api\java\com\github\lunatrius\schematica\client\world\SchematicWorld.java">
+        <Message>At SchematicWorld.java:[lines 23-28]</Message>
+      </SourceLine>
+      <Message>In class com.github.lunatrius.schematica.client.world.SchematicWorld</Message>
+    </Class>
+    <Method classname="com.github.lunatrius.schematica.client.world.SchematicWorld" name="&lt;init&gt;" signature="()V" isStatic="false" primary="true">
+      <SourceLine classname="com.github.lunatrius.schematica.client.world.SchematicWorld" start="23" end="25" startBytecode="0" endBytecode="6" sourcefile="SchematicWorld.java" sourcepath="com/github/lunatrius/schematica/client/world/SchematicWorld.java" relSourcepath="src\schematica_api\java\com\github\lunatrius\schematica\client\world\SchematicWorld.java"/>
+      <Message>In method new com.github.lunatrius.schematica.client.world.SchematicWorld()</Message>
+    </Method>
+    <Type descriptor="Ljava/lang/String;" role="TYPE_FOUND">
+      <SourceLine classname="java.lang.String" start="142" end="4904" sourcefile="String.java" sourcepath="java/lang/String.java">
+        <Message>At String.java:[lines 142-4904]</Message>
+      </SourceLine>
+      <Message>Actual type String</Message>
+    </Type>
+    <Type descriptor="Lcom/github/lunatrius/core/util/math/MBlockPos;" role="TYPE_EXPECTED">
+      <SourceLine classname="com.github.lunatrius.core.util.math.MBlockPos" start="25" end="40" sourcefile="MBlockPos.java" sourcepath="com/github/lunatrius/core/util/math/MBlockPos.java" relSourcepath="src\schematica_api\java\com\github\lunatrius\core\util\math\MBlockPos.java">
+        <Message>At MBlockPos.java:[lines 25-40]</Message>
+      </SourceLine>
+      <Message>Expected com.github.lunatrius.core.util.math.MBlockPos</Message>
+    </Type>
+    <String value="cringe" role="STRING_CONSTANT">
+      <Message>String constant &quot;cringe&quot;</Message>
+    </String>
+    <SourceLine classname="com.github.lunatrius.schematica.client.world.SchematicWorld" primary="true" start="25" end="25" startBytecode="7" endBytecode="7" sourcefile="SchematicWorld.java" sourcepath="com/github/lunatrius/schematica/client/world/SchematicWorld.java" relSourcepath="src\schematica_api\java\com\github\lunatrius\schematica\client\world\SchematicWorld.java">
+      <Message>At SchematicWorld.java:[line 25]</Message>
+    </SourceLine>
+  </BugInstance>

@@ -28,11 +28,35 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class TickEventSequenceRegressionTest {
+
+    @Test
+    public void publicClassMonitorDoesNotBlockProviderCreation() throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CountDownLatch attempted = new CountDownLatch(1);
+        Object publicClassMonitor = TickEvent.class;
+        try {
+            synchronized (publicClassMonitor) {
+                Future<BiFunction<EventState, TickEvent.Type, TickEvent>> future = executor.submit(() -> {
+                    attempted.countDown();
+                    return TickEvent.createNextProvider();
+                });
+
+                assertTrue("provider creation did not start", attempted.await(5, TimeUnit.SECONDS));
+                BiFunction<EventState, TickEvent.Type, TickEvent> provider = future.get(5, TimeUnit.SECONDS);
+                int count = provider.apply(EventState.PRE, TickEvent.Type.IN).getCount();
+                assertEquals(count, provider.apply(EventState.POST, TickEvent.Type.OUT).getCount());
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+    }
 
     @Test
     public void concurrentProvidersReserveUniqueCounts() throws Exception {

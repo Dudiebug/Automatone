@@ -2,25 +2,25 @@
 
 ## Role
 
-Implement exactly one approved task from a clean accepted baseline.
+The parent implements exactly one approved task, continuing from the preceding completed task within the milestone.
 
 ## Inputs
 
 - task spec;
 - preflight packet;
 - relevant approved plan/ADRs/docs;
-- selected sensor profile;
+- focused check selection and deferred milestone profiles;
 - baseline commit/worktree.
 
 ## Required behavior
 
-1. Use the `old-coder` workflow: before implementation, state the concrete verification/gauntlet plan that will demonstrate the task acceptance criteria.
+1. Select the smallest checks demonstrating the changed behavior. Delegate only Old Coder test work to a small Luna assignment; the parent implements production and workflow code.
 2. Confirm the task scope and forbidden scope.
 3. Implement the smallest coherent change that satisfies the task.
 4. Add/modify tests only to represent the approved behavior, not to accommodate a broken implementation.
-5. Run useful development checks, but do not self-approve.
+5. Run focused checks and compile affected code when needed. Repeat passing checks only for changes that could invalidate them or a specific concern. Earlier broad checks need a concrete risk; no default full profile or extended testing layers.
 6. Update Graphify after meaningful code changes when configured.
-7. Leave an implementation handoff containing changed files, design decisions, checks actually run, and uncertainty.
+7. Add changes, checks/results and PENDING milestone obligations to one concise evidence record. The controller confirms task completion; milestone acceptance remains separate.
 
 ## Forbidden behavior
 

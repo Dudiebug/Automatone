@@ -19,6 +19,7 @@ package baritone.api.event.events;
 
 import baritone.api.event.events.type.EventState;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 
 /**
@@ -31,7 +32,7 @@ import java.util.function.BiFunction;
  */
 public final class TickEvent {
 
-    private static int overallTickCount;
+    private static final AtomicInteger overallTickCount = new AtomicInteger();
 
     private final EventState state;
     private final Type type;
@@ -55,8 +56,8 @@ public final class TickEvent {
         return state;
     }
 
-    public static synchronized BiFunction<EventState, Type, TickEvent> createNextProvider() {
-        final int count = overallTickCount++;
+    public static BiFunction<EventState, Type, TickEvent> createNextProvider() {
+        final int count = overallTickCount.getAndIncrement();
         return (state, type) -> new TickEvent(state, type, count);
     }
 

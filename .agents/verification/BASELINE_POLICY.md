@@ -6,7 +6,7 @@ Static-analysis and quality tools are most useful when the controller can distin
 
 Before product implementation begins:
 
-1. run every configured default sensor against the accepted repository state;
+1. obtain the applicable milestone profile evidence once at the initial acceptance gate, reusing valid existing measurements instead of repeating a broad baseline run before every task;
 2. capture exact tool versions/configuration and commit SHA;
 3. record existing findings without altering the code merely to make the bootstrap green;
 4. decide whether each sensor will initially gate on:
