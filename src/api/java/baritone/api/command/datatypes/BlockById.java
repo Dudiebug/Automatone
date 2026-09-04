@@ -19,9 +19,9 @@ package baritone.api.command.datatypes;
 
 import baritone.api.command.exception.CommandException;
 import baritone.api.command.helpers.TabCompleteHelper;
-import net.minecraft.block.Block;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Block;
 
 import java.util.stream.Stream;
 
@@ -30,9 +30,9 @@ public enum BlockById implements IDatatypeFor<Block> {
 
     @Override
     public Block get(IDatatypeContext ctx) throws CommandException {
-        Identifier id = new Identifier(ctx.getConsumer().getString());
+        ResourceLocation id = ResourceLocation.parse(ctx.getConsumer().getString());
         Block block;
-        if ((block = Registries.BLOCK.getOrEmpty(id).orElse(null)) == null) {
+        if ((block = BuiltInRegistries.BLOCK.getOptional(id).orElse(null)) == null) {
             throw new IllegalArgumentException("no block found by that id");
         }
         return block;
@@ -40,13 +40,15 @@ public enum BlockById implements IDatatypeFor<Block> {
 
     @Override
     public Stream<String> tabComplete(IDatatypeContext ctx) throws CommandException {
+        String arg = ctx.getConsumer().getString();
+
         return new TabCompleteHelper()
                 .append(
-                        Registries.BLOCK.getIds()
+                        BuiltInRegistries.BLOCK.keySet()
                                 .stream()
                                 .map(Object::toString)
                 )
-                .filterPrefixNamespaced(ctx.getConsumer().getString())
+                .filterPrefixNamespaced(arg)
                 .sortAlphabetically()
                 .stream();
     }

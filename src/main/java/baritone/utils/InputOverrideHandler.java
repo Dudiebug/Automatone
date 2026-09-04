@@ -18,13 +18,15 @@
 package baritone.utils;
 
 import baritone.Baritone;
+import baritone.api.BaritoneAPI;
+import baritone.api.event.events.TickEvent;
 import baritone.api.utils.IInputOverrideHandler;
 import baritone.api.utils.input.Input;
 import baritone.behavior.Behavior;
-import net.minecraft.entity.LivingEntity;
+import net.minecraft.world.entity.LivingEntity;
 
-import java.util.EnumSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * An interface with the game's control system allowing the ability to
@@ -39,11 +41,10 @@ public final class InputOverrideHandler extends Behavior implements IInputOverri
     /**
      * Maps inputs to whether or not we are forcing their state down.
      */
-    private final Set<Input> inputForceStateMap = EnumSet.noneOf(Input.class);
+    private final Map<Input, Boolean> inputForceStateMap = new HashMap<>();
 
     private final BlockBreakHelper blockBreakHelper;
     private final BlockPlaceHelper blockPlaceHelper;
-    private boolean needsUpdate;
 
     public InputOverrideHandler(Baritone baritone) {
         super(baritone);
@@ -58,8 +59,8 @@ public final class InputOverrideHandler extends Behavior implements IInputOverri
      * @return Whether or not it is being forced down
      */
     @Override
-    public final synchronized boolean isInputForcedDown(Input input) {
-        return input != null && this.inputForceStateMap.contains(input);
+    public final boolean isInputForcedDown(Input input) {
+        return input == null ? false : this.inputForceStateMap.getOrDefault(input, false);
     }
 
     /**
@@ -69,68 +70,72 @@ public final class InputOverrideHandler extends Behavior implements IInputOverri
      * @param forced Whether or not the state is being forced
      */
     @Override
-    public final synchronized void setInputForceState(Input input, boolean forced) {
-        if (forced) {
-            this.inputForceStateMap.add(input);
-        } else {
-            this.inputForceStateMap.remove(input);
-        }
-        this.needsUpdate = true;
+    public final void setInputForceState(Input input, boolean forced) {
+        this.inputForceStateMap.put(input, forced);
     }
 
     /**
      * Clears the override state for all keys
      */
     @Override
-    public final synchronized void clearAllKeys() {
-        // Note that calling setSprinting before entity attributes are initialized will crash the game
-        // PERF: entity flags use a lock, see if we can put this elsewhere to reduce the number of calls
-        if (this.ctx.entity().isSprinting()) this.ctx.entity().setSprinting(false);
+    public final void clearAllKeys() {
         this.inputForceStateMap.clear();
-        this.needsUpdate = true;
+        releaseHostInput();
     }
 
     @Override
-    public final void onTickServer() {
-        if (!this.needsUpdate) return;
-
+    public final void onTick(TickEvent event) {
+        if (event.getType() == TickEvent.Type.OUT) {
+            return;
+        }
         if (isInputForcedDown(Input.CLICK_LEFT)) {
             setInputForceState(Input.CLICK_RIGHT, false);
         }
-
-        LivingEntity entity = this.ctx.entity();
-        entity.sidewaysSpeed = 0.0F;
-        entity.forwardSpeed = 0.0F;
-        entity.setSneaking(false);
-
-        entity.setJumping(this.isInputForcedDown(Input.JUMP)); // oppa gangnam style
-
-        if (this.isInputForcedDown(Input.MOVE_FORWARD)) {
-            entity.forwardSpeed++;
-        }
-
-        if (this.isInputForcedDown(Input.MOVE_BACK)) {
-            entity.forwardSpeed--;
-        }
-
-        if (this.isInputForcedDown(Input.MOVE_LEFT)) {
-            entity.sidewaysSpeed++;
-        }
-
-        if (this.isInputForcedDown(Input.MOVE_RIGHT)) {
-            entity.sidewaysSpeed--;
-        }
-
-        if (this.isInputForcedDown(Input.SNEAK)) {
-            entity.setSneaking(true);
-            entity.sidewaysSpeed *= 0.3D;
-            entity.forwardSpeed *= 0.3D;
-        }
-
         blockBreakHelper.tick(isInputForcedDown(Input.CLICK_LEFT));
         blockPlaceHelper.tick(isInputForcedDown(Input.CLICK_RIGHT));
 
-        this.needsUpdate = false;
+        if (inControl()) {
+            applyHostInput(ctx.player());
+        } else {
+            releaseHostInput();
+        }
+    }
+
+    private void applyHostInput(LivingEntity host) {
+        host.xxa = movement(Input.MOVE_LEFT, Input.MOVE_RIGHT);
+        host.zza = movement(Input.MOVE_FORWARD, Input.MOVE_BACK);
+        host.yya = 0.0F;
+        host.setJumping(isInputForcedDown(Input.JUMP));
+        host.setShiftKeyDown(isInputForcedDown(Input.SNEAK));
+        host.setSprinting(isInputForcedDown(Input.SPRINT));
+    }
+
+    private float movement(Input positive, Input negative) {
+        return (isInputForcedDown(positive) ? 1.0F : 0.0F)
+                - (isInputForcedDown(negative) ? 1.0F : 0.0F);
+    }
+
+    private void releaseHostInput() {
+        LivingEntity host = ctx.player();
+        if (host == null) {
+            return;
+        }
+        host.xxa = 0.0F;
+        host.yya = 0.0F;
+        host.zza = 0.0F;
+        host.setJumping(false);
+        host.setShiftKeyDown(false);
+        host.setSprinting(false);
+    }
+
+    private boolean inControl() {
+        for (Input input : new Input[]{Input.MOVE_FORWARD, Input.MOVE_BACK, Input.MOVE_LEFT, Input.MOVE_RIGHT, Input.SNEAK, Input.JUMP}) {
+            if (isInputForcedDown(input)) {
+                return true;
+            }
+        }
+        // if we are not primary (a bot) we should set the movementinput even when idle (not pathing)
+        return baritone.getPathingBehavior().isPathing() || baritone != BaritoneAPI.getProvider().getPrimaryBaritone();
     }
 
     public BlockBreakHelper getBlockBreakHelper() {

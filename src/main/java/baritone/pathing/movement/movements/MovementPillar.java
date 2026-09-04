@@ -19,10 +19,8 @@ package baritone.pathing.movement.movements;
 
 import baritone.Baritone;
 import baritone.api.IBaritone;
-import baritone.api.Settings;
 import baritone.api.pathing.movement.MovementStatus;
 import baritone.api.utils.BetterBlockPos;
-import baritone.api.utils.IEntityContext;
 import baritone.api.utils.Rotation;
 import baritone.api.utils.RotationUtils;
 import baritone.api.utils.VecUtils;
@@ -32,73 +30,24 @@ import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
 import baritone.utils.BlockStateInterface;
-import baritone.utils.pathing.MutableMoveResult;
 import com.google.common.collect.ImmutableSet;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.FallingBlock;
-import net.minecraft.block.FenceGateBlock;
-import net.minecraft.block.LadderBlock;
-import net.minecraft.block.ScaffoldingBlock;
-import net.minecraft.block.SlabBlock;
-import net.minecraft.block.enums.SlabType;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityDimensions;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.Set;
 
-/**
- * Ascends exactly one block by either jumping and placing a block at the player's feet, or by climbing up.
- *
- * <p>If {@link Settings#allowBreak} is {@code true}, this movement will break
- * all blocks in the way.
- *
- * <p>Seen from the side:
- * <pre>
- *     dest
- *     src ⬆
- * </pre>
- */
 public class MovementPillar extends Movement {
 
     public MovementPillar(IBaritone baritone, BetterBlockPos start, BetterBlockPos end) {
-        super(baritone, start, end, buildPositionsToBreak(baritone.getPlayerContext().entity(), start), start);
-    }
-
-    public static BetterBlockPos[] buildPositionsToBreak(Entity entity, BetterBlockPos start) {
-        int x = start.x;
-        int y = start.y;
-        int z = start.z;
-        EntityDimensions dims = entity.getDimensions(EntityPose.STANDING);
-        int requiredVerticalSpace = MathHelper.ceil(dims.height);
-        int requiredSideSpace = CalculationContext.getRequiredSideSpace(dims);
-        int sideLength = requiredSideSpace * 2 + 1;
-        BetterBlockPos[] ret = new BetterBlockPos[sideLength * sideLength];
-        int i = 0;
-
-        for (int dx = -requiredSideSpace; dx <= requiredSideSpace; dx++) {
-            for (int dz = -requiredSideSpace; dz <= requiredSideSpace; dz++) {
-                // If we are at the starting position, we already cleared enough space to stand there
-                // So only need to check the block above our head
-                ret[i++] = new BetterBlockPos(x + dx, y + requiredVerticalSpace, z + dz);
-            }
-        }
-        return ret;
+        super(baritone, start, end, new BetterBlockPos[]{start.above(2)}, start);
     }
 
     @Override
     public double calculateCost(CalculationContext context) {
-        MutableMoveResult result = new MutableMoveResult();
-        cost(context, src.x, src.y, src.z, result);
-        return result.cost;
+        return cost(context, src.x, src.y, src.z);
     }
 
     @Override
@@ -106,114 +55,84 @@ public class MovementPillar extends Movement {
         return ImmutableSet.of(src, dest);
     }
 
-    public static void cost(CalculationContext context, int x, int y, int z, MutableMoveResult result) {
+    public static double cost(CalculationContext context, int x, int y, int z) {
         BlockState fromState = context.get(x, y, z);
-        boolean climbable = isClimbable(context.bsi, x, y, z);
+        Block from = fromState.getBlock();
+        boolean ladder = MovementHelper.isClimbable(from);
         BlockState fromDown = context.get(x, y - 1, z);
-        if (!climbable) {
-            if (fromDown.isIn(BlockTags.CLIMBABLE)) {
-                return; // can't pillar from a ladder or vine onto something that isn't also climbable
+        if (!ladder) {
+            if (MovementHelper.isClimbable(fromDown.getBlock())) {
+                return COST_INF; // can't pillar from a ladder or vine onto something that isn't also climbable
             }
-            if (fromDown.getBlock() instanceof SlabBlock && fromDown.get(SlabBlock.TYPE) == SlabType.BOTTOM) {
-                return; // can't pillar up from a bottom slab onto a non ladder
-            }
-        } else if (context.width > 1) {
-            return;    // Large entities simply cannot use ladders and vines
-        }
-        double totalHardness = 0;
-        boolean swimmable = false;
-        int requiredSideSpace = context.requiredSideSpace;
-        for (int dx = -requiredSideSpace; dx <= requiredSideSpace; dx++) {
-            for (int dz = -requiredSideSpace; dz <= requiredSideSpace; dz++) {
-                // If we are at the starting position, we already cleared enough space to stand there
-                // So only need to check the block above our head
-                int checkedX = x + dx;
-                int checkedY = y + context.height;
-                int checkedZ = z + dz;
-                BlockState toBreak = context.get(checkedX, checkedY, checkedZ);
-                BlockState underToBreak = context.get(x, checkedY - 1, z);
-                Block toBreakBlock = toBreak.getBlock();
-                if (toBreakBlock instanceof FenceGateBlock || (!climbable && toBreakBlock instanceof ScaffoldingBlock)) { // see issue #172
-                    return;
-                }
-                boolean water = MovementHelper.isWater(toBreak);
-                if (water || MovementHelper.isWater(underToBreak)) {
-                    if (MovementHelper.isFlowing(checkedX, checkedY, checkedZ, toBreak, context.bsi)) {
-                        return;    // not ascending flowing water
-                    }
-                    swimmable = true; // allow ascending pillars of water
-                    if (totalHardness > 0) return; // Nop, not mining stuff in a water column
-                }
-                if (!water) {
-                    double hardness = MovementHelper.getMiningDurationTicks(context, checkedX, checkedY, checkedZ, toBreak, true);
-                    if (hardness > 0) {
-                        if (hardness >= COST_INF || swimmable) {
-                            return;
-                        }
-                        BlockState check = context.get(checkedX, checkedY + 1, checkedZ); // the block on top of the one we're going to break, could it fall on us?
-                        if (check.getBlock() instanceof FallingBlock) {
-                            // see MovementAscend's identical check for breaking a falling block above our head
-                            if (!(toBreakBlock instanceof FallingBlock) || !(underToBreak.getBlock() instanceof FallingBlock)) {
-                                return;
-                            }
-                        }
-                        totalHardness += hardness;
-                    }
-                }
+            if (fromDown.getBlock() instanceof SlabBlock && fromDown.getValue(SlabBlock.TYPE) == SlabType.BOTTOM) {
+                return COST_INF; // can't pillar up from a bottom slab onto a non ladder
             }
         }
-        if (!swimmable && (MovementHelper.isLiquid(fromState) && !context.canPlaceAgainst(x, y - 1, z, fromDown)) || (MovementHelper.isLiquid(fromDown) && context.assumeWalkOnWater)) {
-            // otherwise, if we're standing in water, we cannot pillar
-            // if we're standing on water and assumeWalkOnWater is true, we cannot pillar
-            // if we're standing on water and assumeWalkOnWater is false, we must have ascended to here, or sneak backplaced, so it is possible to pillar again
-            return;
+        BlockState toBreak = context.get(x, y + 2, z);
+        Block toBreakBlock = toBreak.getBlock();
+        if (toBreakBlock instanceof FenceGateBlock) { // see issue #172
+            return COST_INF;
+        }
+        BlockState srcUp = null;
+        if (MovementHelper.isWater(toBreak) && MovementHelper.isWater(fromState)) { // TODO should this also be allowed if toBreakBlock is air?
+            srcUp = context.get(x, y + 1, z);
+            if (MovementHelper.isWater(srcUp)) {
+                return LADDER_UP_ONE_COST; // allow ascending pillars of water, but only if we're already in one
+            }
         }
         double placeCost = 0;
-        if (!climbable && !swimmable) {
+        if (!ladder) {
             // we need to place a block where we started to jump on it
             placeCost = context.costOfPlacingAt(x, y, z, fromState);
             if (placeCost >= COST_INF) {
-                return;
+                return COST_INF;
             }
-            if (fromDown.isAir()) {
+            if (fromDown.getBlock() instanceof AirBlock) {
                 placeCost += 0.1; // slightly (1/200th of a second) penalize pillaring on what's currently air
             }
         }
-
-        if (climbable || swimmable) {
-            result.cost = LADDER_UP_ONE_COST + totalHardness * 5;
-            result.oxygenCost = context.oxygenCost(LADDER_UP_ONE_COST / 2 + totalHardness * 5, context.get(x, y + context.height - 1, z))
-                    + context.oxygenCost(LADDER_UP_ONE_COST / 2, context.get(x, y + context.height, z));
+        if ((MovementHelper.isLiquid(fromState) && !MovementHelper.canPlaceAgainst(context.bsi, x, y - 1, z, fromDown)) || (MovementHelper.isLiquid(fromDown) && context.assumeWalkOnWater)) {
+            // otherwise, if we're standing in water, we cannot pillar
+            // if we're standing on water and assumeWalkOnWater is true, we cannot pillar
+            // if we're standing on water and assumeWalkOnWater is false, we must have ascended to here, or sneak backplaced, so it is possible to pillar again
+            return COST_INF;
+        }
+        if ((from == Blocks.LILY_PAD || from instanceof CarpetBlock) && !fromDown.getFluidState().isEmpty()) {
+            // to ascend here we'd have to break the block we are standing on
+            return COST_INF;
+        }
+        double hardness = MovementHelper.getMiningDurationTicks(context, x, y + 2, z, toBreak, true);
+        if (hardness >= COST_INF) {
+            return COST_INF;
+        }
+        if (hardness != 0) {
+            if (MovementHelper.isClimbable(toBreakBlock)) {
+                hardness = 0; // we won't actually need to break the ladder / vine because we're going to use it
+            } else {
+                BlockState check = context.get(x, y + 3, z); // the block on top of the one we're going to break, could it fall on us?
+                if (check.getBlock() instanceof FallingBlock) {
+                    // see MovementAscend's identical check for breaking a falling block above our head
+                    if (srcUp == null) {
+                        srcUp = context.get(x, y + 1, z);
+                    }
+                    if (!(toBreakBlock instanceof FallingBlock) || !(srcUp.getBlock() instanceof FallingBlock)) {
+                        return COST_INF;
+                    }
+                }
+                // this is commented because it may have had a purpose, but it's very unclear what it was. it's from the minebot era.
+                //if (!MovementHelper.canWalkOn(context, chkPos, check) || MovementHelper.canWalkThrough(context, chkPos, check)) {//if the block above where we want to break is not a full block, don't do it
+                // TODO why does canWalkThrough mean this action is COST_INF?
+                // FallingBlock makes sense, and !canWalkOn deals with weird cases like if it were lava
+                // but I don't understand why canWalkThrough makes it impossible
+                //    return COST_INF;
+                //}
+            }
+        }
+        if (ladder) {
+            return LADDER_UP_ONE_COST + hardness * 5;
         } else {
-            result.cost = JUMP_ONE_BLOCK_COST + placeCost + context.jumpPenalty + totalHardness;
-            // Not swimmable so no water
-            result.oxygenCost = context.oxygenCost(JUMP_ONE_BLOCK_COST+placeCost+totalHardness, Blocks.AIR.getDefaultState());
+            return JUMP_ONE_BLOCK_COST + placeCost + context.jumpPenalty + hardness;
         }
-    }
-
-    private static boolean isClimbable(BlockStateInterface context, int x, int y, int z) {
-        if (context.get0(x, y, z).isIn(BlockTags.CLIMBABLE)) return true;
-        if (context.get0(x, y + 1, z).isIn(BlockTags.CLIMBABLE)) {
-            // you can only use a ladder at head level if you are standing on firm ground
-            return MovementHelper.isBlockNormalCube(context.get0(x, y - 1, z));
-        }
-        return false;
-    }
-
-    public static BlockPos getAgainst(CalculationContext context, BetterBlockPos vine) {
-        if (MovementHelper.isBlockNormalCube(context.get(vine.north()))) {
-            return vine.north();
-        }
-        if (MovementHelper.isBlockNormalCube(context.get(vine.south()))) {
-            return vine.south();
-        }
-        if (MovementHelper.isBlockNormalCube(context.get(vine.east()))) {
-            return vine.east();
-        }
-        if (MovementHelper.isBlockNormalCube(context.get(vine.west()))) {
-            return vine.west();
-        }
-        return null;
     }
 
     @Override
@@ -223,61 +142,54 @@ public class MovementPillar extends Movement {
             return state;
         }
 
-        if (ctx.feetPos().y < src.y) {
+        if (ctx.playerFeet().y < src.y) {
             return state.setStatus(MovementStatus.UNREACHABLE);
         }
 
         BlockState fromDown = BlockStateInterface.get(ctx, src);
-        if (ctx.entity().isTouchingWater() || MovementHelper.isWater(ctx, src.up(MathHelper.ceil(ctx.entity().getHeight())))) {
+        if (MovementHelper.isWater(fromDown) && MovementHelper.isWater(ctx, dest)) {
             // stay centered while swimming up a water column
-            centerForAscend(ctx, dest, state, 0.2);
-            state.setInput(Input.JUMP, true);
-            if (ctx.feetPos().equals(dest)) {
+            state.setTarget(new MovementState.MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.playerHead(), VecUtils.getBlockPosCenter(dest), ctx.playerRotations()), false));
+            Vec3 destCenter = VecUtils.getBlockPosCenter(dest);
+            if (Math.abs(ctx.player().position().x - destCenter.x) > 0.2 || Math.abs(ctx.player().position().z - destCenter.z) > 0.2) {
+                state.setInput(Input.MOVE_FORWARD, true);
+            }
+            if (ctx.playerFeet().equals(dest)) {
                 return state.setStatus(MovementStatus.SUCCESS);
             }
             return state;
         }
-        boolean ladder = isClimbable(((Baritone) baritone).bsi, src.x, src.y, src.z);
-        Rotation rotation = RotationUtils.calcRotationFromVec3d(ctx.headPos(),
+        boolean ladder = MovementHelper.isClimbable(fromDown.getBlock());
+
+        Rotation rotation = RotationUtils.calcRotationFromVec3d(ctx.playerHead(),
                 VecUtils.getBlockPosCenter(positionToPlace),
-                new Rotation(ctx.entity().getYaw(), ctx.entity().getPitch()));
+                ctx.playerRotations());
         if (!ladder) {
-            state.setTarget(new MovementState.MovementTarget(new Rotation(ctx.entity().getYaw(), rotation.getPitch()), true));
+            state.setTarget(new MovementState.MovementTarget(ctx.playerRotations().withPitch(rotation.getPitch()), true));
         }
 
         boolean blockIsThere = MovementHelper.canWalkOn(ctx, src) || ladder;
         if (ladder) {
-            if (ctx.entity().getWidth() > 1) {
-                baritone.logDirect("Large entities cannot climb ladders :/");
-                return state.setStatus(MovementStatus.UNREACHABLE);
-            }
-            BlockPos supportingBlock = getSupportingBlock(baritone, ctx, src, fromDown);
-
-            if ((supportingBlock != null && ctx.feetPos().equals(supportingBlock.up())) || ctx.feetPos().equals(dest)) {
+            if (ctx.playerFeet().equals(dest)) {
                 return state.setStatus(MovementStatus.SUCCESS);
             }
 
-            if (supportingBlock != null) {
-                MovementHelper.moveTowards(ctx, state, supportingBlock);
-            } else {
-                // stay centered while climbing up
-                centerForAscend(ctx, dest, state, 0.27);    // trial and error
-            }
-            return state.setInput(Input.JUMP, true);
+            MovementHelper.moveTowards(ctx, state, dest);
+            state.setInput(Input.JUMP, true);
+            return state;
         } else {
             // Get ready to place a throwaway block
             if (!((Baritone) baritone).getInventoryBehavior().selectThrowawayForLocation(true, src.x, src.y, src.z)) {
                 return state.setStatus(MovementStatus.UNREACHABLE);
             }
 
-
-            state.setInput(Input.SNEAK, ctx.entity().getY() > dest.getY() || ctx.entity().getY() < src.getY() + 0.2D); // delay placement by 1 tick for ncp compatibility
+            state.setInput(Input.SNEAK, true);
             // since (lower down) we only right click once player.isSneaking, and that happens the tick after we request to sneak
 
-            double diffX = ctx.entity().getX() - (dest.getX() + 0.5);
-            double diffZ = ctx.entity().getZ() - (dest.getZ() + 0.5);
+            double diffX = ctx.player().position().x - (dest.getX() + 0.5);
+            double diffZ = ctx.player().position().z - (dest.getZ() + 0.5);
             double dist = Math.sqrt(diffX * diffX + diffZ * diffZ);
-            double flatMotion = Math.sqrt(ctx.entity().getVelocity().x * ctx.entity().getVelocity().x + ctx.entity().getVelocity().z * ctx.entity().getVelocity().z);
+            double flatMotion = Math.sqrt(ctx.player().getDeltaMovement().x * ctx.player().getDeltaMovement().x + ctx.player().getDeltaMovement().z * ctx.player().getDeltaMovement().z);
             if (dist > 0.17) {//why 0.17? because it seemed like a good number, that's why
                 //[explanation added after baritone port lol] also because it needs to be less than 0.2 because of the 0.3 sneak limit
                 //and 0.17 is reasonably less than 0.2
@@ -289,62 +201,45 @@ public class MovementPillar extends Movement {
                 state.setTarget(new MovementState.MovementTarget(rotation, true));
             } else if (flatMotion < 0.05) {
                 // If our Y coordinate is above our goal, stop jumping
-                state.setInput(Input.JUMP, ctx.entity().getY() < dest.getY());
+                state.setInput(Input.JUMP, ctx.player().position().y < dest.getY());
             }
 
 
             if (!blockIsThere) {
                 BlockState frState = BlockStateInterface.get(ctx, src);
+                Block fr = frState.getBlock();
                 // TODO: Evaluate usage of getMaterial().isReplaceable()
-                if (!(frState.isAir() || frState.materialReplaceable())) {
-                    RotationUtils.reachable(ctx.entity(), src, ctx.playerController().getBlockReachDistance())
+                if (!(fr instanceof AirBlock || frState.canBeReplaced())) {
+                    RotationUtils.reachable(ctx, src, ctx.playerController().getBlockReachDistance())
                             .map(rot -> new MovementState.MovementTarget(rot, true))
                             .ifPresent(state::setTarget);
                     state.setInput(Input.JUMP, false); // breaking is like 5x slower when you're jumping
                     state.setInput(Input.CLICK_LEFT, true);
                     blockIsThere = false;
-                } else if (ctx.entity().isSneaking() && (ctx.isLookingAt(src.down()) || ctx.isLookingAt(src)) && ctx.entity().getY() > dest.getY() + 0.1) {
+                } else if (ctx.player().isCrouching() && (ctx.isLookingAt(src.below()) || ctx.isLookingAt(src)) && ctx.player().position().y > dest.getY() + 0.1) {
                     state.setInput(Input.CLICK_RIGHT, true);
                 }
             }
         }
 
         // If we are at our goal and the block below us is placed
-        if (ctx.feetPos().equals(dest) && blockIsThere) {
+        if (ctx.playerFeet().equals(dest) && blockIsThere) {
             return state.setStatus(MovementStatus.SUCCESS);
         }
 
         return state;
     }
 
-    @Nullable
-    public static BlockPos getSupportingBlock(IBaritone baritone, IEntityContext ctx, BetterBlockPos src, BlockState climbableBlock) {
-        BlockPos supportingBlock;
-        if (Block.isFaceFullSquare(climbableBlock.getCollisionShape(ctx.world(), src), Direction.UP)) {
-            supportingBlock = null;
-        } else if (climbableBlock.getBlock() instanceof LadderBlock) {
-            supportingBlock = src.offset(climbableBlock.get(LadderBlock.FACING).getOpposite());
-        } else {
-            supportingBlock = getAgainst(new CalculationContext(baritone), src);
-        }
-        return supportingBlock;
-    }
-
-    public static void centerForAscend(IEntityContext ctx, BetterBlockPos dest, MovementState state, double allowedDistance) {
-        state.setTarget(new MovementState.MovementTarget(RotationUtils.calcRotationFromVec3d(ctx.headPos(), VecUtils.getBlockPosCenter(dest), ctx.entityRotations()), false));
-        Vec3d destCenter = VecUtils.getBlockPosCenter(dest);
-        if (Math.abs(ctx.entity().getX() - destCenter.x) > allowedDistance || Math.abs(ctx.entity().getZ() - destCenter.z) > allowedDistance) {
-            state.setInput(Input.MOVE_FORWARD, true);
-        }
-    }
-
     @Override
     protected boolean prepared(MovementState state) {
-        if (ctx.feetPos().equals(src) || ctx.feetPos().equals(src.down())) {
-            Block block = BlockStateInterface.getBlock(ctx, src.down());
-            if (block == Blocks.LADDER || block == Blocks.VINE) {
+        if (ctx.playerFeet().equals(src) || ctx.playerFeet().equals(src.below())) {
+            Block block = BlockStateInterface.getBlock(ctx, src.below());
+            if (MovementHelper.isClimbable(block)) {
                 state.setInput(Input.SNEAK, true);
             }
+        }
+        if (MovementHelper.isWater(ctx, dest.above())) {
+            return true;
         }
         return super.prepared(state);
     }

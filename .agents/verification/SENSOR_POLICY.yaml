@@ -1,0 +1,243 @@
+schema_version: 2
+
+status_values:
+  PASS: executed and satisfied configured criterion
+  FAIL: executed and violated a blocking criterion
+  WARN: executed and produced non-blocking findings requiring visibility
+  UNVERIFIED: required measurement could not be obtained
+  SKIPPED: explicitly not applicable under the selected profile
+
+verdict_rules:
+  - Any required FAIL => task FAIL.
+  - Any required UNVERIFIED => task INCOMPLETE; it cannot be ACCEPTED.
+  - WARN does not block unless a task explicitly promotes that warning class.
+  - SKIPPED is valid only when policy/task profile makes the sensor non-applicable.
+  - Final ACCEPTED evidence must come from a fresh-context clean run.
+
+workflow_sensors:
+  graphify_preflight:
+    kind: state_sensor
+    hard_gate: false
+    purpose: existing responsibilities, callers, paths, impact, conceptual overlap
+    behavior:
+      - If graphify-out/graph.json exists, query/update it rather than rebuilding blindly.
+      - Prefer scoped query/path/explain output over broad report ingestion.
+      - Findings are advisory unless mapped to a deterministic architecture/duplication rule.
+
+  graphify_postchange:
+    kind: state_sensor
+    hard_gate: false
+    purpose: topology/relationship delta after structural changes
+    behavior:
+      - Run graphify update . after meaningful code changes.
+      - For architecture-sensitive tasks, query for newly introduced responsibility/dependency edges.
+
+core_java_sensors:
+  compile:
+    required_by_default: true
+    preferred_command: ./gradlew compileJava compileTestJava
+    unavailable_status: UNVERIFIED
+    question: Does the project compile against its declared Java/Minecraft/NeoForge APIs?
+
+  unit_tests:
+    required_by_default: true
+    preferred_command: ./gradlew test
+    unavailable_status: UNVERIFIED
+    question: Do isolated Java behaviors and regressions satisfy tests?
+
+  checkstyle:
+    required_by_default: true
+    preferred_command: ./gradlew checkstyleMain checkstyleTest
+    unavailable_status: UNVERIFIED
+    question: Did source-level structural/style policy regress?
+
+  error_prone:
+    required_by_default: true
+    execution: integrate with JavaCompile tasks; verify during compile
+    unavailable_status: UNVERIFIED
+    question: Did compile-time Java correctness diagnostics introduce blocking findings?
+
+  spotbugs:
+    required_by_default: true
+    preferred_command: ./gradlew spotbugsMain spotbugsTest
+    unavailable_status: UNVERIFIED
+    question: Did compiled code introduce likely correctness defects?
+
+  archunit:
+    required_by_default: true
+    execution: JUnit/Gradle test suite containing explicit architecture tests
+    unavailable_status: UNVERIFIED
+    question: Were project architecture/dependency invariants violated?
+
+  duplication:
+    required_by_default: true
+    implementation_preference: PMD CPD or equivalent deterministic duplicate-code detector
+    preferred_command: project-defined aggregate task
+    unavailable_status: UNVERIFIED
+    question: Did the change introduce unacceptable copied/structurally duplicated implementation?
+
+  coverage:
+    required_by_default: false
+    implementation_preference: JaCoCo
+    preferred_command: ./gradlew jacocoTestReport jacocoTestCoverageVerification
+    unavailable_status: UNVERIFIED
+    question: Did tests exercise the changed behavior sufficiently?
+    note: Coverage is a measurement, not proof of correctness.
+
+profile_definitions:
+  default:
+    required:
+      - compile
+      - unit_tests
+      - checkstyle
+      - error_prone
+      - spotbugs
+      - archunit
+      - duplication
+    advisory:
+      - graphify_postchange
+
+  runtime_minecraft:
+    required:
+      - neoforge_gametest
+    purpose: Minecraft/NeoForge feature behavior that pure Java analysis cannot prove. The framework is built in, but project-specific GameTests still require test authoring.
+
+  server_runtime_observability:
+    required:
+      - spark_server_health
+    advisory:
+      - minecraft_jfr
+      - vanilla_debug_profiler
+    purpose: Zero-custom-code observation of a live dedicated server. Uses existing server/profiler tooling only.
+    constraints:
+      - Do not add an Automatone telemetry API, custom probe, diagnostics command, or instrumentation solely to satisfy this profile.
+      - Tool installation/configuration is allowed; production Java implementation is not required.
+      - These sensors measure runtime health/cost and hot paths, not product correctness by themselves.
+
+  architecture_sensitive:
+    required:
+      - archunit
+      - duplication
+    advisory:
+      - graphify_preflight
+      - graphify_postchange
+
+  dependency_change:
+    required:
+      - dependency_vulnerability
+      - dependency_resolution
+
+  network_security:
+    required:
+      - authorization_negative_tests
+      - malformed_payload_tests
+    purpose: server-authoritative/packet validation behavior
+
+  persistence:
+    required:
+      - save_reload_tests
+      - restart_interruption_tests
+
+  performance_sensitive:
+    required:
+      - spark_server_health
+      - task_defined_performance_budget
+    advisory:
+      - minecraft_jfr
+      - vanilla_debug_profiler
+    purpose: Detect server-tick/performance regressions using off-the-shelf runtime profilers before deeper custom instrumentation is considered.
+
+  coverage_sensitive:
+    required:
+      - coverage
+
+project_runtime_sensors:
+  neoforge_gametest:
+    source: NeoForge built-in GameTest framework
+    preferred_command: ./gradlew runGameTestServer
+    unavailable_status: UNVERIFIED
+    custom_sensor_development_required: false
+    task_test_authoring_may_be_required: true
+    question: Does the feature behave correctly in the actual NeoForge/Minecraft server runtime?
+
+  spark_server_health:
+    source: external off-the-shelf spark server profiler/mod
+    execution: Run the compatible server-side spark distribution in the verification server and collect its health/profiler output for the task-defined observation window.
+    installation: Configure as verification/dev-server tooling only; do not integrate spark APIs into Automatone production code.
+    unavailable_status: UNVERIFIED
+    custom_sensor_development_required: false
+    measurements:
+      - TPS/MSPT or equivalent server tick health
+      - CPU/hot-path profiler evidence when requested
+      - memory/GC evidence when requested
+    question: Did the candidate materially degrade live server health or reveal an unexpected hot path?
+
+  minecraft_jfr:
+    source: Minecraft/JVM built-in Java Flight Recorder integration
+    execution: Use the server's built-in JFR start/stop capability for a bounded task-defined workload and retain the generated recording/report as evidence.
+    installation: None beyond running on the supported Java/Minecraft environment.
+    unavailable_status: UNVERIFIED
+    custom_sensor_development_required: false
+    default_gate: advisory
+    measurements:
+      - tick timing
+      - CPU samples/hot methods
+      - allocation/GC behavior where available
+      - Minecraft/JVM runtime events captured by the recording
+    question: What code/runtime activity explains an observed performance or stability regression?
+
+  vanilla_debug_profiler:
+    source: Minecraft dedicated-server built-in debug profiler
+    execution: Use the vanilla /debug start and /debug stop workflow during a bounded task-defined workload and retain the generated profiling output.
+    installation: None.
+    unavailable_status: UNVERIFIED
+    custom_sensor_development_required: false
+    default_gate: advisory
+    question: Which server tick sections are consuming time during the workload?
+
+  dependency_vulnerability:
+    implementation_preference: OWASP Dependency-Check or equivalent
+    preferred_command: ./gradlew dependencyCheckAnalyze
+    unavailable_status: UNVERIFIED
+
+  dependency_resolution:
+    execution: verify declared dependencies resolve from a clean environment
+    unavailable_status: UNVERIFIED
+
+  authorization_negative_tests:
+    execution: task-defined JUnit/GameTests for unauthorized actions
+    unavailable_status: UNVERIFIED
+
+  malformed_payload_tests:
+    execution: task-defined networking validation tests
+    unavailable_status: UNVERIFIED
+
+  save_reload_tests:
+    execution: task-defined GameTests/integration tests
+    unavailable_status: UNVERIFIED
+
+  restart_interruption_tests:
+    execution: task-defined restart/reload acceptance test
+    unavailable_status: UNVERIFIED
+
+  task_defined_performance_budget:
+    execution: task spec must define workload, metric, baseline, threshold, and environment. Prefer measurements supplied by spark; use JFR or vanilla debug output for diagnosis.
+    unavailable_status: UNVERIFIED
+
+bootstrap_expectations:
+  aggregate_tasks:
+    sensorCheck: compile + default Java sensor profile
+    sensorIntegration: NeoForge GameTests/runtime integration profile
+    sensorServerRuntime: off-the-shelf server runtime observability profile (spark; JFR/debug as selected)
+    sensorAll: complete configured gauntlet appropriate to repository
+  version_policy:
+    - Resolve compatible versions from actual repository Java/Gradle/NeoForge constraints.
+    - Do not copy dependency/plugin versions from this template blindly.
+    - Resolve a spark build compatible with the project's actual Minecraft/NeoForge server version.
+  no_custom_runtime_sensor_policy:
+    - Prefer NeoForge/Minecraft/JVM/spark facilities before proposing custom runtime telemetry.
+    - Do not create an Automatone runtime probe, telemetry API, diagnostics endpoint, or custom profiler as part of bootstrap.
+    - If off-the-shelf sensors cannot observe a required acceptance criterion, report the gap as UNVERIFIED and let the planner decide whether task-specific tests are warranted.
+  missing_tool_policy:
+    - Required unavailable sensor is UNVERIFIED and blocks acceptance.
+    - Bootstrap may record explicit tooling blockers rather than fabricate a pass.

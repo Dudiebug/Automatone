@@ -17,69 +17,68 @@
 
 package baritone.api.utils;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.world.ServerWorld;
+import com.google.common.collect.ImmutableSet;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public class BlockOptionalMetaLookup {
-
+    private final ImmutableSet<Block> blockSet;
+    private final ImmutableSet<BlockState> blockStateSet;
+    private final ImmutableSet<Item> stackItems;
     private final BlockOptionalMeta[] boms;
 
     public BlockOptionalMetaLookup(BlockOptionalMeta... boms) {
         this.boms = boms;
+        Set<Block> blocks = new HashSet<>();
+        Set<BlockState> blockStates = new HashSet<>();
+        Set<Item> stacks = new HashSet<>();
+        for (BlockOptionalMeta bom : boms) {
+            blocks.add(bom.getBlock());
+            blockStates.addAll(bom.getAllBlockStates());
+            stacks.addAll(bom.stackItems());
+        }
+        this.blockSet = ImmutableSet.copyOf(blocks);
+        this.blockStateSet = ImmutableSet.copyOf(blockStates);
+        this.stackItems = ImmutableSet.copyOf(stacks);
     }
 
-    public BlockOptionalMetaLookup(ServerWorld world, Block... blocks) {
-        this.boms = Stream.of(blocks)
-                .map(block -> new BlockOptionalMeta(world, block))
-                .toArray(BlockOptionalMeta[]::new);
+    public BlockOptionalMetaLookup(Block... blocks) {
+        this(Stream.of(blocks)
+                .map(BlockOptionalMeta::new)
+                .toArray(BlockOptionalMeta[]::new));
+
     }
 
-    public BlockOptionalMetaLookup(ServerWorld world, List<Block> blocks) {
-        this.boms = blocks.stream()
-                .map(block -> new BlockOptionalMeta(world, block))
-                .toArray(BlockOptionalMeta[]::new);
+    public BlockOptionalMetaLookup(List<Block> blocks) {
+        this(blocks.stream()
+                .map(BlockOptionalMeta::new)
+                .toArray(BlockOptionalMeta[]::new));
     }
 
-    public BlockOptionalMetaLookup(ServerWorld world, String... blocks) {
-        this.boms = Stream.of(blocks)
-                .map(block -> new BlockOptionalMeta(world, block))
-                .toArray(BlockOptionalMeta[]::new);
+    public BlockOptionalMetaLookup(String... blocks) {
+        this(Stream.of(blocks)
+                .map(BlockOptionalMeta::new)
+                .toArray(BlockOptionalMeta[]::new));
     }
 
     public boolean has(Block block) {
-        for (BlockOptionalMeta bom : boms) {
-            if (bom.getBlock() == block) {
-                return true;
-            }
-        }
-
-        return false;
+        return blockSet.contains(block);
     }
 
     public boolean has(BlockState state) {
-        for (BlockOptionalMeta bom : boms) {
-            if (bom.matches(state)) {
-                return true;
-            }
-        }
-
-        return false;
+        return blockStateSet.contains(state);
     }
 
     public boolean has(ItemStack stack) {
-        for (BlockOptionalMeta bom : boms) {
-            if (bom.matches(stack)) {
-                return true;
-            }
-        }
-
-        return false;
+        return stackItems.contains(stack.getItem());
     }
 
     public List<BlockOptionalMeta> blocks() {

@@ -24,28 +24,15 @@ import baritone.api.command.manager.ICommandManager;
 import baritone.api.event.listener.IEventBus;
 import baritone.api.pathing.calc.IPathingControlManager;
 import baritone.api.process.*;
-import baritone.api.utils.IEntityContext;
+import baritone.api.selection.ISelectionManager;
 import baritone.api.utils.IInputOverrideHandler;
-import dev.onyxstudios.cca.api.v3.component.ComponentKey;
-import dev.onyxstudios.cca.api.v3.component.ComponentRegistry;
-import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent;
-import dev.onyxstudios.cca.api.v3.component.tick.ServerTickingComponent;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-
-import java.util.Arrays;
-import java.util.stream.Stream;
+import baritone.api.utils.IPlayerContext;
 
 /**
  * @author Brady
  * @since 9/29/2018
  */
-public interface IBaritone extends AutoSyncedComponent, ServerTickingComponent {
-    ComponentKey<IBaritone> KEY = ComponentRegistry.getOrCreate(new Identifier("automatone", "core"), IBaritone.class);
+public interface IBaritone {
 
     /**
      * @return The {@link IPathingBehavior} instance
@@ -123,10 +110,10 @@ public interface IBaritone extends AutoSyncedComponent, ServerTickingComponent {
     IInputOverrideHandler getInputOverrideHandler();
 
     /**
-     * @return The {@link IEntityContext} instance
-     * @see IEntityContext
+     * @return The {@link IPlayerContext} instance
+     * @see IPlayerContext
      */
-    IEntityContext getPlayerContext();
+    IPlayerContext getPlayerContext();
 
     /**
      * @return The {@link IEventBus} instance
@@ -135,63 +122,30 @@ public interface IBaritone extends AutoSyncedComponent, ServerTickingComponent {
     IEventBus getGameEventHandler();
 
     /**
+     * @return The {@link ISelectionManager} instance
+     * @see ISelectionManager
+     */
+    ISelectionManager getSelectionManager();
+
+    /**
      * @return The {@link ICommandManager} instance
      * @see ICommandManager
      */
     ICommandManager getCommandManager();
 
     /**
-     * Send a message to chat only if chatDebug is on
-     *
-     * @param message The message to display in chat
+     * Open click
      */
-    void logDebug(String message);
+    void openClick();
 
-    /**
-     * Send components to chat with the [Automatone] prefix
-     *
-     * @param components The components to send
-     */
-    default void logDirect(Text... components) {
-        IEntityContext playerContext = this.getPlayerContext();
-        LivingEntity entity = playerContext.entity();
-        if (entity instanceof PlayerEntity) {
-            MutableText component = Text.literal("");
-            // If we are not logging as a Toast
-            // Append the prefix to the base component line
-            component.append(BaritoneAPI.getPrefix());
-            component.append(Text.literal(" "));
-            Arrays.asList(components).forEach(component::append);
-            ((PlayerEntity) entity).sendMessage(component, false);
-        }
-    }
+    /** Advances this runtime by one host tick. */
+    void tick();
 
-    /**
-     * Send a message to chat regardless of chatDebug (should only be used for critically important messages, or as a
-     * direct response to a chat command)
-     *
-     * @param message The message to display in chat
-     * @param color   The color to print that message in
-     */
-    default void logDirect(String message, Formatting color) {
-        Stream.of(message.split("\n")).forEach(line -> {
-            MutableText component = Text.literal(line.replace("\t", "    "));
-            component.setStyle(component.getStyle().withFormatting(color));
-            logDirect(component);
-        });
-    }
+    /** Cancels work and releases runtime-owned state. Idempotent. */
+    void dispose();
 
-    /**
-     * Send a message to chat regardless of chatDebug (should only be used for critically important messages, or as a
-     * direct response to a chat command)
-     *
-     * @param message The message to display in chat
-     */
-    default void logDirect(String message) {
-        logDirect(message, Formatting.GRAY);
-    }
+    boolean isDisposed();
 
-    boolean isActive();
-
-    Settings settings();
+    /** Whether the explicitly supplied host is still loaded and usable. */
+    boolean isHostAvailable();
 }

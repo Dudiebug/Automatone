@@ -25,7 +25,6 @@ import baritone.api.command.exception.CommandInvalidStateException;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalInverted;
 import baritone.api.process.ICustomGoalProcess;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -33,12 +32,12 @@ import java.util.stream.Stream;
 
 public class InvertCommand extends Command {
 
-    public InvertCommand() {
-        super("invert");
+    public InvertCommand(IBaritone baritone) {
+        super(baritone, "invert");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(0);
         ICustomGoalProcess customGoalProcess = baritone.getCustomGoalProcess();
         Goal goal;
@@ -51,7 +50,7 @@ public class InvertCommand extends Command {
             goal = new GoalInverted(goal);
         }
         customGoalProcess.setGoalAndPath(goal);
-        logDirect(source, String.format("Goal: %s", goal.toString()));
+        logDirect(String.format("Goal: %s", goal.toString()));
     }
 
     @Override
@@ -67,7 +66,7 @@ public class InvertCommand extends Command {
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "The invert command tells Automatone to head away from the current goal rather than towards it.",
+                "The invert command tells Baritone to head away from the current goal rather than towards it.",
                 "",
                 "Usage:",
                 "> invert - Invert the current goal."

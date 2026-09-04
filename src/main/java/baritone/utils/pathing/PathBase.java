@@ -17,19 +17,22 @@
 
 package baritone.utils.pathing;
 
-import baritone.api.Settings;
+import baritone.Baritone;
+import baritone.api.BaritoneAPI;
 import baritone.api.pathing.calc.IPath;
 import baritone.api.pathing.goals.Goal;
 import baritone.pathing.path.CutoffPath;
 import baritone.utils.BlockStateInterface;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 
 public abstract class PathBase implements IPath {
 
-    public PathBase cutoffAtLoadedChunks(BlockStateInterface bsi, Settings settings) {
-        if (!settings.cutoffAtLoadBoundary.get()) {
+    @Override
+    public PathBase cutoffAtLoadedChunks(Object bsi0) { // <-- cursed cursed cursed
+        if (!Baritone.settings().cutoffAtLoadBoundary.value) {
             return this;
         }
+        BlockStateInterface bsi = (BlockStateInterface) bsi0;
         for (int i = 0; i < positions().size(); i++) {
             BlockPos pos = positions().get(i);
             if (!bsi.worldContainsLoadedChunk(pos.getX(), pos.getZ())) {
@@ -39,19 +42,17 @@ public abstract class PathBase implements IPath {
         return this;
     }
 
-    public PathBase staticCutoff(Goal destination, Settings settings) {
-        int minLength = settings.pathCutoffMinimumLength.get();
-        double cutoffFactor = settings.pathCutoffFactor.get();
-
-        if (length() < minLength) {
+    @Override
+    public PathBase staticCutoff(Goal destination) {
+        int min = BaritoneAPI.getSettings().pathCutoffMinimumLength.value;
+        if (length() < min) {
             return this;
         }
-
         if (destination == null || destination.isInGoal(getDest())) {
             return this;
         }
-
-        int newLength = (int) ((length() - minLength) * cutoffFactor) + minLength - 1;
+        double factor = BaritoneAPI.getSettings().pathCutoffFactor.value;
+        int newLength = (int) ((length() - min) * factor) + min - 1;
         return new CutoffPath(this, newLength);
     }
 }

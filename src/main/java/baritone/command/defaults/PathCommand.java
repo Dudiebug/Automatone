@@ -17,12 +17,12 @@
 
 package baritone.command.defaults;
 
+import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
 import baritone.api.process.ICustomGoalProcess;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,16 +30,21 @@ import java.util.stream.Stream;
 
 public class PathCommand extends Command {
 
-    public PathCommand() {
-        super("path");
+    public PathCommand(IBaritone baritone) {
+        super(baritone, "path");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         ICustomGoalProcess customGoalProcess = baritone.getCustomGoalProcess();
         args.requireMax(0);
+        if (customGoalProcess.getGoal() == null) {
+            logDirect("No goal set");
+            return;
+        }
+        BaritoneAPI.getProvider().getWorldScanner().repack(ctx);
         customGoalProcess.path();
-        logDirect(source, "Now pathing");
+        logDirect("Now pathing");
     }
 
     @Override
@@ -55,7 +60,7 @@ public class PathCommand extends Command {
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "The path command makes the targeted entity head towards the current goal.",
+                "The path command tells Baritone to head towards the current goal.",
                 "",
                 "Usage:",
                 "> path - Start the pathing."

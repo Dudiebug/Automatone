@@ -17,18 +17,13 @@
 
 package baritone.api.cache;
 
-import dev.onyxstudios.cca.api.v3.component.Component;
-import dev.onyxstudios.cca.api.v3.component.ComponentKey;
-import dev.onyxstudios.cca.api.v3.component.ComponentRegistry;
-import dev.onyxstudios.cca.api.v3.component.TransientComponent;
-import net.minecraft.util.Identifier;
+import java.util.function.Consumer;
 
 /**
  * @author Brady
  * @since 9/24/2018
  */
-public interface IWorldProvider extends Component {
-    ComponentKey<IWorldProvider> KEY = ComponentRegistry.getOrCreate(new Identifier("automatone", "world_data_provider"), IWorldProvider.class);
+public interface IWorldProvider {
 
     /**
      * Returns the data of the currently loaded world
@@ -36,4 +31,11 @@ public interface IWorldProvider extends Component {
      * @return The current world data
      */
     IWorldData getCurrentWorld();
+
+    default void ifWorldLoaded(Consumer<IWorldData> callback) {
+        final IWorldData currentWorld = this.getCurrentWorld();
+        if (currentWorld != null) {
+            callback.accept(currentWorld);
+        }
+    }
 }

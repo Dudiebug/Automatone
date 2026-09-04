@@ -18,77 +18,80 @@
 package baritone.behavior;
 
 import baritone.Baritone;
+import baritone.api.event.events.TickEvent;
+import baritone.api.utils.Helper;
 import baritone.utils.ToolSet;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ItemUsageContext;
-import net.minecraft.item.PickaxeItem;
-import net.minecraft.item.ToolItem;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Hand;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-
+import net.minecraft.world.Container;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.DiggerItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import java.util.ArrayList;
 import java.util.OptionalInt;
-import java.util.Random;
 import java.util.function.Predicate;
+import java.util.concurrent.ThreadLocalRandom;
 
-public final class InventoryBehavior extends Behavior {
+public final class InventoryBehavior extends Behavior implements Helper {
+
+    int ticksSinceLastInventoryMove;
+    int[] lastTickRequestedMove; // not everything asks every tick, so remember the request while coming to a halt
 
     public InventoryBehavior(Baritone baritone) {
         super(baritone);
     }
 
     @Override
-    public void onTickServer() {
-        if (!baritone.settings().allowInventory.get()) {
+    public void onTick(TickEvent event) {
+        if (!Baritone.settings().allowInventory.value) {
             return;
         }
-        if (!(ctx.entity() instanceof PlayerEntity player)) {
+        if (event.getType() == TickEvent.Type.OUT) {
             return;
         }
-        if (player.playerScreenHandler != player.currentScreenHandler) {
-            // we have a crafting table or a chest or something open
+        Container inventory = ctx.inventory();
+        if (inventory == null || inventory.getContainerSize() < 9) {
             return;
         }
-        if (firstValidThrowaway(player.getInventory()) >= 9) { // aka there are none on the hotbar, but there are some in main inventory
-            swapWithHotBar(firstValidThrowaway(player.getInventory()), 8, player.getInventory());
+        ticksSinceLastInventoryMove++;
+        if (firstValidThrowaway() >= 9) { // aka there are none on the hotbar, but there are some in main inventory
+            requestSwapWithHotBar(firstValidThrowaway(), 8);
         }
         int pick = bestToolAgainst(Blocks.STONE, PickaxeItem.class);
         if (pick >= 9) {
-            swapWithHotBar(pick, 0, player.getInventory());
+            requestSwapWithHotBar(pick, 0);
+        }
+        if (lastTickRequestedMove != null) {
+            logDebug("Remembering to move " + lastTickRequestedMove[0] + " " + lastTickRequestedMove[1] + " from a previous tick");
+            requestSwapWithHotBar(lastTickRequestedMove[0], lastTickRequestedMove[1]);
         }
     }
 
-    public void attemptToPutOnHotbar(int inMainInvy, Predicate<Integer> disallowedHotbar, PlayerInventory inventory) {
+    public boolean attemptToPutOnHotbar(int inMainInvy, Predicate<Integer> disallowedHotbar) {
         OptionalInt destination = getTempHotbarSlot(disallowedHotbar);
         if (destination.isPresent()) {
-            swapWithHotBar(inMainInvy, destination.getAsInt(), inventory);
+            if (!requestSwapWithHotBar(inMainInvy, destination.getAsInt())) {
+                return false;
+            }
         }
+        return true;
     }
 
     public OptionalInt getTempHotbarSlot(Predicate<Integer> disallowedHotbar) {
-        PlayerInventory inventory = ctx.inventory();
-        if (inventory == null) return OptionalInt.empty();
-
         // we're using 0 and 8 for pickaxe and throwaway
+        Container inventory = ctx.inventory();
+        if (inventory == null || inventory.getContainerSize() < 9) {
+            return OptionalInt.empty();
+        }
         ArrayList<Integer> candidates = new ArrayList<>();
         for (int i = 1; i < 8; i++) {
-            if (inventory.main.get(i).isEmpty() && !disallowedHotbar.test(i)) {
+            if (inventory.getItem(i).isEmpty() && !disallowedHotbar.test(i)) {
                 candidates.add(i);
             }
         }
-
         if (candidates.isEmpty()) {
             for (int i = 1; i < 8; i++) {
                 if (!disallowedHotbar.test(i)) {
@@ -96,44 +99,71 @@ public final class InventoryBehavior extends Behavior {
                 }
             }
         }
-
         if (candidates.isEmpty()) {
             return OptionalInt.empty();
         }
-
-        return OptionalInt.of(candidates.get(new Random().nextInt(candidates.size())));
+        return OptionalInt.of(candidates.get(ThreadLocalRandom.current().nextInt(candidates.size())));
     }
 
-    private void swapWithHotBar(int inInventory, int inHotbar, PlayerInventory inventory) {
-        ItemStack h = inventory.getStack(inHotbar);
-        inventory.setStack(inHotbar, inventory.getStack(inInventory));
-        inventory.setStack(inInventory, h);
+    private boolean requestSwapWithHotBar(int inInventory, int inHotbar) {
+        Container inventory = ctx.inventory();
+        if (inventory == null
+                || inInventory < 0
+                || inInventory >= inventory.getContainerSize()
+                || inHotbar < 0
+                || inHotbar >= Math.min(9, inventory.getContainerSize())) {
+            lastTickRequestedMove = null;
+            return false;
+        }
+        lastTickRequestedMove = new int[]{inInventory, inHotbar};
+        if (inInventory == inHotbar) {
+            lastTickRequestedMove = null;
+            return true;
+        }
+        if (ticksSinceLastInventoryMove < Baritone.settings().ticksBetweenInventoryMoves.value) {
+            logDebug("Inventory move requested but delaying " + ticksSinceLastInventoryMove + " " + Baritone.settings().ticksBetweenInventoryMoves.value);
+            return false;
+        }
+        if (Baritone.settings().inventoryMoveOnlyIfStationary.value && !baritone.getInventoryPauserProcess().stationaryForInventoryMove()) {
+            logDebug("Inventory move requested but delaying until stationary");
+            return false;
+        }
+        ctx.playerController().swapContainerSlots(inventory, inInventory, inHotbar);
+        ticksSinceLastInventoryMove = 0;
+        lastTickRequestedMove = null;
+        return true;
     }
 
-    private int firstValidThrowaway(PlayerInventory inventory) { // TODO offhand idk
-        DefaultedList<ItemStack> invy = inventory.main;
-        for (int i = 0; i < invy.size(); i++) {
-            if (invy.get(i).isIn(baritone.settings().acceptableThrowawayItems.get())) {
+    private int firstValidThrowaway() { // TODO offhand idk
+        Container inventory = ctx.inventory();
+        if (inventory == null) {
+            return -1;
+        }
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            if (Baritone.settings().acceptableThrowawayItems.value.contains(inventory.getItem(i).getItem())) {
                 return i;
             }
         }
         return -1;
     }
 
-    private int bestToolAgainst(Block against, Class<? extends ToolItem> cla$$) {
-        DefaultedList<ItemStack> invy = ctx.inventory().main;
+    private int bestToolAgainst(Block against, Class<? extends DiggerItem> cla$$) {
+        Container inventory = ctx.inventory();
+        if (inventory == null) {
+            return -1;
+        }
         int bestInd = -1;
         double bestSpeed = -1;
-        for (int i = 0; i < invy.size(); i++) {
-            ItemStack stack = invy.get(i);
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack stack = inventory.getItem(i);
             if (stack.isEmpty()) {
                 continue;
             }
-            if (baritone.settings().itemSaver.get() && stack.getDamage() >= stack.getMaxDamage() && stack.getMaxDamage() > 1) {
+            if (Baritone.settings().itemSaver.value && (stack.getDamageValue() + Baritone.settings().itemSaverThreshold.value) >= stack.getMaxDamage() && stack.getMaxDamage() > 1) {
                 continue;
             }
             if (cla$$.isInstance(stack.getItem())) {
-                double speed = ToolSet.calculateSpeedVsBlock(stack, against.getDefaultState()); // takes into account enchants
+                double speed = ToolSet.calculateSpeedVsBlock(stack, against.defaultBlockState()); // takes into account enchants
                 if (speed > bestSpeed) {
                     bestSpeed = speed;
                     bestInd = i;
@@ -144,30 +174,38 @@ public final class InventoryBehavior extends Behavior {
     }
 
     public boolean hasGenericThrowaway() {
-        return throwaway(false,
-                stack -> stack.isIn(baritone.settings().acceptableThrowawayItems.get()));
+        for (Item item : Baritone.settings().acceptableThrowawayItems.value) {
+            if (throwaway(false, stack -> item.equals(stack.getItem()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean selectThrowawayForLocation(boolean select, int x, int y, int z) {
-        if (!(ctx.entity() instanceof PlayerEntity player)) return false;
-
         BlockState maybe = baritone.getBuilderProcess().placeAt(x, y, z, baritone.bsi.get0(x, y, z));
-        if (maybe != null && throwaway(select, stack -> stack.getItem() instanceof BlockItem && maybe.equals(((BlockItem) stack.getItem()).getBlock().getPlacementState(new ItemPlacementContext(new ItemUsageContext(ctx.world(), player, Hand.MAIN_HAND, stack, new BlockHitResult(new Vec3d(player.getX(), player.getY(), player.getZ()), Direction.UP, ctx.feetPos(), false)) {}))))) {
-            return true; // gotem
-        }
         if (maybe != null && throwaway(select, stack -> stack.getItem() instanceof BlockItem && ((BlockItem) stack.getItem()).getBlock().equals(maybe.getBlock()))) {
             return true;
         }
-        return throwaway(select,
-                stack -> stack.isIn(baritone.settings().acceptableThrowawayItems.get()));
+        for (Item item : Baritone.settings().acceptableThrowawayItems.value) {
+            if (throwaway(select, stack -> item.equals(stack.getItem()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean throwaway(boolean select, Predicate<? super ItemStack> desired) {
-        if (!(ctx.entity() instanceof PlayerEntity p)) return false;
+        return throwaway(select, desired, Baritone.settings().allowInventory.value);
+    }
 
-        DefaultedList<ItemStack> inv = p.getInventory().main;
+    public boolean throwaway(boolean select, Predicate<? super ItemStack> desired, boolean allowInventory) {
+        Container inv = ctx.inventory();
+        if (inv == null || inv.getContainerSize() < 9) {
+            return false;
+        }
         for (int i = 0; i < 9; i++) {
-            ItemStack item = inv.get(i);
+            ItemStack item = inv.getItem(i);
             // this usage of settings() is okay because it's only called once during pathing
             // (while creating the CalculationContext at the very beginning)
             // and then it's called during execution
@@ -175,37 +213,24 @@ public final class InventoryBehavior extends Behavior {
             // acceptableThrowawayItems to the CalculationContext
             if (desired.test(item)) {
                 if (select) {
-                    p.getInventory().selectedSlot = i;
+                    ctx.setSelectedSlot(i);
                 }
                 return true;
             }
         }
-        if (desired.test(p.getInventory().offHand.get(0))) {
-            // main hand takes precedence over off hand
-            // that means that if we have block A selected in main hand and block B in off hand, right clicking places block B
-            // we've already checked above ^ and the main hand can't possible have an acceptablethrowawayitem
-            // so we need to select in the main hand something that doesn't right click
-            // so not a shovel, not a hoe, not a block, etc
-            for (int i = 0; i < 9; i++) {
-                ItemStack item = inv.get(i);
-                if (item.isEmpty() || item.getItem() instanceof PickaxeItem) {
+
+        if (allowInventory) {
+            for (int i = 9; i < inv.getContainerSize(); i++) {
+                if (desired.test(inv.getItem(i))) {
                     if (select) {
-                        p.getInventory().selectedSlot = i;
+                        requestSwapWithHotBar(i, 7);
+                        ctx.setSelectedSlot(7);
                     }
                     return true;
                 }
             }
         }
+
         return false;
-    }
-
-    public static int getSlotWithStack(PlayerInventory inv, TagKey<Item> tag) {
-        for(int i = 0; i < inv.main.size(); ++i) {
-            if (!inv.main.get(i).isEmpty() && inv.main.get(i).isIn(tag)) {
-                return i;
-            }
-        }
-
-        return -1;
     }
 }

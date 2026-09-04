@@ -17,16 +17,28 @@
 
 package baritone.api.event.events;
 
-import java.util.function.Function;
+import baritone.api.event.events.type.EventState;
 
+import java.util.function.BiFunction;
+
+/**
+ * Called on and after each host game tick and dispatched to all Baritone
+ * instances.
+ * <p>
+ * When {@link #state} is {@link EventState#PRE}, the event is being called just prior to when the current in-game
+ * screen is ticked. When {@link #state} is {@link EventState#POST}, the event is being called at the very end
+ * of the host tick method.
+ */
 public final class TickEvent {
 
     private static int overallTickCount;
 
+    private final EventState state;
     private final Type type;
     private final int count;
 
-    public TickEvent(Type type, int count) {
+    public TickEvent(EventState state, Type type, int count) {
+        this.state = state;
         this.type = type;
         this.count = count;
     }
@@ -39,9 +51,13 @@ public final class TickEvent {
         return type;
     }
 
-    public static synchronized Function<Type, TickEvent> createNextProvider() {
+    public EventState getState() {
+        return state;
+    }
+
+    public static synchronized BiFunction<EventState, Type, TickEvent> createNextProvider() {
         final int count = overallTickCount++;
-        return (type) -> new TickEvent(type, count);
+        return (state, type) -> new TickEvent(state, type, count);
     }
 
     public enum Type {

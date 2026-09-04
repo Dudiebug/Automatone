@@ -17,9 +17,10 @@
 
 package baritone.api.event.events;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Vec3d;
+import baritone.api.utils.Rotation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * @author Brady
@@ -32,14 +33,27 @@ public final class RotationMoveEvent {
      */
     private final Type type;
 
+    private final Rotation original;
+
     /**
      * The yaw rotation
      */
     private float yaw;
 
-    public RotationMoveEvent(Type type, float yaw) {
+    /**
+     * The pitch rotation
+     */
+    private float pitch;
+
+    public RotationMoveEvent(Type type, float yaw, float pitch) {
         this.type = type;
+        this.original = new Rotation(yaw, pitch);
         this.yaw = yaw;
+        this.pitch = pitch;
+    }
+
+    public Rotation getOriginal() {
+        return this.original;
     }
 
     /**
@@ -47,21 +61,37 @@ public final class RotationMoveEvent {
      *
      * @param yaw Yaw rotation
      */
-    public final void setYaw(float yaw) {
+    public void setYaw(float yaw) {
         this.yaw = yaw;
     }
 
     /**
      * @return The yaw rotation
      */
-    public final float getYaw() {
+    public float getYaw() {
         return this.yaw;
+    }
+
+    /**
+     * Set the pitch movement rotation
+     *
+     * @param pitch Pitch rotation
+     */
+    public void setPitch(float pitch) {
+        this.pitch = pitch;
+    }
+
+    /**
+     * @return The pitch rotation
+     */
+    public float getPitch() {
+        return pitch;
     }
 
     /**
      * @return The type of the event
      */
-    public final Type getType() {
+    public Type getType() {
         return this.type;
     }
 
@@ -70,7 +100,7 @@ public final class RotationMoveEvent {
         /**
          * Called when the player's motion is updated.
          *
-         * @see Entity#updateVelocity(float, Vec3d)
+         * @see Entity#moveRelative(float, Vec3)
          */
         MOTION_UPDATE,
 

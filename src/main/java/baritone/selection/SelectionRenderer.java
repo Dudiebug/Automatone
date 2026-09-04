@@ -1,37 +1,59 @@
 package baritone.selection;
 
+import baritone.Baritone;
+import baritone.api.event.events.RenderEvent;
+import baritone.api.event.listener.AbstractGameEventListener;
 import baritone.api.selection.ISelection;
 import baritone.utils.IRenderer;
-import net.minecraft.util.math.Box;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.world.phys.AABB;
 
-public class SelectionRenderer implements IRenderer {
+public class SelectionRenderer implements IRenderer, AbstractGameEventListener {
 
     public static final double SELECTION_BOX_EXPANSION = .005D;
 
-    public static void renderSelections(ISelection[] selections) {
-        float opacity = settings.selectionOpacity.get();
-        boolean ignoreDepth = settings.renderSelectionIgnoreDepth.get();
-        float lineWidth = settings.selectionLineWidth.get();
+    private final SelectionManager manager;
 
-        if (!settings.renderSelection.get()) {
+    SelectionRenderer(Baritone baritone, SelectionManager manager) {
+        this.manager = manager;
+        baritone.getGameEventHandler().registerEventListener(this);
+    }
+
+    public static void renderSelections(PoseStack stack, ISelection[] selections) {
+        float opacity = settings.selectionOpacity.value;
+        boolean ignoreDepth = settings.renderSelectionIgnoreDepth.value;
+        float lineWidth = settings.selectionLineWidth.value;
+
+        if (!settings.renderSelection.value || selections.length == 0) {
             return;
         }
 
-        IRenderer.startLines(settings.colorSelection.get(), opacity, lineWidth, ignoreDepth);
+        BufferBuilder bufferBuilder = IRenderer.startLines(settings.colorSelection.value, opacity, lineWidth, ignoreDepth);
 
         for (ISelection selection : selections) {
-            IRenderer.drawAABB(selection.aabb(), SELECTION_BOX_EXPANSION);
+            IRenderer.emitAABB(bufferBuilder, stack, selection.aabb(), SELECTION_BOX_EXPANSION);
         }
 
-        if (settings.renderSelectionCorners.get()) {
-            IRenderer.glColor(settings.colorSelectionPos1.get(), opacity);
+        if (settings.renderSelectionCorners.value) {
+            IRenderer.glColor(settings.colorSelectionPos1.value, opacity);
 
             for (ISelection selection : selections) {
-                IRenderer.drawAABB(new Box(selection.pos1(), selection.pos1().add(1, 1, 1)));
+                IRenderer.emitAABB(bufferBuilder, stack, new AABB(selection.pos1()));
+            }
+
+            IRenderer.glColor(settings.colorSelectionPos2.value, opacity);
+
+            for (ISelection selection : selections) {
+                IRenderer.emitAABB(bufferBuilder, stack, new AABB(selection.pos2()));
             }
         }
 
-        IRenderer.endLines(ignoreDepth);
+        IRenderer.endLines(bufferBuilder, ignoreDepth);
     }
 
+    @Override
+    public void onRenderPass(RenderEvent event) {
+        renderSelections(event.getModelViewStack(), manager.getSelections());
+    }
 }

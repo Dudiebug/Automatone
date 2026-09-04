@@ -17,19 +17,24 @@
 
 package baritone.utils;
 
-import baritone.api.IBaritone;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.enchantment.Enchantments;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.SwordItem;
-import net.minecraft.item.ToolItem;
+import baritone.Baritone;
+import baritone.api.utils.IPlayerContext;
+import net.minecraft.core.Holder;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.Container;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.TieredItem;
+import net.minecraft.world.item.enchantment.*;
+import net.minecraft.world.item.enchantment.effects.EnchantmentAttributeEffect;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -51,15 +56,17 @@ public class ToolSet {
      */
     private final Function<Block, Double> backendCalculation;
 
-    private final PlayerEntity player;
-    private final IBaritone baritone;
+    private final LivingEntity player;
+    private final Container inventory;
+    private final int selectedSlot;
 
-    public ToolSet(PlayerEntity player) {
-        this.breakStrengthCache = new HashMap<>();
-        this.player = player;
-        this.baritone = IBaritone.KEY.get(player);
+    public ToolSet(IPlayerContext context) {
+        breakStrengthCache = new HashMap<>();
+        this.player = context.player();
+        this.inventory = context.inventory();
+        this.selectedSlot = context.selectedSlot();
 
-        if (baritone.settings().considerPotionEffects.get()) {
+        if (Baritone.settings().considerPotionEffects.value) {
             double amplifier = potionAmplifier();
             Function<Double, Double> amplify = x -> amplifier * x;
             backendCalculation = amplify.compose(this::getBestDestructionTime);
@@ -79,17 +86,32 @@ public class ToolSet {
     }
 
     /**
-     * Evaluate the material cost of a possible tool. Will return 1 for tools, -1 for other
+     * Evaluate the material cost of a possible tool. The priority matches the
+     * harvest level order; there is a chance for multiple at the same with modded tools
+     * but in that case we don't really care.
      *
      * @param itemStack a possibly empty ItemStack
-     * @return Either 1 or -1
+     * @return values from 0 up
      */
     private int getMaterialCost(ItemStack itemStack) {
-        return itemStack.getItem() instanceof ToolItem ? 1 : -1;
+        if (itemStack.getItem() instanceof TieredItem) {
+            TieredItem tool = (TieredItem) itemStack.getItem();
+            return (int) tool.getTier().getAttackDamageBonus();
+        } else {
+            return -1;
+        }
     }
 
     public boolean hasSilkTouch(ItemStack stack) {
-        return EnchantmentHelper.getLevel(Enchantments.SILK_TOUCH, stack) > 0;
+        ItemEnchantments enchantments = stack.getEnchantments();
+        for (Holder<Enchantment> enchant : enchantments.keySet()) {
+            // silk touch enchantment is still special cased as affecting block drops
+            // not possible to add custom attribute via datapack
+            if (enchant.is(Enchantments.SILK_TOUCH) && enchantments.getLevel(enchant) > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -106,26 +128,28 @@ public class ToolSet {
 
     public int getBestSlot(Block b, boolean preferSilkTouch, boolean pathingCalculation) {
 
+        int hotbarSize = inventory == null ? 0 : Math.min(9, inventory.getContainerSize());
+
         /*
         If we actually want know what efficiency our held item has instead of the best one
         possible, this lets us make pathing depend on the actual tool to be used (if auto tool is disabled)
         */
-        if (baritone.settings().disableAutoTool.get() && pathingCalculation) {
-            return player.getInventory().selectedSlot;
+        if (!Baritone.settings().autoTool.value && pathingCalculation) {
+            return hotbarSize == 0 ? 0 : Math.min(selectedSlot, hotbarSize - 1);
         }
 
         int best = 0;
         double highestSpeed = Double.NEGATIVE_INFINITY;
         int lowestCost = Integer.MIN_VALUE;
         boolean bestSilkTouch = false;
-        BlockState blockState = b.getDefaultState();
-        for (int i = 0; i < 9; i++) {
-            ItemStack itemStack = player.getInventory().getStack(i);
-            if (!baritone.settings().useSwordToMine.get() && itemStack.getItem() instanceof SwordItem) {
+        BlockState blockState = b.defaultBlockState();
+        for (int i = 0; i < hotbarSize; i++) {
+            ItemStack itemStack = inventory.getItem(i);
+            if (!Baritone.settings().useSwordToMine.value && itemStack.is(ItemTags.SWORDS)) {
                 continue;
             }
 
-            if (baritone.settings().itemSaver.get() && itemStack.getDamage() >= itemStack.getMaxDamage() && itemStack.getMaxDamage() > 1) {
+            if (Baritone.settings().itemSaver.value && (itemStack.getDamageValue() + Baritone.settings().itemSaverThreshold.value) >= itemStack.getMaxDamage() && itemStack.getMaxDamage() > 1) {
                 continue;
             }
             double speed = calculateSpeedVsBlock(itemStack, blockState);
@@ -156,12 +180,14 @@ public class ToolSet {
      * @return A double containing the destruction ticks with the best tool
      */
     private double getBestDestructionTime(Block b) {
-        ItemStack stack = player.getInventory().getStack(getBestSlot(b, false, true));
-        return calculateSpeedVsBlock(stack, b.getDefaultState()) * avoidanceMultiplier(b);
+        int selectedSlot = getBestSlot(b, false, true);
+        int inventorySize = inventory == null ? 0 : inventory.getContainerSize();
+        ItemStack stack = selectedSlot < 0 || selectedSlot >= inventorySize ? ItemStack.EMPTY : inventory.getItem(selectedSlot);
+        return calculateSpeedVsBlock(stack, b.defaultBlockState()) * avoidanceMultiplier(b);
     }
 
     private double avoidanceMultiplier(Block b) {
-        return b.getBuiltInRegistryHolder().isIn(baritone.settings().blocksToAvoidBreaking.get()) ? 0.1 : 1;
+        return Baritone.settings().blocksToAvoidBreaking.value.contains(b) ? Baritone.settings().avoidBreakingMultiplier.value : 1;
     }
 
     /**
@@ -173,21 +199,33 @@ public class ToolSet {
      * @return how long it would take in ticks
      */
     public static double calculateSpeedVsBlock(ItemStack item, BlockState state) {
-        float hardness = state.getHardness(null, null);
+        float hardness;
+        try {
+            hardness = state.getDestroySpeed(null, null);
+        } catch (NullPointerException npe) {
+            // can't easily determine the hardness so treat it as unbreakable
+            return -1;
+        }
         if (hardness < 0) {
             return -1;
         }
 
-        float speed = item.getMiningSpeedMultiplier(state);
+        float speed = item.getDestroySpeed(state);
         if (speed > 1) {
-            int effLevel = EnchantmentHelper.getLevel(Enchantments.EFFICIENCY, item);
-            if (effLevel > 0 && !item.isEmpty()) {
-                speed += effLevel * effLevel + 1;
+            final ItemEnchantments itemEnchantments = item.getEnchantments();
+            OUTER: for (Holder<Enchantment> enchant : itemEnchantments.keySet()) {
+                List<EnchantmentAttributeEffect> effects = enchant.value().getEffects(EnchantmentEffectComponents.ATTRIBUTES);
+                for (EnchantmentAttributeEffect e : effects) {
+                    if (e.attribute().is(Attributes.MINING_EFFICIENCY.unwrapKey().get())) {
+                        speed += e.amount().calculate(itemEnchantments.getLevel(enchant));
+                        break OUTER;
+                    }
+                }
             }
         }
 
         speed /= hardness;
-        if (!state.isToolRequired() || (!item.isEmpty() && item.isSuitableFor(state))) {
+        if (!state.requiresCorrectToolForDrops() || (!item.isEmpty() && item.isCorrectToolForDrops(state))) {
             return speed / 30;
         } else {
             return speed / 100;
@@ -201,19 +239,23 @@ public class ToolSet {
      */
     private double potionAmplifier() {
         double speed = 1;
-
-        StatusEffectInstance hasteEffect = player.getStatusEffect(StatusEffects.HASTE);
-        if (hasteEffect != null) {
-            speed *= 1 + (hasteEffect.getAmplifier() + 1) * 0.2;
+        if (player.hasEffect(MobEffects.DIG_SPEED)) {
+            speed *= 1 + (player.getEffect(MobEffects.DIG_SPEED).getAmplifier() + 1) * 0.2;
         }
-
-        StatusEffectInstance fatigueEffect = player.getStatusEffect(StatusEffects.MINING_FATIGUE);
-        if (fatigueEffect != null) {
-            switch (fatigueEffect.getAmplifier()) {
-                case 0 -> speed *= 0.3;
-                case 1 -> speed *= 0.09;
-                case 2 -> speed *= 0.0027; // you might think that 0.09*0.3 = 0.027 so that should be next, that would make too much sense. it's 0.0027.
-                default -> speed *= 0.00081;
+        if (player.hasEffect(MobEffects.DIG_SLOWDOWN)) {
+            switch (player.getEffect(MobEffects.DIG_SLOWDOWN).getAmplifier()) {
+                case 0:
+                    speed *= 0.3;
+                    break;
+                case 1:
+                    speed *= 0.09;
+                    break;
+                case 2:
+                    speed *= 0.0027; // you might think that 0.09*0.3 = 0.027 so that should be next, that would make too much sense. it's 0.0027.
+                    break;
+                default:
+                    speed *= 0.00081;
+                    break;
             }
         }
         return speed;

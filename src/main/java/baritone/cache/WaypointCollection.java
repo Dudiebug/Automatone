@@ -21,20 +21,11 @@ import baritone.api.cache.IWaypoint;
 import baritone.api.cache.IWaypointCollection;
 import baritone.api.cache.Waypoint;
 import baritone.api.utils.BetterBlockPos;
-import net.fabricmc.fabric.api.util.NbtType;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtHelper;
-import net.minecraft.nbt.NbtList;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -44,60 +35,96 @@ import java.util.stream.Collectors;
  */
 public class WaypointCollection implements IWaypointCollection {
 
+    /**
+     * Magic value to detect invalid waypoint files
+     */
+    private static final long WAYPOINT_MAGIC_VALUE = 121977993584L; // good value
+
+    private final Path directory;
     private final Map<IWaypoint.Tag, Set<IWaypoint>> waypoints;
 
-    WaypointCollection() {
-        this.waypoints = new EnumMap<>(Arrays.stream(IWaypoint.Tag.values())
-                .collect(Collectors.toMap(Function.identity(), t -> new HashSet<>())));
+    WaypointCollection(Path directory) {
+        this.directory = directory;
+        if (!Files.exists(directory)) {
+            try {
+                Files.createDirectories(directory);
+            } catch (IOException ignored) {}
+        }
+        System.out.println("Would save waypoints to " + directory);
+        this.waypoints = new HashMap<>();
+        load();
     }
 
-    public void readFromNbt(NbtCompound nbt) {
+    private void load() {
         for (Waypoint.Tag tag : Waypoint.Tag.values()) {
-            this.waypoints.put(tag, readFromNbt(tag, nbt.getList(tag.name(), NbtType.COMPOUND)));
+            load(tag);
         }
     }
 
-    private synchronized Set<IWaypoint> readFromNbt(Waypoint.Tag tag, NbtList nbt) {
-        Set<IWaypoint> ret = new HashSet<>();
-        for (int i = 0; i < nbt.size(); i++) {
-            NbtCompound in = nbt.getCompound(i);
-            String name = in.getString("name");
-            long creationTimestamp = in.getLong("created");
-            BetterBlockPos pos = new BetterBlockPos(NbtHelper.toBlockPos(in.getCompound("pos")));
-            ret.add(new Waypoint(name, tag, pos, creationTimestamp));
+    private synchronized void load(Waypoint.Tag tag) {
+        this.waypoints.put(tag, new HashSet<>());
+
+        Path fileName = this.directory.resolve(tag.name().toLowerCase() + ".mp4");
+        if (!Files.exists(fileName)) {
+            return;
         }
-        return ret;
+
+        try (
+                FileInputStream fileIn = new FileInputStream(fileName.toFile());
+                BufferedInputStream bufIn = new BufferedInputStream(fileIn);
+                DataInputStream in = new DataInputStream(bufIn)
+        ) {
+            long magic = in.readLong();
+            if (magic != WAYPOINT_MAGIC_VALUE) {
+                throw new IOException("Bad magic value " + magic);
+            }
+
+            long length = in.readLong(); // Yes I want 9,223,372,036,854,775,807 waypoints, do you not?
+            while (length-- > 0) {
+                String name = in.readUTF();
+                long creationTimestamp = in.readLong();
+                int x = in.readInt();
+                int y = in.readInt();
+                int z = in.readInt();
+                this.waypoints.get(tag).add(new Waypoint(name, tag, new BetterBlockPos(x, y, z), creationTimestamp));
+            }
+        } catch (IOException ignored) {}
     }
 
-    public NbtCompound toNbt() {
-        NbtCompound nbt = new NbtCompound();
-        for (IWaypoint.Tag waypointTag : IWaypoint.Tag.values()) {
-            nbt.put(waypointTag.name(), save(waypointTag));
+    private synchronized void save(Waypoint.Tag tag) {
+        Path fileName = this.directory.resolve(tag.name().toLowerCase() + ".mp4");
+        try (
+                FileOutputStream fileOut = new FileOutputStream(fileName.toFile());
+                BufferedOutputStream bufOut = new BufferedOutputStream(fileOut);
+                DataOutputStream out = new DataOutputStream(bufOut)
+        ) {
+            out.writeLong(WAYPOINT_MAGIC_VALUE);
+            out.writeLong(this.waypoints.get(tag).size());
+            for (IWaypoint waypoint : this.waypoints.get(tag)) {
+                out.writeUTF(waypoint.getName());
+                out.writeLong(waypoint.getCreationTimestamp());
+                out.writeInt(waypoint.getLocation().getX());
+                out.writeInt(waypoint.getLocation().getY());
+                out.writeInt(waypoint.getLocation().getZ());
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
-        return nbt;
-    }
-
-    private synchronized NbtList save(Waypoint.Tag waypointTag) {
-        NbtList list = new NbtList();
-        for (IWaypoint waypoint : this.waypoints.get(waypointTag)) {
-            NbtCompound serializedWaypoint = new NbtCompound();
-            serializedWaypoint.putString("name", waypoint.getName());
-            serializedWaypoint.putLong("created", waypoint.getCreationTimestamp());
-            serializedWaypoint.put("pos", NbtHelper.fromBlockPos(waypoint.getLocation()));
-            list.add(serializedWaypoint);
-        }
-        return list;
     }
 
     @Override
     public void addWaypoint(IWaypoint waypoint) {
         // no need to check for duplicate, because it's a Set not a List
-        waypoints.get(waypoint.getTag()).add(waypoint);
+        if (waypoints.get(waypoint.getTag()).add(waypoint)) {
+            save(waypoint.getTag());
+        }
     }
 
     @Override
     public void removeWaypoint(IWaypoint waypoint) {
-        waypoints.get(waypoint.getTag()).remove(waypoint);
+        if (waypoints.get(waypoint.getTag()).remove(waypoint)) {
+            save(waypoint.getTag());
+        }
     }
 
     @Override

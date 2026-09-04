@@ -24,3 +24,9 @@ classes/
 # Copyright Files
 !/.idea/copyright/Baritone.xml
 !/.idea/copyright/profiles_settings.xml
+
+# Generated analysis and local closed-loop evidence
+graphify-out/
+src/graphify-out/
+.agents/evidence/*
+!.agents/evidence/.gitkeep

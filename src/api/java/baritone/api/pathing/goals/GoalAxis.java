@@ -22,15 +22,10 @@ import baritone.api.BaritoneAPI;
 public class GoalAxis implements Goal {
 
     private static final double SQRT_2_OVER_2 = Math.sqrt(2) / 2;
-    private final int targetHeight;
-
-    public GoalAxis(int targetHeight) {
-        this.targetHeight = targetHeight;
-    }
 
     @Override
     public boolean isInGoal(int x, int y, int z) {
-        return y == targetHeight && (x == 0 || z == 0 || Math.abs(x) == Math.abs(z));
+        return y == BaritoneAPI.getSettings().axisHeight.value && (x == 0 || z == 0 || Math.abs(x) == Math.abs(z));
     }
 
     @Override
@@ -44,7 +39,17 @@ public class GoalAxis implements Goal {
 
         double flatAxisDistance = Math.min(x, Math.min(z, diff * SQRT_2_OVER_2));
 
-        return flatAxisDistance * BaritoneAPI.getGlobalSettings().costHeuristic.get() + GoalYLevel.calculate(BaritoneAPI.getGlobalSettings().axisHeight.get(), y);
+        return flatAxisDistance * BaritoneAPI.getSettings().costHeuristic.value + GoalYLevel.calculate(BaritoneAPI.getSettings().axisHeight.value, y);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o != null && getClass() == o.getClass();
+    }
+
+    @Override
+    public int hashCode() {
+        return 201385781;
     }
 
     @Override

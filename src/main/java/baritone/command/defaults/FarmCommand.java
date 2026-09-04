@@ -25,7 +25,6 @@ import baritone.api.command.datatypes.ForWaypoints;
 import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandInvalidStateException;
 import baritone.api.utils.BetterBlockPos;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -33,12 +32,12 @@ import java.util.stream.Stream;
 
 public class FarmCommand extends Command {
 
-    public FarmCommand() {
-        super("farm");
+    public FarmCommand(IBaritone baritone) {
+        super(baritone, "farm");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(2);
         int range = 0;
         BetterBlockPos origin = null;
@@ -49,7 +48,7 @@ public class FarmCommand extends Command {
         //waypoint
         if (args.has(1)) {
             IWaypoint[] waypoints = args.getDatatypeFor(ForWaypoints.INSTANCE);
-            IWaypoint waypoint;
+            IWaypoint waypoint = null;
             switch (waypoints.length) {
                 case 0:
                     throw new CommandInvalidStateException("No waypoints found");
@@ -63,7 +62,7 @@ public class FarmCommand extends Command {
         }
 
         baritone.getFarmProcess().farm(range, origin);
-        logDirect(source, "Farming");
+        logDirect("Farming");
     }
 
     @Override

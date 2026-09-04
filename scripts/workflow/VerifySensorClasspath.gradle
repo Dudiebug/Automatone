@@ -1,0 +1,24 @@
+// Targeted regression check; invoked only with --init-script, never part of product tasks.
+gradle.projectsEvaluated {
+    rootProject.tasks.register('verifySensorClasspath') {
+        doLast {
+            def required = ['com/tngtech/archunit/lang/ArchRule.class', 'org/junit/Test.class', 'net/minecraft/client/Minecraft.class']
+            def missing = []
+            [compileSensorTestJava: rootProject.tasks.named('compileSensorTestJava').get().classpath,
+             sensorTest: rootProject.tasks.named('sensorTest').get().classpath].each { kind, classpath ->
+                def found = [] as Set
+                classpath.files.findAll { it.isFile() && it.name.endsWith('.jar') }.each { jar ->
+                    new java.util.zip.ZipFile(jar).withCloseable { zip ->
+                        required.each { entry -> if (zip.getEntry(entry) != null) found.add(entry) }
+                    }
+                }
+                required.each { entry ->
+                    def present = found.contains(entry)
+                    println "task ${kind}: ${entry}=${present}"
+                    if (!present) missing.add("${kind}: ${entry}")
+                }
+            }
+            if (!missing.empty) throw new GradleException("Missing sensor classpath entries: ${missing}")
+        }
+    }
+}

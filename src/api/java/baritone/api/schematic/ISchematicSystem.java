@@ -17,10 +17,11 @@
 
 package baritone.api.schematic;
 
+import baritone.api.command.registry.Registry;
 import baritone.api.schematic.format.ISchematicFormat;
-import net.minecraft.registry.Registry;
 
 import java.io.File;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -41,4 +42,9 @@ public interface ISchematicSystem {
      * @return The corresponding format for the file, {@link Optional#empty()} if no candidates were found.
      */
     Optional<ISchematicFormat> getByFile(File file);
+
+    /**
+     * @return A list of file extensions used by supported formats
+     */
+    List<String> getFileExtensions();
 }

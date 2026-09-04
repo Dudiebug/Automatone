@@ -19,16 +19,19 @@ package baritone;
 
 import baritone.api.IBaritone;
 import baritone.api.IBaritoneProvider;
-import baritone.api.Settings;
 import baritone.api.cache.IWorldScanner;
 import baritone.api.command.ICommandSystem;
 import baritone.api.schematic.ISchematicSystem;
-import baritone.cache.WorldScanner;
+import baritone.api.utils.IPlayerContext;
+import baritone.cache.FasterWorldScanner;
 import baritone.command.CommandSystem;
-import baritone.utils.SettingsLoader;
 import baritone.utils.schematic.SchematicSystem;
-import dev.onyxstudios.cca.api.v3.component.ComponentFactory;
-import net.minecraft.entity.LivingEntity;
+
+import java.nio.file.Path;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiFunction;
 
 /**
  * @author Brady
@@ -36,29 +39,64 @@ import net.minecraft.entity.LivingEntity;
  */
 public final class BaritoneProvider implements IBaritoneProvider {
 
-    public static final BaritoneProvider INSTANCE = new BaritoneProvider();
-
-    private final Settings settings;
+    private final Map<IPlayerContext, IBaritone> runtimes = new IdentityHashMap<>();
+    private final BiFunction<IPlayerContext, Path, IBaritone> runtimeFactory;
 
     public BaritoneProvider() {
-        this.settings = new Settings();
-        SettingsLoader.readAndApply(settings);
+        this(Baritone::new);
+    }
+
+    BaritoneProvider(BiFunction<IPlayerContext, Path, IBaritone> runtimeFactory) {
+        this.runtimeFactory = runtimeFactory;
     }
 
     @Override
-    public IBaritone getBaritone(LivingEntity entity) {
-        if (entity.getWorld().isClient()) throw new IllegalStateException("Lol we only support servers now");
-        return IBaritone.KEY.get(entity);
+    public synchronized IBaritone getPrimaryBaritone() {
+        return this.runtimes.values().stream().findFirst().orElse(null);
     }
 
-    public boolean isPathing(LivingEntity entity) {
-        IBaritone baritone = IBaritone.KEY.getNullable(entity);
-        return baritone != null && baritone.isActive();
+    @Override
+    public synchronized List<IBaritone> getAllBaritones() {
+        return List.copyOf(this.runtimes.values());
+    }
+
+    @Override
+    public synchronized IBaritone createBaritone(IPlayerContext context, Path dataDirectory) {
+        return this.runtimes.computeIfAbsent(context, key -> this.runtimeFactory.apply(key, dataDirectory));
+    }
+
+    @Override
+    public synchronized boolean destroyBaritone(IBaritone baritone) {
+        final IPlayerContext context = baritone.getPlayerContext();
+        if (this.runtimes.get(context) != baritone) {
+            return false;
+        }
+        this.runtimes.remove(context);
+        baritone.dispose();
+        return true;
+    }
+
+    @Override
+    public void tick() {
+        for (IBaritone runtime : this.getAllBaritones()) {
+            if (!runtime.isHostAvailable()) {
+                this.destroyBaritone(runtime);
+            } else {
+                runtime.tick();
+            }
+        }
+    }
+
+    @Override
+    public void disposeAll() {
+        for (IBaritone runtime : this.getAllBaritones()) {
+            this.destroyBaritone(runtime);
+        }
     }
 
     @Override
     public IWorldScanner getWorldScanner() {
-        return WorldScanner.INSTANCE;
+        return FasterWorldScanner.INSTANCE;
     }
 
     @Override
@@ -69,15 +107,5 @@ public final class BaritoneProvider implements IBaritoneProvider {
     @Override
     public ISchematicSystem getSchematicSystem() {
         return SchematicSystem.INSTANCE;
-    }
-
-    @Override
-    public Settings getGlobalSettings() {
-        return this.settings;
-    }
-
-    @Override
-    public <E extends LivingEntity> ComponentFactory<E, IBaritone> componentFactory() {
-        return Baritone::new;
     }
 }

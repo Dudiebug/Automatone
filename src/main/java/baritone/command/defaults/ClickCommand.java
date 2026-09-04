@@ -17,45 +17,26 @@
 
 package baritone.command.defaults;
 
-import baritone.Automatone;
 import baritone.api.IBaritone;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
-import baritone.utils.accessor.ServerCommandSourceAccessor;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.packet.s2c.play.CustomPayloadS2CPacket;
-import net.minecraft.server.command.CommandOutput;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
 public class ClickCommand extends Command {
-    public static final Identifier OPEN_CLICK_SCREEN = Automatone.id("open_click_screen");
 
-    public ClickCommand() {
-        super("click");
+    public ClickCommand(IBaritone baritone) {
+        super(baritone, "click");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(0);
-        try {
-            CommandOutput commandOutput = ((ServerCommandSourceAccessor) source).automatone$getOutput();
-            if (commandOutput instanceof ServerPlayerEntity) {
-                PacketByteBuf buf = PacketByteBufs.create();
-                buf.writeUuid(baritone.getPlayerContext().entity().getUuid());
-                ((ServerPlayerEntity) commandOutput).networkHandler.sendPacket(new CustomPayloadS2CPacket(OPEN_CLICK_SCREEN, buf));
-            }
-        } catch (Throwable t) {
-            Automatone.LOGGER.error("Failed to open click screen, is this a dedicated server?", t);
-        }
-        logDirect(source, "aight dude");
+        baritone.openClick();
+        logDirect("aight dude");
     }
 
     @Override

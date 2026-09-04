@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Automatone task verification report",
+  "type": "object",
+  "required": [
+    "task_id",
+    "candidate",
+    "baseline",
+    "verdict",
+    "fresh_context",
+    "sensors",
+    "acceptance",
+    "failures"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "candidate": {
+      "type": "string"
+    },
+    "baseline": {
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "INCOMPLETE",
+        "BLOCKED_RECOMMENDED"
+      ]
+    },
+    "fresh_context": {
+      "type": "boolean"
+    },
+    "sensors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "required",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "WARN",
+              "UNVERIFIED",
+              "SKIPPED"
+            ]
+          },
+          "command": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artifact": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "new_findings": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "UNVERIFIED"
+            ]
+          },
+          "evidence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "classification",
+          "expected",
+          "observed"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "classification": {
+            "enum": [
+              "LOCAL_DEFECT",
+              "HARNESS_OR_SENSOR_DEFECT",
+              "SCOPE_VIOLATION",
+              "ARCHITECTURE_VIOLATION",
+              "REPEATED_FAILURE",
+              "ASSUMPTION_DISPROVEN",
+              "ENVIRONMENT_FAILURE"
+            ]
+          },
+          "sensor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expected": {
+            "type": "string"
+          },
+          "observed": {
+            "type": "string"
+          },
+          "reproduction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unverified": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

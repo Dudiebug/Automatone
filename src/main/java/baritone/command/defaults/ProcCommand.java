@@ -25,7 +25,6 @@ import baritone.api.command.exception.CommandInvalidStateException;
 import baritone.api.pathing.calc.IPathingControlManager;
 import baritone.api.process.IBaritoneProcess;
 import baritone.api.process.PathingCommand;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -33,23 +32,23 @@ import java.util.stream.Stream;
 
 public class ProcCommand extends Command {
 
-    public ProcCommand() {
-        super("proc");
+    public ProcCommand(IBaritone baritone) {
+        super(baritone, "proc");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(0);
         IPathingControlManager pathingControlManager = baritone.getPathingControlManager();
         IBaritoneProcess process = pathingControlManager.mostRecentInControl().orElse(null);
         if (process == null) {
             throw new CommandInvalidStateException("No process in control");
         }
-        logDirect(source, String.format(
-                "Class: %s\n" +
-                        "Priority: %f\n" +
-                        "Temporary: %b\n" +
-                        "Display name: %s\n" +
+        logDirect(String.format(
+                "Class: %s%n" +
+                        "Priority: %f%n" +
+                        "Temporary: %b%n" +
+                        "Display name: %s%n" +
                         "Last command: %s",
                 process.getClass().getTypeName(),
                 process.priority(),
@@ -75,9 +74,9 @@ public class ProcCommand extends Command {
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "The proc command provides miscellaneous information about the process currently controlling an entity.",
+                "The proc command provides miscellaneous information about the process currently controlling Baritone.",
                 "",
-                "You are not expected to understand this if you aren't familiar with implementation details.",
+                "You are not expected to understand this if you aren't familiar with how Baritone works.",
                 "",
                 "Usage:",
                 "> proc - View process information, if present"

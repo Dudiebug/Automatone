@@ -10,8 +10,11 @@ Backwards compatibility is also not being considered at the current time, so avo
 
 There's a [showcase video](https://youtu.be/CZkLXWo4Fg4) made by @Adovin#0730 on Baritone. [Here's](https://www.youtube.com/watch?v=StquF69-_wI) a (very old!) video leijurv made showing off what it can do. [Tutorial playlist](https://www.youtube.com/playlist?list=PLnwnJ1qsS7CoQl9Si-RTluuzCo_4Oulpa)
 
-To install Automatone as a user, install the Fabric loader and drop the latest `optimized` jar from [releases](https://github.com/Ladysnake/Automatone/releases).
-For more information, see [Installation & setup](SETUP.md). Once Automatone is installed, look [here](USAGE.md) for instructions on how to use it.
+## NeoForge 1.21.1 development status
+
+The `plan/neoforge-1.21.1-server-worker` branch is an in-progress server-worker port. Its core library boots and passes dedicated-server tests on NeoForge 1.21.1, but it does not yet include the spawnable worker, movement/mining integration, user controls, or a tested release JAR. **Do not treat this branch as ready to install on a normal server.**
+
+See [Current NeoForge port status](docs/CURRENT_NEOFORGE_STATUS.md) for completed work, verification results, and the next milestone. The older installation, API, Fabric, and Cardinal Components material elsewhere in this README describes the historical release and does not apply to this branch unless explicitly updated.
 
 This project is based on Baritone, which is itself an updated version of MineBot,
 the original version of the bot for Minecraft 1.8.9, rebuilt for 1.12.2 through 1.16.5.

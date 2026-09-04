@@ -20,8 +20,7 @@ package baritone.pathing.calc;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.movement.ActionCosts;
 import baritone.api.utils.BetterBlockPos;
-
-import javax.annotation.Nonnegative;
+import baritone.api.utils.SettingsUtil;
 
 /**
  * A node in the path, containing the cost and steps to get to it.
@@ -49,15 +48,6 @@ public final class PathNode {
     public double cost;
 
     /**
-     * Expected oxygen cost to get here
-     *
-     * <p>Mutable and changed by PathFinder
-     * <p>Cannot be negative, as it is impossible to store oxygen indefinitely
-     */
-    @Nonnegative
-    public double oxygenCost;
-
-    /**
      * Should always be equal to estimatedCosttoGoal + cost
      * Mutable and changed by PathFinder
      */
@@ -77,10 +67,14 @@ public final class PathNode {
     public PathNode(int x, int y, int z, Goal goal) {
         this.previous = null;
         this.cost = ActionCosts.COST_INF;
-        this.oxygenCost = 0;
         this.estimatedCostToGoal = goal.heuristic(x, y, z);
         if (Double.isNaN(estimatedCostToGoal)) {
-            throw new IllegalStateException(goal + " calculated implausible heuristic");
+            throw new IllegalStateException(String.format(
+                    "%s calculated implausible heuristic NaN at %s %s %s",
+                    goal,
+                    SettingsUtil.maybeCensor(x),
+                    SettingsUtil.maybeCensor(y),
+                    SettingsUtil.maybeCensor(z)));
         }
         this.heapPosition = -1;
         this.x = x;
@@ -104,16 +98,9 @@ public final class PathNode {
 
     @Override
     public boolean equals(Object obj) {
-        // GOTTA GO FAST
-        // ALL THESE CHECKS ARE FOR PEOPLE WHO WANT SLOW CODE
-        // SKRT SKRT
-        //if (obj == null || !(obj instanceof PathNode)) {
-        //    return false;
-        //}
-
-        final PathNode other = (PathNode) obj;
-        //return Objects.equals(this.pos, other.pos) && Objects.equals(this.goal, other.goal);
-
+        if (!(obj instanceof PathNode other)) {
+            return false;
+        }
         return x == other.x && y == other.y && z == other.z;
     }
 }

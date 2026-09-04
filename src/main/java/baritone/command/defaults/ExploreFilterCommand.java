@@ -25,8 +25,6 @@ import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandInvalidStateException;
 import baritone.api.command.exception.CommandInvalidTypeException;
 import com.google.gson.JsonSyntaxException;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.io.File;
 import java.nio.file.NoSuchFileException;
@@ -36,14 +34,14 @@ import java.util.stream.Stream;
 
 public class ExploreFilterCommand extends Command {
 
-    public ExploreFilterCommand() {
-        super("explorefilter");
+    public ExploreFilterCommand(IBaritone baritone) {
+        super(baritone, "explorefilter");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(2);
-        File file = args.getDatatypePost(RelativeFile.INSTANCE, FabricLoader.getInstance().getGameDir().toAbsolutePath().getParent().toFile());
+        File file = args.getDatatypePost(RelativeFile.INSTANCE, RelativeFile.gameDir().getParentFile());
         boolean invert = false;
         if (args.hasAny()) {
             if (args.getString().equalsIgnoreCase("invert")) {
@@ -61,7 +59,7 @@ public class ExploreFilterCommand extends Command {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
-        logDirect(source, String.format("Explore filter applied. Inverted: %s", invert));
+        logDirect(String.format("Explore filter applied. Inverted: %s", Boolean.toString(invert)));
     }
 
     @Override

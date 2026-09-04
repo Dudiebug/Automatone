@@ -22,8 +22,7 @@ import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
 import baritone.api.utils.BetterBlockPos;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.client.Minecraft;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,27 +30,24 @@ import java.util.stream.Stream;
 
 public class RenderCommand extends Command {
 
-    public RenderCommand() {
-        super("render");
+    public RenderCommand(IBaritone baritone) {
+        super(baritone, "render");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(0);
-        MinecraftClient mc = MinecraftClient.getInstance();
-        mc.execute(() -> {
-            BetterBlockPos origin = baritone.getPlayerContext().feetPos();
-            int renderDistance = (mc.options.getViewDistance().get() + 1) * 16;
-            mc.worldRenderer.scheduleBlockRenders(
-                    origin.x - renderDistance,
-                    0,
-                    origin.z - renderDistance,
-                    origin.x + renderDistance,
-                    255,
-                    origin.z + renderDistance
-            );
-            logDirect(source, "Done");
-        });
+        BetterBlockPos origin = ctx.playerFeet();
+        int renderDistance = (Minecraft.getInstance().options.renderDistance().get() + 1) * 16;
+        Minecraft.getInstance().levelRenderer.setBlocksDirty(
+                origin.x - renderDistance,
+                ctx.world().getMinBuildHeight(),
+                origin.z - renderDistance,
+                origin.x + renderDistance,
+                ctx.world().getMaxBuildHeight(),
+                origin.z + renderDistance
+        );
+        logDirect("Done");
     }
 
     @Override

@@ -17,62 +17,70 @@
 
 package baritone.utils;
 
-import baritone.api.utils.IEntityContext;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.Objects;
+import baritone.api.BaritoneAPI;
+import baritone.api.utils.IPlayerContext;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 /**
  * @author Brady
  * @since 8/25/2018
  */
 public final class BlockBreakHelper {
+    // base ticks between block breaks caused by tick logic
+    private static final int BASE_BREAK_DELAY = 1;
 
-    private final IEntityContext ctx;
-    private @Nullable BlockPos lastPos;
+    private final IPlayerContext ctx;
+    private boolean wasHitting;
+    private int breakDelayTimer = 0;
 
-    BlockBreakHelper(IEntityContext ctx) {
+    BlockBreakHelper(IPlayerContext ctx) {
         this.ctx = ctx;
     }
 
     public void stopBreakingBlock() {
         // The player controller will never be null, but the player can be
-        if (ctx.entity() != null && lastPos != null) {
-            if (!ctx.playerController().hasBrokenBlock()) {
-                // insane bypass to check breaking succeeded
-                ctx.playerController().setHittingBlock(true);
-            }
+        if (ctx.player() != null && wasHitting) {
+            ctx.playerController().setHittingBlock(false);
             ctx.playerController().resetBlockRemoving();
-            lastPos = null;
+            wasHitting = false;
         }
     }
 
     public void tick(boolean isLeftClick) {
+        if (breakDelayTimer > 0) {
+            breakDelayTimer--;
+            return;
+        }
         HitResult trace = ctx.objectMouseOver();
         boolean isBlockTrace = trace != null && trace.getType() == HitResult.Type.BLOCK;
 
         if (isLeftClick && isBlockTrace) {
-            BlockPos pos = ((BlockHitResult) trace).getBlockPos();
-            if (!Objects.equals(lastPos, pos)) {
-                ctx.playerController().clickBlock(pos, ((BlockHitResult) trace).getSide());
-                ctx.entity().swingHand(Hand.MAIN_HAND);
+            ctx.playerController().setHittingBlock(wasHitting);
+            if (ctx.playerController().hasBrokenBlock()) {
+                ctx.playerController().syncHeldItem();
+                ctx.playerController().clickBlock(((BlockHitResult) trace).getBlockPos(), ((BlockHitResult) trace).getDirection());
+                ctx.player().swing(InteractionHand.MAIN_HAND);
+            } else {
+                if (ctx.playerController().onPlayerDamageBlock(((BlockHitResult) trace).getBlockPos(), ((BlockHitResult) trace).getDirection())) {
+                    ctx.player().swing(InteractionHand.MAIN_HAND);
+                }
+                if (ctx.playerController().hasBrokenBlock()) { // block broken this tick
+                    // break delay timer only applies for multi-tick block breaks like vanilla
+                    breakDelayTimer = BaritoneAPI.getSettings().blockBreakSpeed.value - BASE_BREAK_DELAY;
+                    // must reset controller's destroy delay to prevent the client from delaying itself unnecessarily
+                    ctx.playerController().resetDestroyDelay();
+                }
             }
-
-            // Attempt to break the block
-            if (ctx.playerController().onPlayerDamageBlock(pos, ((BlockHitResult) trace).getSide())) {
-                ctx.entity().swingHand(Hand.MAIN_HAND);
-            }
-
+            // if true, we're breaking a block. if false, we broke the block this tick
+            wasHitting = !ctx.playerController().hasBrokenBlock();
+            // this value will be reset by the MC client handling mouse keys
+            // since we're not spoofing the click keybind to the client, the client will stop the break if isDestroyingBlock is true
+            // we store and restore this value on the next tick to determine if we're breaking a block
             ctx.playerController().setHittingBlock(false);
-
-            lastPos = pos;
-        } else if (lastPos != null) {
-            stopBreakingBlock();
-            lastPos = null;
+        } else {
+            wasHitting = false;
         }
     }
 }

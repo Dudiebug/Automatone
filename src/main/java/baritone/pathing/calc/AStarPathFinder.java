@@ -17,12 +17,12 @@
 
 package baritone.pathing.calc;
 
-import baritone.Automatone;
-import baritone.api.Settings;
+import baritone.Baritone;
 import baritone.api.pathing.calc.IPath;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.movement.ActionCosts;
 import baritone.api.utils.BetterBlockPos;
+import baritone.api.utils.SettingsUtil;
 import baritone.pathing.calc.openset.BinaryHeapOpenSet;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Moves;
@@ -42,17 +42,18 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
     private final Favoring favoring;
     private final CalculationContext calcContext;
 
-    public AStarPathFinder(int startX, int startY, int startZ, Goal goal, Favoring favoring, CalculationContext context) {
-        super(startX, startY, startZ, goal, context);
+    public AStarPathFinder(BetterBlockPos realStart, int startX, int startY, int startZ, Goal goal, Favoring favoring, CalculationContext context) {
+        super(realStart, startX, startY, startZ, goal, context);
         this.favoring = favoring;
         this.calcContext = context;
     }
 
     @Override
     protected Optional<IPath> calculate0(long primaryTimeout, long failureTimeout) {
+        int minY = calcContext.world.dimensionType().minY();
+        int height = calcContext.world.dimensionType().height();
         startNode = getNodeAtPosition(startX, startY, startZ, BetterBlockPos.longHash(startX, startY, startZ));
         startNode.cost = 0;
-        startNode.oxygenCost = calcContext.breathTime - calcContext.startingBreathTime;
         startNode.combinedCost = startNode.estimatedCostToGoal;
         BinaryHeapOpenSet openSet = new BinaryHeapOpenSet();
         openSet.insert(startNode);
@@ -64,21 +65,20 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
         MutableMoveResult res = new MutableMoveResult();
         BetterWorldBorder worldBorder = new BetterWorldBorder(calcContext.world.getWorldBorder());
         long startTime = System.currentTimeMillis();
-        Settings settings = calcContext.getBaritone().settings();
-        boolean slowPath = settings.slowPath.get();
+        boolean slowPath = Baritone.settings().slowPath.value;
         if (slowPath) {
-            calcContext.baritone.logDebug("slowPath is on, path timeout will be " + settings.slowPathTimeoutMS.get() + "ms instead of " + primaryTimeout + "ms");
+            logDebug("slowPath is on, path timeout will be " + Baritone.settings().slowPathTimeoutMS.value + "ms instead of " + primaryTimeout + "ms");
         }
-        long primaryTimeoutTime = startTime + (slowPath ? settings.slowPathTimeoutMS.get() : primaryTimeout);
-        long failureTimeoutTime = startTime + (slowPath ? settings.slowPathTimeoutMS.get() : failureTimeout);
+        long primaryTimeoutTime = startTime + (slowPath ? Baritone.settings().slowPathTimeoutMS.value : primaryTimeout);
+        long failureTimeoutTime = startTime + (slowPath ? Baritone.settings().slowPathTimeoutMS.value : failureTimeout);
         boolean failing = true;
         int numNodes = 0;
         int numMovementsConsidered = 0;
         int numEmptyChunk = 0;
         boolean isFavoring = !favoring.isEmpty();
         int timeCheckInterval = 1 << 6;
-        int pathingMaxChunkBorderFetch = settings.pathingMaxChunkBorderFetch.get(); // grab all settings beforehand so that changing settings during pathing doesn't cause a crash or unpredictable behavior
-        double minimumImprovement = settings.minimumImprovementRepropagation.get() ? MIN_IMPROVEMENT : 0;
+        int pathingMaxChunkBorderFetch = Baritone.settings().pathingMaxChunkBorderFetch.value; // grab all settings beforehand so that changing settings during pathing doesn't cause a crash or unpredictable behavior
+        double minimumImprovement = Baritone.settings().minimumImprovementRepropagation.value ? MIN_IMPROVEMENT : 0;
         Moves[] allMoves = Moves.values();
         while (!openSet.isEmpty() && numEmptyChunk < pathingMaxChunkBorderFetch && !cancelRequested) {
             if ((numNodes & (timeCheckInterval - 1)) == 0) { // only call this once every 64 nodes (about half a millisecond)
@@ -89,17 +89,15 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
             }
             if (slowPath) {
                 try {
-                    // Not busy waiting, only artificially slowing the loop down
-                    //noinspection BusyWait
-                    Thread.sleep(settings.slowPathTimeDelayMS.get());
+                    Thread.sleep(Baritone.settings().slowPathTimeDelayMS.value);
                 } catch (InterruptedException ignored) {}
             }
             PathNode currentNode = openSet.removeLowest();
             mostRecentConsidered = currentNode;
             numNodes++;
             if (goal.isInGoal(currentNode.x, currentNode.y, currentNode.z)) {
-                calcContext.baritone.logDebug("Took " + (System.currentTimeMillis() - startTime) + "ms, " + numMovementsConsidered + " movements considered");
-                return Optional.of(new Path(startNode, currentNode, numNodes, goal, calcContext));
+                logDebug("Took " + (System.currentTimeMillis() - startTime) + "ms, " + numMovementsConsidered + " movements considered");
+                return Optional.of(new Path(realStart, startNode, currentNode, numNodes, goal, calcContext));
             }
             for (Moves moves : allMoves) {
                 int newX = currentNode.x + moves.xOffset;
@@ -114,7 +112,7 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 if (!moves.dynamicXZ && !worldBorder.entirelyContains(newX, newZ)) {
                     continue;
                 }
-                if (currentNode.y + moves.yOffset > calcContext.worldTop || currentNode.y + moves.yOffset < calcContext.worldBottom) {
+                if (currentNode.y + moves.yOffset > height || currentNode.y + moves.yOffset < minY) {
                     continue;
                 }
                 res.reset();
@@ -124,21 +122,40 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 if (actionCost >= ActionCosts.COST_INF) {
                     continue;
                 }
-                if (res.oxygenCost + currentNode.oxygenCost >= calcContext.breathTime) {
-                    continue;
-                }
                 if (actionCost <= 0 || Double.isNaN(actionCost)) {
-                    throw new IllegalStateException(moves + " calculated implausible cost " + actionCost);
+                    throw new IllegalStateException(String.format(
+                            "%s from %s %s %s calculated implausible cost %s",
+                            moves,
+                            SettingsUtil.maybeCensor(currentNode.x),
+                            SettingsUtil.maybeCensor(currentNode.y),
+                            SettingsUtil.maybeCensor(currentNode.z),
+                            actionCost));
                 }
-                // check destination after verifying it's not COST_INF -- some movements return a static IMPOSSIBLE object with COST_INF and destination being 0,0,0 to avoid allocating a new result for every failed calculation
+                // check destination after verifying it's not COST_INF -- some movements return COST_INF without adjusting the destination
                 if (moves.dynamicXZ && !worldBorder.entirelyContains(res.x, res.z)) { // see issue #218
                     continue;
                 }
                 if (!moves.dynamicXZ && (res.x != newX || res.z != newZ)) {
-                    throw new IllegalStateException(moves + " " + res.x + " " + newX + " " + res.z + " " + newZ);
+                    throw new IllegalStateException(String.format(
+                            "%s from %s %s %s ended at x z %s %s instead of %s %s",
+                            moves,
+                            SettingsUtil.maybeCensor(currentNode.x),
+                            SettingsUtil.maybeCensor(currentNode.y),
+                            SettingsUtil.maybeCensor(currentNode.z),
+                            SettingsUtil.maybeCensor(res.x),
+                            SettingsUtil.maybeCensor(res.z),
+                            SettingsUtil.maybeCensor(newX),
+                            SettingsUtil.maybeCensor(newZ)));
                 }
                 if (!moves.dynamicY && res.y != currentNode.y + moves.yOffset) {
-                    throw new IllegalStateException(moves + " " + res.y + " " + (currentNode.y + moves.yOffset));
+                    throw new IllegalStateException(String.format(
+                            "%s from %s %s %s ended at y %s instead of %s",
+                            moves,
+                            SettingsUtil.maybeCensor(currentNode.x),
+                            SettingsUtil.maybeCensor(currentNode.y),
+                            SettingsUtil.maybeCensor(currentNode.z),
+                            SettingsUtil.maybeCensor(res.y),
+                            SettingsUtil.maybeCensor(currentNode.y + moves.yOffset)));
                 }
                 long hashCode = BetterBlockPos.longHash(res.x, res.y, res.z);
                 if (isFavoring) {
@@ -150,23 +167,19 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
                 if (neighbor.cost - tentativeCost > minimumImprovement) {
                     neighbor.previous = currentNode;
                     neighbor.cost = tentativeCost;
-                    neighbor.oxygenCost = Math.max(0, currentNode.oxygenCost + res.oxygenCost);
                     neighbor.combinedCost = tentativeCost + neighbor.estimatedCostToGoal;
                     if (neighbor.isOpen()) {
                         openSet.update(neighbor);
                     } else {
                         openSet.insert(neighbor);//dont double count, dont insert into open set if it's already there
                     }
-                    // never leave a path dangling in the middle of water, best way to drown
-                    if (res.oxygenCost <= 0 || goal.isInGoal(neighbor.x, neighbor.y, neighbor.z)) {
-                        for (int i = 0; i < COEFFICIENTS.length; i++) {
-                            double heuristic = neighbor.estimatedCostToGoal + neighbor.cost / COEFFICIENTS[i];
-                            if (bestHeuristicSoFar[i] - heuristic > minimumImprovement) {
-                                bestHeuristicSoFar[i] = heuristic;
-                                bestSoFar[i] = neighbor;
-                                if (failing && getDistFromStartSq(neighbor) > MIN_DIST_PATH * MIN_DIST_PATH) {
-                                    failing = false;
-                                }
+                    for (int i = 0; i < COEFFICIENTS.length; i++) {
+                        double heuristic = neighbor.estimatedCostToGoal + neighbor.cost / COEFFICIENTS[i];
+                        if (bestHeuristicSoFar[i] - heuristic > minimumImprovement) {
+                            bestHeuristicSoFar[i] = heuristic;
+                            bestSoFar[i] = neighbor;
+                            if (failing && getDistFromStartSq(neighbor) > MIN_DIST_PATH * MIN_DIST_PATH) {
+                                failing = false;
                             }
                         }
                     }
@@ -176,13 +189,13 @@ public final class AStarPathFinder extends AbstractNodeCostSearch {
         if (cancelRequested) {
             return Optional.empty();
         }
-        Automatone.LOGGER.debug(numMovementsConsidered + " movements considered");
-        Automatone.LOGGER.debug("Open set size: " + openSet.size());
-        Automatone.LOGGER.debug("PathNode map size: " + mapSize());
-        Automatone.LOGGER.debug((int) (numNodes * 1.0 / ((System.currentTimeMillis() - startTime) / 1000F)) + " nodes per second");
+        System.out.println(numMovementsConsidered + " movements considered");
+        System.out.println("Open set size: " + openSet.size());
+        System.out.println("PathNode map size: " + mapSize());
+        System.out.println((int) (numNodes * 1.0 / ((System.currentTimeMillis() - startTime) / 1000F)) + " nodes per second");
         Optional<IPath> result = bestSoFar(true, numNodes);
         if (result.isPresent()) {
-            calcContext.baritone.logDebug("Took " + (System.currentTimeMillis() - startTime) + "ms, " + numMovementsConsidered + " movements considered");
+            logDebug("Took " + (System.currentTimeMillis() - startTime) + "ms, " + numMovementsConsidered + " movements considered");
         }
         return result;
     }

@@ -26,36 +26,32 @@ import baritone.api.command.datatypes.IDatatypeFor;
 import baritone.api.command.datatypes.NearbyPlayer;
 import baritone.api.command.exception.CommandErrorMessageException;
 import baritone.api.command.exception.CommandException;
+import baritone.api.command.exception.CommandInvalidTypeException;
 import baritone.api.command.helpers.TabCompleteHelper;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.util.Identifier;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 public class FollowCommand extends Command {
 
-    public FollowCommand() {
-        super("follow");
+    public FollowCommand(IBaritone baritone) {
+        super(baritone, "follow");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMin(1);
         FollowGroup group;
         FollowList list;
         List<Entity> entities = new ArrayList<>();
-        List<EntityType<?>> classes = new ArrayList<>();
+        List<EntityType> classes = new ArrayList<>();
         if (args.hasExactlyOne()) {
             baritone.getFollowProcess().follow((group = args.getEnum(FollowGroup.class)).filter);
         } else {
@@ -65,7 +61,8 @@ public class FollowCommand extends Command {
             while (args.hasAny()) {
                 Object gotten = args.getDatatypeFor(list.datatype);
                 if (gotten instanceof EntityType) {
-                    classes.add((EntityType<?>) gotten);
+                    //noinspection unchecked
+                    classes.add((EntityType) gotten);
                 } else if (gotten != null) {
                     entities.add((Entity) gotten);
                 }
@@ -78,21 +75,21 @@ public class FollowCommand extends Command {
             );
         }
         if (group != null) {
-            logDirect(source, String.format("Following all %s", group.name().toLowerCase(Locale.US)));
+            logDirect(String.format("Following all %s", group.name().toLowerCase(Locale.US)));
         } else {
             if (classes.isEmpty()) {
                 if (entities.isEmpty()) throw new NoEntitiesException();
-                logDirect(source, "Following these entities:");
+                logDirect("Following these entities:");
                 entities.stream()
                         .map(Entity::toString)
-                        .forEach(message -> logDirect(source, message));
+                        .forEach(this::logDirect);
             } else {
-                logDirect(source, "Following these types of entities:");
+                logDirect("Following these types of entities:");
                 classes.stream()
-                        .map(Registries.ENTITY_TYPE::getId)
+                        .map(BuiltInRegistries.ENTITY_TYPE::getKey)
                         .map(Objects::requireNonNull)
-                        .map(Identifier::toString)
-                        .forEach(message -> logDirect(source, message));
+                        .map(ResourceLocation::toString)
+                        .forEach(this::logDirect);
             }
         }
     }
@@ -106,10 +103,10 @@ public class FollowCommand extends Command {
                     .filterPrefix(args.getString())
                     .stream();
         } else {
-            IDatatypeFor<?> followType;
+            IDatatypeFor followType;
             try {
                 followType = args.getEnum(FollowList.class).datatype;
-            } catch (NullPointerException e) {
+            } catch (CommandInvalidTypeException e) {
                 return Stream.empty();
             }
             while (args.has(2)) {
@@ -130,7 +127,7 @@ public class FollowCommand extends Command {
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "The follow command makes an entity follow other entities of certain kinds.",
+                "The follow command tells Baritone to follow certain kinds of entities.",
                 "",
                 "Usage:",
                 "> follow entities - Follows all entities.",
@@ -143,7 +140,7 @@ public class FollowCommand extends Command {
     @KeepName
     private enum FollowGroup {
         ENTITIES(LivingEntity.class::isInstance),
-        PLAYERS(PlayerEntity.class::isInstance); /* ,
+        PLAYERS(Player.class::isInstance); /* ,
         FRIENDLY(entity -> entity.getAttackTarget() != HELPER.mc.player),
         HOSTILE(FRIENDLY.filter.negate()); */
         final Predicate<Entity> filter;
@@ -158,9 +155,9 @@ public class FollowCommand extends Command {
         ENTITY(EntityClassById.INSTANCE),
         PLAYER(NearbyPlayer.INSTANCE);
 
-        final IDatatypeFor<?> datatype;
+        final IDatatypeFor datatype;
 
-        FollowList(IDatatypeFor<?> datatype) {
+        FollowList(IDatatypeFor datatype) {
             this.datatype = datatype;
         }
     }

@@ -23,8 +23,6 @@ import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.datatypes.RelativeGoalXZ;
 import baritone.api.command.exception.CommandException;
 import baritone.api.pathing.goals.GoalXZ;
-import baritone.api.utils.BetterBlockPos;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,23 +30,22 @@ import java.util.stream.Stream;
 
 public class ExploreCommand extends Command {
 
-    public ExploreCommand() {
-        super("explore");
+    public ExploreCommand(IBaritone baritone) {
+        super(baritone, "explore");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         if (args.hasAny()) {
             args.requireExactly(2);
         } else {
             args.requireMax(0);
         }
-        BetterBlockPos feetPos = baritone.getPlayerContext().feetPos();
         GoalXZ goal = args.hasAny()
-                ? args.getDatatypePost(RelativeGoalXZ.INSTANCE, feetPos)
-                : new GoalXZ(feetPos);
+                ? args.getDatatypePost(RelativeGoalXZ.INSTANCE, ctx.playerFeet())
+                : new GoalXZ(ctx.playerFeet());
         baritone.getExploreProcess().explore(goal.getX(), goal.getZ());
-        logDirect(source, String.format("Exploring from %s", goal.toString()));
+        logDirect(String.format("Exploring from %s", goal.toString()));
     }
 
     @Override
@@ -67,7 +64,7 @@ public class ExploreCommand extends Command {
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "Tell Automatone to explore randomly. If you used explorefilter before this, it will be applied.",
+                "Tell Baritone to explore randomly. If you used explorefilter before this, it will be applied.",
                 "",
                 "Usage:",
                 "> explore - Explore from your current position.",

@@ -22,8 +22,6 @@ import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
 import baritone.api.pathing.goals.GoalBlock;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.util.math.BlockPos;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,15 +29,15 @@ import java.util.stream.Stream;
 
 public class ComeCommand extends Command {
 
-    public ComeCommand() {
-        super("come");
+    public ComeCommand(IBaritone baritone) {
+        super(baritone, "come");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(0);
-        baritone.getCustomGoalProcess().setGoalAndPath(new GoalBlock(BlockPos.fromPosition(source.getPosition())));
-        logDirect(source, "Coming");
+        baritone.getCustomGoalProcess().setGoalAndPath(new GoalBlock(ctx.viewerPos()));
+        logDirect("Coming");
     }
 
     @Override
@@ -55,9 +53,9 @@ public class ComeCommand extends Command {
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "The come command tells Automatone to head towards the position at which the command was executed.",
+                "The come command tells Baritone to head towards your camera.",
                 "",
-                "This can be useful alongside redirection commands like \"/execute\".",
+                "This can be useful in hacked clients where freecam doesn't move your player position.",
                 "",
                 "Usage:",
                 "> come"

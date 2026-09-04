@@ -17,10 +17,10 @@
 
 package baritone.api.event.listener;
 
-import baritone.api.IBaritone;
 import baritone.api.event.events.*;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * @author Brady
@@ -29,11 +29,105 @@ import net.minecraft.client.network.ClientPlayerEntity;
 public interface IGameEventListener {
 
     /**
-     * Run once per game tick, if the associated baritone instance is {@linkplain IBaritone#isActive() active}.
+     * Run once per game tick before screen input is handled.
      *
-     * @see ServerTickEvents#END_SERVER_TICK
+     * @param event The event
+     * @see TickEvent
      */
-    void onTickServer();
+    void onTick(TickEvent event);
+
+    /**
+     * Run once per game tick after the tick is completed
+     *
+     * @param event The event
+     * @see TickEvent
+     */
+    void onPostTick(TickEvent event);
+
+    /**
+     * Run once per game tick from before and after the player rotation is sent to the server.
+     *
+     * @param event The event
+     * @see PlayerUpdateEvent
+     */
+    void onPlayerUpdate(PlayerUpdateEvent event);
+
+    /**
+     * Runs whenever the client player sends a message to the server.
+     *
+     * @param event The event
+     * @see ChatEvent
+     */
+    void onSendChatMessage(ChatEvent event);
+
+    /**
+     * Runs whenever the client player tries to tab complete in chat.
+     *
+     * @param event The event
+     */
+    void onPreTabComplete(TabCompleteEvent event);
+
+    /**
+     * Runs before and after whenever a chunk is either loaded, unloaded, or populated.
+     *
+     * @param event The event
+     */
+    void onChunkEvent(ChunkEvent event);
+
+    /**
+     * Runs after a single or multi block change packet is received and processed.
+     *
+     * @param event The event
+     */
+    void onBlockChange(BlockChangeEvent event);
+
+    /**
+     * Runs once per world render pass.
+     *
+     * @param event The event
+     */
+    void onRenderPass(RenderEvent event);
+
+    /**
+     * Runs before and after whenever a new world is loaded
+     *
+     * @param event The event
+     * @see WorldEvent
+     */
+    void onWorldEvent(WorldEvent event);
+
+    /**
+     * Runs before a outbound packet is sent
+     *
+     * @param event The event
+     * @see Packet
+     */
+    void onSendPacket(PacketEvent event);
+
+    /**
+     * Runs before an inbound packet is processed
+     *
+     * @param event The event
+     * @see Packet
+     */
+    void onReceivePacket(PacketEvent event);
+
+    /**
+     * Run once per game tick from before and after the player's moveRelative method is called
+     * and before and after the player jumps.
+     *
+     * @param event The event
+     * @see Entity#moveRelative(float, Vec3)
+     */
+    void onPlayerRotationMove(RotationMoveEvent event);
+
+    /**
+     * Called whenever the host sprint state is checked.
+     *
+     * @param event The event
+     * @see SprintStateEvent
+     */
+    void onPlayerSprintState(SprintStateEvent event);
 
     /**
      * Called when the local player interacts with a block, whether it is breaking or opening/placing.
@@ -41,6 +135,11 @@ public interface IGameEventListener {
      * @param event The event
      */
     void onBlockInteract(BlockInteractEvent event);
+
+    /**
+     * Called when the host dies.
+     */
+    void onPlayerDeath();
 
     /**
      * When the pathfinder's state changes

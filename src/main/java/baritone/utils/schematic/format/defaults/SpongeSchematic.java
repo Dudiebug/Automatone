@@ -17,22 +17,21 @@
 
 package baritone.utils.schematic.format.defaults;
 
-import baritone.Automatone;
 import baritone.utils.schematic.StaticSchematic;
 import baritone.utils.type.VarInt;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
-import net.minecraft.state.property.Property;
-import net.minecraft.util.Identifier;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 
 /**
  * @author Brady
@@ -40,15 +39,15 @@ import java.util.regex.Pattern;
  */
 public final class SpongeSchematic extends StaticSchematic {
 
-    public SpongeSchematic(NbtCompound nbt) {
+    public SpongeSchematic(CompoundTag nbt) {
         this.x = nbt.getInt("Width");
         this.y = nbt.getInt("Height");
         this.z = nbt.getInt("Length");
         this.states = new BlockState[this.x][this.z][this.y];
 
         Int2ObjectArrayMap<BlockState> palette = new Int2ObjectArrayMap<>();
-        NbtCompound paletteTag = nbt.getCompound("Palette");
-        for (String tag : paletteTag.getKeys()) {
+        CompoundTag paletteTag = nbt.getCompound("Palette");
+        for (String tag : paletteTag.getAllKeys()) {
             int index = paletteTag.getInt(tag);
 
             SerializedBlockState serializedState = SerializedBlockState.getFromString(tag);
@@ -97,22 +96,22 @@ public final class SpongeSchematic extends StaticSchematic {
 
         private static final Pattern REGEX = Pattern.compile("(?<location>(\\w+:)?\\w+)(\\[(?<properties>(\\w+=\\w+,?)+)])?");
 
-        private final Identifier resourceLocation;
+        private final ResourceLocation resourceLocation;
         private final Map<String, String> properties;
         private BlockState blockState;
 
-        private SerializedBlockState(Identifier resourceLocation, Map<String, String> properties) {
+        private SerializedBlockState(ResourceLocation resourceLocation, Map<String, String> properties) {
             this.resourceLocation = resourceLocation;
             this.properties = properties;
         }
 
         private BlockState deserialize() {
             if (this.blockState == null) {
-                Block block = Registries.BLOCK.get(this.resourceLocation);
-                this.blockState = block.getDefaultState();
+                Block block = BuiltInRegistries.BLOCK.get(this.resourceLocation);
+                this.blockState = block.defaultBlockState();
 
                 this.properties.keySet().stream().sorted(String::compareTo).forEachOrdered(key -> {
-                    Property<?> property = block.getStateManager().getProperty(key);
+                    Property<?> property = block.getStateDefinition().getProperty(key);
                     if (property != null) {
                         this.blockState = setPropertyValue(this.blockState, property, this.properties.get(key));
                     }
@@ -131,7 +130,7 @@ public final class SpongeSchematic extends StaticSchematic {
                 String location = m.group("location");
                 String properties = m.group("properties");
 
-                Identifier resourceLocation = new Identifier(location);
+                ResourceLocation resourceLocation = ResourceLocation.parse(location);
                 Map<String, String> propertiesMap = new HashMap<>();
                 if (properties != null) {
                     for (String property : properties.split(",")) {
@@ -142,15 +141,15 @@ public final class SpongeSchematic extends StaticSchematic {
 
                 return new SerializedBlockState(resourceLocation, propertiesMap);
             } catch (Exception e) {
-                Automatone.LOGGER.error(e);
+                e.printStackTrace();
                 return null;
             }
         }
 
         private static <T extends Comparable<T>> BlockState setPropertyValue(BlockState state, Property<T> property, String value) {
-            Optional<T> parsed = property.parse(value);
+            Optional<T> parsed = property.getValue(value);
             if (parsed.isPresent()) {
-                return state.with(property, parsed.get());
+                return state.setValue(property, parsed.get());
             } else {
                 throw new IllegalArgumentException("Invalid value for property " + property);
             }

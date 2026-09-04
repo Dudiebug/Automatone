@@ -17,53 +17,48 @@
 
 package baritone.utils;
 
+import baritone.Baritone;
 import baritone.api.BaritoneAPI;
+import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.utils.BetterBlockPos;
-import com.mojang.blaze3d.glfw.Window;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.MinecraftClient;
+import baritone.api.utils.Helper;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 import java.awt.*;
 import java.util.Collections;
-import java.util.Objects;
-import java.util.UUID;
 
 import static baritone.api.command.IBaritoneChatControl.FORCE_COMMAND_PREFIX;
-import static org.lwjgl.opengl.GL11.*;
 
-public class GuiClick extends Screen {
+public class GuiClick extends Screen implements Helper {
 
-    private final UUID callerUuid;
+    private static final Minecraft mc = Minecraft.getInstance();
+
     private Matrix4f projectionViewMatrix;
 
     private BlockPos clickStart;
     private BlockPos currentMouseOver;
 
-    public GuiClick(UUID callerUuid) {
-        super(Text.literal("CLICK"));
-        this.callerUuid = callerUuid;
+    public GuiClick() {
+        super(Component.literal("CLICK"));
     }
 
     @Override
@@ -72,24 +67,22 @@ public class GuiClick extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        double mx = mc.mouse.getX();
-        double my = mc.mouse.getY();
+    public void render(GuiGraphics stack, int mouseX, int mouseY, float partialTicks) {
+        double mx = mc.mouseHandler.xpos();
+        double my = mc.mouseHandler.ypos();
 
-        my = mc.getWindow().getHeight() - my;
-        my *= mc.getWindow().getFramebufferHeight() / (double) mc.getWindow().getHeight();
-        mx *= mc.getWindow().getFramebufferWidth() / (double) mc.getWindow().getWidth();
-        Vec3d near = toWorld(mx, my, 0);
-        Vec3d far = toWorld(mx, my, 1); // "Use 0.945 that's what stack overflow says" - leijurv
+        my = mc.getWindow().getScreenHeight() - my;
+        my *= mc.getWindow().getHeight() / (double) mc.getWindow().getScreenHeight();
+        mx *= mc.getWindow().getWidth() / (double) mc.getWindow().getScreenWidth();
+        Vec3 near = toWorld(mx, my, 0);
+        Vec3 far = toWorld(mx, my, 1); // "Use 0.945 that's what stack overflow says" - leijurv
 
         if (near != null && far != null) {
-            ///
-            Vec3d viewerPos = new Vec3d(PathRenderer.posX(), PathRenderer.posY(), PathRenderer.posZ());
-            PlayerEntity player = Objects.requireNonNull(MinecraftClient.getInstance().player);
-            BlockHitResult result = player.getWorld().raycast(new RaycastContext(near.add(viewerPos), far.add(viewerPos), RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, player));
+            Vec3 viewerPos = new Vec3(PathRenderer.posX(), PathRenderer.posY(), PathRenderer.posZ());
+            Entity player = BaritoneAPI.getProvider().getPrimaryBaritone().getPlayerContext().player();
+            HitResult result = player.level().clip(new ClipContext(near.add(viewerPos), far.add(viewerPos), ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
             if (result != null && result.getType() == HitResult.Type.BLOCK) {
-                currentMouseOver = result.getBlockPos();
+                currentMouseOver = ((BlockHitResult) result).getBlockPos();
             }
         }
     }
@@ -97,28 +90,24 @@ public class GuiClick extends Screen {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int mouseButton) {
         if (currentMouseOver != null) { //Catch this, or else a click into void will result in a crash
-            MinecraftClient client = this.client;
-            assert client != null;
-            assert client.player != null;
-            assert client.world != null;
             if (mouseButton == 0) {
                 if (clickStart != null && !clickStart.equals(currentMouseOver)) {
-                    client.player.networkHandler.sendChatCommand(String.format("execute as %s run automatone sel clear", callerUuid));
-                    client.player.networkHandler.sendChatCommand(String.format("execute as %s run automatone sel 1 %d %d %d", callerUuid, clickStart.getX(), clickStart.getY(), clickStart.getZ()));
-                    client.player.networkHandler.sendChatCommand(String.format("execute as %s run automatone sel 2 %d %d %d", callerUuid, currentMouseOver.getX(), currentMouseOver.getY(), currentMouseOver.getZ()));
-                    MutableText component = Text.literal("").append(BaritoneAPI.getPrefix()).append(" Selection made! For usage: " + FORCE_COMMAND_PREFIX + "help sel");
+                    BaritoneAPI.getProvider().getPrimaryBaritone().getSelectionManager().removeAllSelections();
+                    BaritoneAPI.getProvider().getPrimaryBaritone().getSelectionManager().addSelection(BetterBlockPos.from(clickStart), BetterBlockPos.from(currentMouseOver));
+                    MutableComponent component = Component.literal("Selection made! For usage: " + Baritone.settings().prefix.value + "help sel");
                     component.setStyle(component.getStyle()
-                            .withFormatting(Formatting.WHITE)
+                            .withColor(ChatFormatting.WHITE)
                             .withClickEvent(new ClickEvent(
                                     ClickEvent.Action.RUN_COMMAND,
                                     FORCE_COMMAND_PREFIX + "help sel"
                             )));
-                    client.inGameHud.getChatHud().addMessage(component);
+                    Helper.HELPER.logDirect(component);
+                    clickStart = null;
                 } else {
-                    client.player.networkHandler.sendChatCommand(String.format("execute as %s run automatone goto %d %d %d", callerUuid, currentMouseOver.getX(), currentMouseOver.getY(), currentMouseOver.getZ()));
+                    BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(new GoalBlock(currentMouseOver));
                 }
             } else if (mouseButton == 1) {
-                client.player.networkHandler.sendChatCommand(String.format("execute as %s run automatone goto %d %d %d", callerUuid, currentMouseOver.getX(), currentMouseOver.getY() + 1, currentMouseOver.getZ()));
+                BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(new GoalBlock(currentMouseOver.above()));
             }
         }
         clickStart = null;
@@ -131,53 +120,43 @@ public class GuiClick extends Screen {
         return super.mouseClicked(mouseX, mouseY, mouseButton);
     }
 
-    public void onRender(MatrixStack modelViewStack, Matrix4f projectionMatrix) {
+    public void onRender(PoseStack modelViewStack, Matrix4f projectionMatrix) {
         this.projectionViewMatrix = new Matrix4f(projectionMatrix);
-        this.projectionViewMatrix.mul(modelViewStack.peek().getModel());
+        this.projectionViewMatrix.mul(modelViewStack.last().pose());
         this.projectionViewMatrix.invert();
 
         if (currentMouseOver != null) {
-            Entity e = MinecraftClient.getInstance().getCameraEntity();
-            Camera c = MinecraftClient.getInstance().gameRenderer.getCamera();
-            assert e != null;
-            VertexConsumer vertexConsumer = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers().getBuffer(RenderLayer.getLines());
-            WorldRenderer.drawBox(modelViewStack, vertexConsumer, new Box(currentMouseOver).offset(-c.getPos().x, -c.getPos().y, -c.getPos().z).expand(0.002), 0, 1, 1, 1);
+            Entity e = mc.getCameraEntity();
+            // drawSingleSelectionBox WHEN?
+            PathRenderer.drawManySelectionBoxes(modelViewStack, e, Collections.singletonList(currentMouseOver), Color.CYAN);
             if (clickStart != null && !clickStart.equals(currentMouseOver)) {
-                RenderSystem.enableBlend();
-                RenderSystem.blendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
-                RenderSystem.lineWidth(BaritoneAPI.getGlobalSettings().pathRenderLineWidthPixels.get());
-                RenderSystem.setShader(GameRenderer::getPositionColorShader);
-                RenderSystem.depthMask(false);
-                RenderSystem.disableDepthTest();
+                BufferBuilder bufferBuilder = IRenderer.startLines(Color.RED, Baritone.settings().pathRenderLineWidthPixels.value, true);
                 BetterBlockPos a = new BetterBlockPos(currentMouseOver);
                 BetterBlockPos b = new BetterBlockPos(clickStart);
-                WorldRenderer.drawBox(modelViewStack, vertexConsumer, new Box(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.min(a.z, b.z), Math.max(a.x, b.x) + 1, Math.max(a.y, b.y) + 1, Math.max(a.z, b.z) + 1).offset(-c.getPos().x, -c.getPos().y, -c.getPos().z), 1, 0, 0, 0.4f);
-                RenderSystem.enableDepthTest();
-
-                RenderSystem.depthMask(true);
-                RenderSystem.disableBlend();
+                IRenderer.emitAABB(bufferBuilder, modelViewStack, new AABB(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.min(a.z, b.z), Math.max(a.x, b.x) + 1, Math.max(a.y, b.y) + 1, Math.max(a.z, b.z) + 1));
+                IRenderer.endLines(bufferBuilder, true);
             }
         }
     }
 
-    private Vec3d toWorld(double x, double y, double z) {
+    private Vec3 toWorld(double x, double y, double z) {
         if (this.projectionViewMatrix == null) {
             return null;
         }
 
-        Window window = MinecraftClient.getInstance().getWindow();
-        x /= window.getFramebufferWidth();
-        y /= window.getFramebufferHeight();
+        x /= mc.getWindow().getWidth();
+        y /= mc.getWindow().getHeight();
         x = x * 2 - 1;
         y = y * 2 - 1;
 
         Vector4f pos = new Vector4f((float) x, (float) y, (float) z, 1.0F);
-        pos.mul(this.projectionViewMatrix);
-        if (pos.w == 0) {
+        projectionViewMatrix.transform(pos);
+
+        if (pos.w() == 0) {
             return null;
         }
 
-        pos.div(pos.w); // Normalize projection coordinates
-        return new Vec3d(pos.x, pos.y, pos.z);
+        pos.mul(1/pos.w());
+        return new Vec3(pos.x(), pos.y(), pos.z());
     }
 }

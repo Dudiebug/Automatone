@@ -19,34 +19,25 @@ package baritone.utils;
 
 import baritone.Baritone;
 import baritone.api.process.IBaritoneProcess;
-import baritone.api.utils.IEntityContext;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import baritone.api.utils.Helper;
+import baritone.api.utils.IPlayerContext;
 
-public abstract class BaritoneProcessHelper implements IBaritoneProcess {
+public abstract class BaritoneProcessHelper implements IBaritoneProcess, Helper {
 
     protected final Baritone baritone;
-    protected final IEntityContext ctx;
+    protected final IPlayerContext ctx;
 
     public BaritoneProcessHelper(Baritone baritone) {
+        this(baritone, baritone.getPlayerContext());
+    }
+
+    protected BaritoneProcessHelper(Baritone baritone, IPlayerContext context) {
         this.baritone = baritone;
-        this.ctx = baritone.getPlayerContext();
+        this.ctx = context;
     }
 
     @Override
     public boolean isTemporary() {
         return false;
-    }
-
-    public void logDirect(Text... components) {
-        baritone.logDirect(components);
-    }
-
-    public void logDirect(String message, Formatting color) {
-        baritone.logDirect(message, color);
-    }
-
-    public void logDirect(String message) {
-        baritone.logDirect(message);
     }
 }

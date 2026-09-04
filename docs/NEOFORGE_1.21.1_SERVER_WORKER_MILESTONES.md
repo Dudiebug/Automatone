@@ -25,6 +25,36 @@ Planning branch:
 
 This branch is based on this fork's `1.20` branch because it is the closest existing Minecraft-version branch in the repository.
 
+### Locked M1.1 baseline ledger
+
+These immutable commits define the port baseline:
+
+- fork source baseline: `Dudiebug/Automatone@545c552d6f3c333e32a256dd82227004954dd5c3` (`1.20`, Minecraft 1.20.1);
+- planning baseline: `Dudiebug/Automatone@d555e41d0beb96194de5ff7c0a8dac7b701d0581`;
+- upstream behavioral reference: `minefortress-mod/automatone@58d090edaa3b8fb6cfdd3b1fecacf41f60ab8d4c` (`main`).
+
+The upstream reference changes 94 files relative to the fork source baseline. It is a behavioral reference, not a merge source. Bring forward only these server-worker-relevant behaviors, adapting them to the explicit host API introduced in M1.3:
+
+| Upstream behavior to preserve | Why the server worker needs it | Port rule |
+| --- | --- | --- |
+| General inventory access in `IEntityContext`, `InventoryBehavior`, `MineProcess`, movement, and `ToolSet` | A non-player worker must count items, select tools, and expose a hotbar without `PlayerInventory` ownership | Use the worker host's vanilla `Container` and selected-slot access; do not port `IMinefortressEntity` |
+| `LivingEntity`-based controller, placement, tool, and input paths | Pathing and mining must operate on a server-side non-player entity | Pass the host entity and controller directly; retain no fake-player bridge |
+| Non-player-safe movement calculation, including tool/effect/entity-dimension inputs | Native path cost and movement decisions must work without a `Player` | Preserve the generic calculations, but derive permissions and inventory from the explicit host contract |
+| Generic finite-quantity inventory iteration in `MineProcess` | Native `MineProcess` must remain functional for inventory-based callers even though the product later counts source blocks separately | Iterate the host inventory through its public container API |
+| Negative-height movement correction from `d718f3abab42f9dff930c1d80871ef7124e8475f` | 1.21.1 worlds routinely contain targets below Y=0 | Preserve the corrected vertical-distance behavior and separately validate scanner section offsets during M1.4 |
+| Runtime-local world-provider reference in `Baritone` | Explicit lifecycle ownership must not repeatedly depend on a component lookup | Construct/inject the provider directly in M1.3; do not retain the CCA key lookup |
+
+Explicitly reject these upstream changes:
+
+- `IMinefortressEntity`, `PlayerMinefortressEntity`, `IBlockPosControl`, `IFortressAwareBlockEntity`, and every other MineFortress-specific API or ownership hook;
+- fake-player networking, client fake-player types, player-behavior mixins, advancement/sleep/chunk-tracking exceptions, and the testmod fake-player implementation;
+- global mob `MoveControl`, `LookControl`, `JumpControl`, or AI-cancellation mixins; worker-local control belongs to the later consumer worker milestone;
+- upstream `DummyEntityController` block/fluid/scaffolding implementation, fortress placer tracking, pillaring cleanup, and other MineFortress task behavior;
+- command disabling, client renderer/notification changes, Fabric metadata/build migration, test deletion, and publication workflow changes;
+- wholesale upstream merges or cherry-picks. Mechanical 1.21.1 API updates are reimplemented against NeoForge/Mojang mappings in M1.2.
+
+This ledger is the complete M1.1 import decision. Later upstream code is included only if a compile or runtime failure proves it necessary for the listed native server mining path, and that exception must be added here with its commit, behavior, and reason before implementation.
+
 ## Task sizing rule
 
 This plan intentionally has **26 implementation tasks total**.
@@ -161,6 +191,11 @@ Do not port client rendering, HUDs, command UX, schematica, or unrelated MineFor
 
 **Done when:** the server-side pathing/process source compiles against NeoForge 1.21.1.
 
+**Implemented:** the mechanical Mojmap/API port uses `cabaletta/baritone@f3a51d47a05fa4fc9cacd6d90091f617a8d685df`
+(`1.21.1`) as its mapping reference. The project now builds with Java 21, NeoForge `21.1.249`, and
+ModDevGradle `2.0.144`; `clean test build` passes. Runtime ownership remains an M1.3 concern, and the
+server-only mixin/client dependency audit remains an M1.4 concern.
+
 ### M1.3 — Remove Fabric/Quilt/CCA runtime ownership
 
 - Remove Cardinal Components inheritance and key lookups from `IBaritone`, controllers, entity context, and world context.
@@ -172,6 +207,12 @@ Do not build a generic NeoForge replacement for CCA.
 
 **Done when:** the mining path has no Fabric/Quilt/CCA runtime dependency and a test runtime can be created, ticked once per tick, and disposed cleanly.
 
+**Implemented:** `BaritoneProvider` is now an ordinary explicit owner: callers supply the host context and
+data directory, duplicate creation for one context is prevented, NeoForge's server post-tick event advances
+owned runtimes once, unavailable hosts are removed, and server shutdown disposes all runtimes. `Baritone`
+owns its `WorldProvider` directly, and disposal is idempotent. The focused provider lifecycle test covers
+create/deduplicate/tick/host-removal/dispose; real dedicated-server construction remains part of M1.5.
+
 ### M1.4 — Minimize mixins and restore native `MineProcess`
 
 - Audit each existing mixin/accessor and retain only those truly required by the server pathing/mining core.
@@ -181,6 +222,20 @@ Do not build a generic NeoForge replacement for CCA.
 - Remove client notification/render dependencies from the server mining path.
 
 **Done when:** the retained mixin list is small and documented, and native `MineProcess` can activate/cancel in a server-only test.
+
+**Implemented:** the retained server-core mixin/accessor list is empty. The obsolete Yarn-era entity, mob,
+fake-player, server-player, command-source, chunk-manager, shutdown, `ItemStack`, loot-table, client-chunk,
+and palette hooks were removed. Chunk scanning and block-state access now use public 1.21.1 APIs; the slower
+public `PalettedContainer#get` scan is the intentional M1 baseline. `BlockOptionalMeta` matches target block
+items without injected `ItemStack` state or a fabricated client-side server/resource loader (loot-derived exact
+quantity semantics remain M4 scope).
+
+`Baritone#getMineProcess()` exposes the native `MineProcess`. Starting a mine now establishes process state
+without client initialization, cancellation invalidates outstanding scans, and asynchronous scan results are
+published on the owning tick only when their generation is still current. Mine failures use ordinary logging,
+with no toast, desktop-notification, or renderer path. `MineProcessLifecycleTest` verifies native activation,
+cancellation, and the concrete `Baritone` accessor without a client runtime. Dedicated-server construction and
+world-backed scanning remain explicitly M1.5.
 
 ### M1.5 — Dedicated-server smoke tests
 
@@ -193,6 +248,13 @@ Add GameTests/smoke tests that:
 - activate/cancel a harmless process state;
 - dispose and recreate the runtime;
 - verify no client, Fabric, Quilt, or CCA class is required.
+
+**Implemented:** the NeoForge GameTest server boots and exercises the real provider, server-level runtime,
+native `MineProcess`, ticking, cancellation, disposal/recreation, cache lifecycle, ownership boundaries, and
+scanner behavior. The final bounded run passes 67 unit tests, four architecture tests, and 13 dedicated-server
+GameTests. This establishes the M1 server-library foundation; it does not create the M2 worker entity or make
+the branch a user-ready server mod. The required cleanup workflow remains blocked by 84 retained SpotBugs
+findings, with no new unmatched findings and no approved waiver.
 
 ## Runnable acceptance test
 

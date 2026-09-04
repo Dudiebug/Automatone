@@ -1,0 +1,44 @@
+schema_version: 1
+required_fields:
+  - id
+  - title
+  - state
+  - milestone
+  - depends_on
+  - risk
+  - sensor_profiles
+  - plan_reference
+  - objective
+  - allowed_scope
+  - forbidden_scope
+  - acceptance_criteria
+  - blocker_conditions
+
+state_enum:
+  - PLANNED
+  - READY
+  - PREFLIGHT
+  - IMPLEMENTING
+  - VERIFYING
+  - REPAIRING
+  - ACCEPTED
+  - REJECTED
+  - BLOCKED
+
+risk_enum:
+  - low
+  - medium
+  - high
+  - critical
+
+acceptance_criterion_shape:
+  id: AC-N
+  statement: observable desired behavior
+  sensor: sensor id or task-specific check
+  blocking: true
+  evidence: expected artifact/result
+
+rule_notes:
+  - A task cannot be READY without an observable acceptance mapping.
+  - A task cannot be ACCEPTED with a required sensor in UNVERIFIED state.
+  - Generated source claims should carry repository/ref/path or be marked INFERRED/UNKNOWN.

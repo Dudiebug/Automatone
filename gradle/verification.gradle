@@ -1,0 +1,244 @@
+import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.plugins.quality.Checkstyle
+import groovy.xml.XmlSlurper
+
+def verificationReportDir = layout.buildDirectory.dir('reports/verification')
+def checkstyleConfig = rootProject.file('config/verification/checkstyle.xml')
+
+sourceSets {
+    sensorTest {
+        java.srcDir 'src/sensorTest/java'
+        resources.srcDir 'src/sensorTest/resources'
+        compileClasspath += sourceSets.main.output + configurations.testCompileClasspath
+        runtimeClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+    }
+}
+
+configurations {
+    sensorTestImplementation.extendsFrom(testImplementation)
+    sensorTestRuntimeOnly.extendsFrom(testRuntimeOnly)
+    cpdTool
+}
+
+dependencies {
+    sensorTestImplementation 'com.tngtech.archunit:archunit-junit4:1.5.0'
+    cpdTool 'net.sourceforge.pmd:pmd-ant:7.16.0'
+    cpdTool 'net.sourceforge.pmd:pmd-core:7.16.0'
+    cpdTool 'net.sourceforge.pmd:pmd-java:7.16.0'
+    errorprone 'com.google.errorprone:error_prone_core:2.50.0'
+}
+
+checkstyle {
+    toolVersion = '12.1.2'
+    configFile = checkstyleConfig
+}
+
+tasks.withType(Checkstyle).configureEach {
+    configFile = checkstyleConfig
+    ignoreFailures = false
+    // Checkstyle consumes source text; leave it runnable when a compile sensor has a finding.
+    setDependsOn([])
+    classpath = files()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableWarningsInGeneratedCode = true
+    }
+}
+
+tasks.configureEach {
+    if (name.startsWith('spotbugs')) {
+        ignoreFailures = false
+        reports {
+            xml.required = true
+            html.required = false
+        }
+    }
+}
+
+jacoco {
+    toolVersion = '0.8.15'
+}
+
+spotbugs {
+    toolVersion = '4.10.2'
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+def emitSensor = { String id, String status, String summary ->
+    def compact = summary.replaceAll(/[\r\n]+/, ' ').trim()
+    logger.lifecycle("AUTOMATONE_SENSOR id=${id} status=${status} summary=${compact}")
+}
+
+def sensorTestTask = tasks.register('sensorTest', Test) {
+    description = 'Runs isolated architecture/verification tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.sensorTest.output.classesDirs
+    classpath = sourceSets.sensorTest.runtimeClasspath
+    useJUnit()
+    shouldRunAfter test
+}
+
+def sensorCheckstyleTask = tasks.findByName('checkstyleSensorTest')
+if (sensorCheckstyleTask == null) {
+    sensorCheckstyleTask = tasks.register('checkstyleSensorTest', Checkstyle) {
+        description = 'Checks isolated verification sources.'
+        group = 'verification'
+        source = sourceSets.sensorTest.allJava
+        classpath = files()
+        configFile = checkstyleConfig
+    }
+}
+
+def sensorCompile = tasks.register('sensorCompile') {
+    group = 'verification'
+    dependsOn 'compileJava', 'compileTestJava', 'compileSensorTestJava'
+    doLast {
+        emitSensor('compile', 'PASS', 'Java production, unit-test, and isolated sensor sources compiled.')
+    }
+}
+
+def sensorUnitTests = tasks.register('sensorUnitTests') {
+    group = 'verification'
+    dependsOn test
+    doLast {
+        emitSensor('unit_tests', 'PASS', 'Existing JUnit unit tests completed.')
+    }
+}
+
+def sensorCheckstyle = tasks.register('sensorCheckstyle') {
+    group = 'verification'
+    dependsOn 'checkstyleMain', 'checkstyleTest', sensorCheckstyleTask
+    doLast {
+        emitSensor('checkstyle', 'PASS', 'Checkstyle completed for product, unit-test, and sensor sources.')
+    }
+}
+
+def sensorErrorProne = tasks.register('sensorErrorProne') {
+    group = 'verification'
+    dependsOn sensorCompile
+    doLast {
+        emitSensor('error_prone', 'PASS', 'Error Prone completed during Java compilation.')
+    }
+}
+
+def sensorSpotBugs = tasks.register('sensorSpotBugs') {
+    group = 'verification'
+    dependsOn 'spotbugsMain', 'spotbugsTest', 'spotbugsSensorTest'
+    doLast {
+        emitSensor('spotbugs', 'PASS', 'SpotBugs completed for product and unit-test bytecode.')
+    }
+}
+
+def sensorArchUnit = tasks.register('sensorArchunit') {
+    group = 'verification'
+    dependsOn sensorTestTask
+    doLast {
+        emitSensor('archunit', 'PASS', 'ArchUnit architecture rules completed.')
+    }
+}
+
+def cpdCheck = tasks.register('cpdCheck') {
+    group = 'verification'
+    def sourceDirectories = ['src/api/java', 'src/main/java', 'src/schematica_api/java', 'src/test/java', 'src/sensorTest/java']
+    inputs.files(sourceDirectories.collect { fileTree(rootProject.file(it)) })
+    outputs.upToDateWhen { false }
+    def report = verificationReportDir.map { it.file('cpd.xml') }
+    outputs.file report
+    doLast {
+        def reportFile = report.get().asFile
+        reportFile.parentFile.mkdirs()
+        ant.taskdef(name: 'cpd', classname: 'net.sourceforge.pmd.ant.CPDTask', classpath: configurations.cpdTool.asPath)
+        ant.cpd(minimumTokenCount: 100, language: 'java', format: 'xml', outputFile: reportFile, failOnError: true, encoding: 'UTF-8') {
+            ['src/api/java', 'src/main/java', 'src/schematica_api/java', 'src/test/java', 'src/sensorTest/java'].each { sourceDir ->
+                fileset(dir: rootProject.file(sourceDir)) {
+                    include(name: '**/*.java')
+                }
+            }
+        }
+        def duplicateCount = new XmlSlurper().parse(reportFile).duplication.size()
+        if (duplicateCount > 0) {
+            emitSensor('duplication', 'FAIL', "CPD found ${duplicateCount} duplicated code region(s); report=${reportFile}")
+            throw new GradleException("CPD found ${duplicateCount} duplicated code region(s).")
+        }
+        emitSensor('duplication', 'PASS', "CPD completed; report=${reportFile}")
+    }
+}
+
+def sensorDuplication = tasks.register('sensorDuplication') {
+    group = 'verification'
+    dependsOn cpdCheck
+}
+
+def sensorCheck = tasks.register('sensorCheck') {
+    description = 'Runs the default deterministic Java verification sensors.'
+    group = 'verification'
+    dependsOn sensorCompile, sensorUnitTests, sensorCheckstyle, sensorErrorProne, sensorSpotBugs, sensorArchUnit, sensorDuplication
+}
+
+def gameTestSources = fileTree(rootProject.file('src')) {
+    include '**/*GameTest.java'
+    include '**/*GameTests.java'
+}
+def gameTestTask = tasks.findByName('runGameTestServer')
+def sensorIntegration = tasks.register('sensorIntegration') {
+    description = 'Runs NeoForge GameTests when the project supplies them; otherwise records UNVERIFIED.'
+    group = 'verification'
+    if (gameTestTask != null) {
+        dependsOn gameTestTask
+    }
+    doLast {
+        if (gameTestTask == null || gameTestSources.isEmpty()) {
+            emitSensor('neoforge_gametest', 'UNVERIFIED', 'NeoForge GameTest task or project GameTest sources are unavailable.')
+            throw new GradleException('UNVERIFIED: NeoForge GameTest runtime evidence is unavailable.')
+        }
+        emitSensor('neoforge_gametest', 'PASS', 'NeoForge GameTests completed.')
+    }
+}
+
+def sensorServerRuntime = tasks.register('sensorServerRuntime') {
+    description = 'Checks whether off-the-shelf spark server runtime evidence is available.'
+    group = 'verification'
+    doLast {
+        emitSensor('spark_server_health', 'UNVERIFIED', 'No configured dedicated-server workload or spark observation is available.')
+        throw new GradleException('UNVERIFIED: spark server runtime evidence is unavailable.')
+    }
+}
+
+def sensorDependency = tasks.register('sensorDependency') {
+    description = 'Runs Dependency-Check only when explicitly enabled; otherwise records UNVERIFIED.'
+    group = 'verification'
+    if (project.hasProperty('runDependencyCheck')) {
+        dependsOn 'dependencyCheckAnalyze'
+        doLast {
+            emitSensor('dependency_vulnerability', 'PASS', 'OWASP Dependency-Check completed.')
+            emitSensor('dependency_resolution', 'PASS', 'Dependency-Check resolved the declared dependency graph.')
+        }
+    } else {
+        doLast {
+            emitSensor('dependency_vulnerability', 'UNVERIFIED', 'Dependency-Check is opt-in because NVD database operations are slow.')
+            emitSensor('dependency_resolution', 'UNVERIFIED', 'Dependency resolution was not requested by the selected run.')
+            throw new GradleException('UNVERIFIED: run with -PrunDependencyCheck to execute Dependency-Check.')
+        }
+    }
+}
+
+tasks.register('sensorAll') {
+    description = 'Runs all configured verification sensors, including unavailable-runtime checks.'
+    group = 'verification'
+    dependsOn sensorCheck, sensorIntegration, sensorServerRuntime, sensorDependency, 'jacocoTestReport'
+}
+
+dependencyCheck {
+    outputDirectory = layout.buildDirectory.dir('reports/dependency-check').get().asFile
+    failBuildOnCVSS = 7.0
+}

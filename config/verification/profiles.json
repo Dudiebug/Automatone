@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "profiles": {
+    "default": {
+      "gradle_tasks": ["sensorCheck"],
+      "sensors": ["compile", "unit_tests", "checkstyle", "error_prone", "spotbugs", "archunit", "duplication"]
+    },
+    "bootstrap": {
+      "gradle_tasks": ["sensorAll"],
+      "sensors": ["compile", "unit_tests", "checkstyle", "error_prone", "spotbugs", "archunit", "duplication", "neoforge_gametest", "spark_server_health", "dependency_vulnerability", "dependency_resolution", "product_source_hashes"]
+    },
+    "runtime_minecraft": {
+      "gradle_tasks": ["sensorIntegration"],
+      "sensors": ["neoforge_gametest"]
+    },
+    "server_runtime": {
+      "gradle_tasks": ["sensorServerRuntime"],
+      "sensors": ["spark_server_health"]
+    },
+    "server_runtime_observability": {
+      "gradle_tasks": ["sensorServerRuntime"],
+      "sensors": ["spark_server_health"]
+    },
+    "architecture_sensitive": {
+      "gradle_tasks": ["sensorCheck"],
+      "sensors": ["archunit", "duplication"]
+    },
+    "dependency_change": {
+      "gradle_tasks": ["sensorDependency"],
+      "sensors": ["dependency_vulnerability", "dependency_resolution"]
+    }
+  }
+}

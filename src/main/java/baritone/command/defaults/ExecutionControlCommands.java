@@ -17,17 +17,14 @@
 
 package baritone.command.defaults;
 
-import baritone.Baritone;
 import baritone.api.IBaritone;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandInvalidStateException;
-import baritone.api.command.manager.ICommandManager;
 import baritone.api.process.IBaritoneProcess;
 import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,22 +39,56 @@ import java.util.stream.Stream;
  */
 public class ExecutionControlCommands {
 
-    private final Command pauseCommand;
-    private final Command resumeCommand;
-    private final Command pausedCommand;
-    private final Command cancelCommand;
+    Command pauseCommand;
+    Command resumeCommand;
+    Command pausedCommand;
+    Command cancelCommand;
 
-    public ExecutionControlCommands() {
-        pauseCommand = new Command("pause", "p") {
+    public ExecutionControlCommands(IBaritone baritone) {
+        // array for mutability, non-field so reflection can't touch it
+        final boolean[] paused = {false};
+        baritone.getPathingControlManager().registerProcess(
+                new IBaritoneProcess() {
+                    @Override
+                    public boolean isActive() {
+                        return paused[0];
+                    }
+
+                    @Override
+                    public PathingCommand onTick(boolean calcFailed, boolean isSafeToCancel) {
+                        baritone.getInputOverrideHandler().clearAllKeys();
+                        return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
+                    }
+
+                    @Override
+                    public boolean isTemporary() {
+                        return true;
+                    }
+
+                    @Override
+                    public void onLostControl() {
+                    }
+
+                    @Override
+                    public double priority() {
+                        return DEFAULT_PRIORITY + 1;
+                    }
+
+                    @Override
+                    public String displayName0() {
+                        return "Pause/Resume Commands";
+                    }
+                }
+        );
+        pauseCommand = new Command(baritone, "pause", "p", "paws") {
             @Override
-            public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+            public void execute(String label, IArgConsumer args) throws CommandException {
                 args.requireMax(0);
-                ExecControlProcess controlProcess = (ExecControlProcess) ((Baritone) baritone).getExecControlProcess();
-                if (controlProcess.paused) {
+                if (paused[0]) {
                     throw new CommandInvalidStateException("Already paused");
                 }
-                controlProcess.paused = true;
-                logDirect(source, "Paused");
+                paused[0] = true;
+                logDirect("Paused");
             }
 
             @Override
@@ -67,13 +98,13 @@ public class ExecutionControlCommands {
 
             @Override
             public String getShortDesc() {
-                return "Pauses Automatone until you use resume";
+                return "Pauses Baritone until you use resume";
             }
 
             @Override
             public List<String> getLongDesc() {
                 return Arrays.asList(
-                        "The pause command tells Automatone to temporarily stop whatever it's doing.",
+                        "The pause command tells Baritone to temporarily stop whatever it's doing.",
                         "",
                         "This can be used to pause pathing, building, following, whatever. A single use of the resume command will start it right back up again!",
                         "",
@@ -82,17 +113,16 @@ public class ExecutionControlCommands {
                 );
             }
         };
-        resumeCommand = new Command("resume", "r") {
+        resumeCommand = new Command(baritone, "resume", "r", "unpause", "unpaws") {
             @Override
-            public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+            public void execute(String label, IArgConsumer args) throws CommandException {
                 args.requireMax(0);
                 baritone.getBuilderProcess().resume();
-                ExecControlProcess controlProcess = (ExecControlProcess) ((Baritone) baritone).getExecControlProcess();
-                if (!controlProcess.paused) {
+                if (!paused[0]) {
                     throw new CommandInvalidStateException("Not paused");
                 }
-                controlProcess.paused = false;
-                logDirect(source, "Resumed");
+                paused[0] = false;
+                logDirect("Resumed");
             }
 
             @Override
@@ -102,25 +132,24 @@ public class ExecutionControlCommands {
 
             @Override
             public String getShortDesc() {
-                return "Resumes Automatone processes after a pause";
+                return "Resumes Baritone after a pause";
             }
 
             @Override
             public List<String> getLongDesc() {
                 return Arrays.asList(
-                        "The resume command tells Automatone to resume whatever it was doing when you last used pause.",
+                        "The resume command tells Baritone to resume whatever it was doing when you last used pause.",
                         "",
                         "Usage:",
                         "> resume"
                 );
             }
         };
-        pausedCommand = new Command("paused") {
+        pausedCommand = new Command(baritone, "paused") {
             @Override
-            public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+            public void execute(String label, IArgConsumer args) throws CommandException {
                 args.requireMax(0);
-                boolean paused = ((ExecControlProcess) ((Baritone) baritone).getExecControlProcess()).paused;
-                logDirect(source, String.format("Automatone is %spaused", paused ? "" : "not "));
+                logDirect(String.format("Baritone is %spaused", paused[0] ? "" : "not "));
             }
 
             @Override
@@ -143,13 +172,15 @@ public class ExecutionControlCommands {
                 );
             }
         };
-        cancelCommand = new Command("cancel", "c", "stop") {
+        cancelCommand = new Command(baritone, "cancel", "c", "stop") {
             @Override
-            public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+            public void execute(String label, IArgConsumer args) throws CommandException {
                 args.requireMax(0);
-                ((ExecControlProcess) ((Baritone) baritone).getExecControlProcess()).paused = false;
+                if (paused[0]) {
+                    paused[0] = false;
+                }
                 baritone.getPathingBehavior().cancelEverything();
-                logDirect(source, "ok canceled");
+                logDirect("ok canceled");
             }
 
             @Override
@@ -165,58 +196,12 @@ public class ExecutionControlCommands {
             @Override
             public List<String> getLongDesc() {
                 return Arrays.asList(
-                        "The cancel command tells Automatone to stop whatever it's currently doing.",
+                        "The cancel command tells Baritone to stop whatever it's currently doing.",
                         "",
                         "Usage:",
                         "> cancel"
                 );
             }
         };
-    }
-
-    public void registerCommands() {
-        ICommandManager.registry.register(pauseCommand);
-        ICommandManager.registry.register(resumeCommand);
-        ICommandManager.registry.register(pausedCommand);
-        ICommandManager.registry.register(cancelCommand);
-    }
-
-    public IBaritoneProcess registerProcess(IBaritone baritone) {
-        ExecControlProcess proc = new ExecControlProcess();
-        baritone.getPathingControlManager().registerProcess(proc);
-        return proc;
-    }
-
-    private static class ExecControlProcess implements IBaritoneProcess {
-        boolean paused;
-
-        @Override
-        public boolean isActive() {
-            return paused;
-        }
-
-        @Override
-        public PathingCommand onTick(boolean calcFailed, boolean isSafeToCancel) {
-            return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
-        }
-
-        @Override
-        public boolean isTemporary() {
-            return true;
-        }
-
-        @Override
-        public void onLostControl() {
-        }
-
-        @Override
-        public double priority() {
-            return DEFAULT_PRIORITY + 1;
-        }
-
-        @Override
-        public String displayName0() {
-            return "Pause/Resume Commands";
-        }
     }
 }

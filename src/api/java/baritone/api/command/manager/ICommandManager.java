@@ -20,13 +20,10 @@ package baritone.api.command.manager;
 import baritone.api.IBaritone;
 import baritone.api.command.ICommand;
 import baritone.api.command.argument.ICommandArgument;
-import baritone.api.command.exception.CommandException;
 import baritone.api.command.registry.Registry;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.util.Pair;
+import net.minecraft.util.Tuple;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Stream;
 
 /**
@@ -35,30 +32,21 @@ import java.util.stream.Stream;
  */
 public interface ICommandManager {
 
-    Registry<ICommand> registry = new Registry<>();
+    IBaritone getBaritone();
+
+    Registry<ICommand> getRegistry();
 
     /**
      * @param name The command name to search for.
      * @return The command, if found.
      */
-    static ICommand getCommand(String name) {
-        for (ICommand command : registry.entries) {
-            if (command.getNames().contains(name.toLowerCase(Locale.ROOT))) {
-                return command;
-            }
-        }
-        return null;
-    }
+    ICommand getCommand(String name);
 
-    IBaritone getBaritone();
+    boolean execute(String string);
 
-    Registry<ICommand> getRegistry();
+    boolean execute(Tuple<String, List<ICommandArgument>> expanded);
 
-    boolean execute(ServerCommandSource source, String string) throws CommandException;
-
-    boolean execute(ServerCommandSource source, Pair<String, List<ICommandArgument>> expanded) throws CommandException;
-
-    Stream<String> tabComplete(Pair<String, List<ICommandArgument>> expanded);
+    Stream<String> tabComplete(Tuple<String, List<ICommandArgument>> expanded);
 
     Stream<String> tabComplete(String prefix);
 }

@@ -17,11 +17,7 @@
 
 package baritone.api;
 
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
-import java.util.Calendar;
+import baritone.api.utils.SettingsUtil;
 
 /**
  * Exposes the {@link IBaritoneProvider} instance and the {@link Settings} instance for API usage.
@@ -32,10 +28,14 @@ import java.util.Calendar;
 public final class BaritoneAPI {
 
     private static final IBaritoneProvider provider;
+    private static final Settings settings;
 
     static {
+        settings = new Settings();
+        SettingsUtil.readAndApply(settings, SettingsUtil.SETTINGS_DEFAULT_NAME);
+
         try {
-            provider = (IBaritoneProvider) Class.forName("baritone.BaritoneProvider").getField("INSTANCE").get(null);
+            provider = (IBaritoneProvider) Class.forName("baritone.BaritoneProvider").newInstance();
         } catch (ReflectiveOperationException ex) {
             throw new RuntimeException(ex);
         }
@@ -45,24 +45,7 @@ public final class BaritoneAPI {
         return BaritoneAPI.provider;
     }
 
-    public static Settings getGlobalSettings() {
-        return getProvider().getGlobalSettings();
-    }
-
-    public static Text getPrefix() {
-        // Inner text component
-        final Calendar now = Calendar.getInstance();
-        final boolean xd = now.get(Calendar.MONTH) == Calendar.APRIL && now.get(Calendar.DAY_OF_MONTH) <= 3;
-        MutableText baritone = Text.literal(xd ? "Automatoe" : getGlobalSettings().shortBaritonePrefix.get() ? "A" : "Automatone");
-        baritone.setStyle(baritone.getStyle().withFormatting(Formatting.GREEN));
-
-        // Outer brackets
-        MutableText prefix = Text.literal("");
-        prefix.setStyle(baritone.getStyle().withFormatting(Formatting.DARK_GREEN));
-        prefix.append("[");
-        prefix.append(baritone);
-        prefix.append("]");
-
-        return prefix;
+    public static Settings getSettings() {
+        return BaritoneAPI.settings;
     }
 }

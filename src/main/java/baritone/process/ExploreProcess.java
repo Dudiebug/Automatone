@@ -27,19 +27,18 @@ import baritone.api.process.IExploreProcess;
 import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
 import baritone.api.utils.MyChunkPos;
+import baritone.cache.CachedWorld;
 import baritone.utils.BaritoneProcessHelper;
-import baritone.utils.NotificationHelper;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
 
 public final class ExploreProcess extends BaritoneProcessHelper implements IExploreProcess {
 
@@ -83,24 +82,24 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
     public PathingCommand onTick(boolean calcFailed, boolean isSafeToCancel) {
         if (calcFailed) {
             logDirect("Failed");
-            if (baritone.settings().desktopNotifications.get() && baritone.settings().notificationOnExploreFinished.get()) {
-                NotificationHelper.notify("Exploration failed", true);
+            if (Baritone.settings().notificationOnExploreFinished.value) {
+                logNotification("Exploration failed", true);
             }
             onLostControl();
             return null;
         }
         IChunkFilter filter = calcFilter();
-        if (!baritone.settings().disableCompletionCheck.get() && filter.countRemain() == 0) {
+        if (!Baritone.settings().disableCompletionCheck.value && filter.countRemain() == 0) {
             logDirect("Explored all chunks");
-            if (baritone.settings().desktopNotifications.get() && baritone.settings().notificationOnExploreFinished.get()) {
-                NotificationHelper.notify("Explored all chunks", false);
+            if (Baritone.settings().notificationOnExploreFinished.value) {
+                logNotification("Explored all chunks", false);
             }
             onLostControl();
             return null;
         }
         Goal[] closestUncached = closestUncachedChunks(explorationOrigin, filter);
         if (closestUncached == null) {
-            baritone.logDebug("awaiting region load from disk");
+            logDebug("awaiting region load from disk");
             return new PathingCommand(null, PathingCommandType.REQUEST_PAUSE);
         }
         return new PathingCommand(new GoalComposite(closestUncached), PathingCommandType.FORCE_REVALIDATE_GOAL_AND_PATH);
@@ -109,9 +108,9 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
     private Goal[] closestUncachedChunks(BlockPos center, IChunkFilter filter) {
         int chunkX = center.getX() >> 4;
         int chunkZ = center.getZ() >> 4;
-        int count = Math.min(filter.countRemain(), baritone.settings().exploreChunkSetMinimumSize.get());
+        int count = Math.min(filter.countRemain(), Baritone.settings().exploreChunkSetMinimumSize.value);
         List<BlockPos> centers = new ArrayList<>();
-        int renderDistance = baritone.settings().worldExploringChunkOffset.get();
+        int renderDistance = Baritone.settings().worldExploringChunkOffset.value;
         for (int dist = distanceCompleted; ; dist++) {
             for (int dx = -dist; dx <= dist; dx++) {
                 int zval = dist - Math.abs(dx);
@@ -119,7 +118,9 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
                     int dz = (mult * 2 - 1) * zval; // dz can be either -zval or zval
                     int trueDist = Math.abs(dx) + Math.abs(dz);
                     if (trueDist != dist) {
-                        throw new IllegalStateException();
+                        throw new IllegalStateException(String.format(
+                                "Offset %s %s has distance %s, expected %s",
+                                dx, dz, trueDist, dist));
                     }
                     switch (filter.isAlreadyExplored(chunkX + dx, chunkZ + dz)) {
                         case UNKNOWN:
@@ -147,7 +148,7 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
                 }
             }
             if (dist % 10 == 0) {
-                count = Math.min(filter.countRemain(), baritone.settings().exploreChunkSetMinimumSize.get());
+                count = Math.min(filter.countRemain(), Baritone.settings().exploreChunkSetMinimumSize.value);
             }
             if (centers.size() >= count) {
                 return centers.stream().map(pos -> createGoal(pos.getX(), pos.getZ())).toArray(Goal[]::new);
@@ -160,8 +161,8 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
         }
     }
 
-    private Goal createGoal(int x, int z) {
-        if (baritone.settings().exploreMaintainY.get() == -1) {
+    private static Goal createGoal(int x, int z) {
+        if (Baritone.settings().exploreMaintainY.value == -1) {
             return new GoalXZ(x, z);
         }
         // don't use a goalblock because we still want isInGoal to return true if X and Z are correct
@@ -169,7 +170,7 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
         return new GoalXZ(x, z) {
             @Override
             public double heuristic(int x, int y, int z) {
-                return super.heuristic(x, y, z) + GoalYLevel.calculate(baritone.settings().exploreMaintainY.get(), y);
+                return super.heuristic(x, y, z) + GoalYLevel.calculate(Baritone.settings().exploreMaintainY.value, y);
             }
         };
     }
@@ -196,6 +197,12 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
             if (cache.isCached(centerX, centerZ)) {
                 return Status.EXPLORED;
             }
+            if (!((CachedWorld) cache).regionLoaded(centerX, centerZ)) {
+                Baritone.getExecutor().execute(() -> {
+                    ((CachedWorld) cache).tryLoadFromDisk(centerX >> 9, centerZ >> 9);
+                });
+                return Status.UNKNOWN; // we still need to load regions from disk in order to decide properly
+            }
             return Status.NOT_EXPLORED;
         }
 
@@ -212,19 +219,24 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
         private final MyChunkPos[] positions;
 
         private JsonChunkFilter(Path path, boolean invert) throws Exception { // ioexception, json exception, etc
-            this.invert = invert;
             Gson gson = new GsonBuilder().create();
-            positions = gson.fromJson(new InputStreamReader(Files.newInputStream(path)), MyChunkPos[].class);
-            logDirect("Loaded " + positions.length + " positions");
-            inFilter = new LongOpenHashSet();
-            for (MyChunkPos mcp : positions) {
-                inFilter.add(ChunkPos.toLong(mcp.x, mcp.z));
+            MyChunkPos[] parsedPositions;
+            try (InputStreamReader reader = new InputStreamReader(Files.newInputStream(path))) {
+                parsedPositions = gson.fromJson(reader, MyChunkPos[].class);
             }
+            LongOpenHashSet parsedFilter = new LongOpenHashSet();
+            for (MyChunkPos mcp : parsedPositions) {
+                parsedFilter.add(ChunkPos.asLong(mcp.x, mcp.z));
+            }
+            logDirect("Loaded " + parsedPositions.length + " positions");
+            this.invert = invert;
+            this.positions = parsedPositions;
+            this.inFilter = parsedFilter;
         }
 
         @Override
         public Status isAlreadyExplored(int chunkX, int chunkZ) {
-            if (inFilter.contains(ChunkPos.toLong(chunkX, chunkZ)) ^ invert) {
+            if (inFilter.contains(ChunkPos.asLong(chunkX, chunkZ)) ^ invert) {
                 // either it's on the list of explored chunks, or it's not on the list of unexplored chunks
                 // either way, we have it
                 return Status.EXPLORED;
@@ -249,7 +261,7 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
                 if (bcc.isAlreadyExplored(pos.x, pos.z) != Status.EXPLORED) {
                     // either waiting for it or dont have it at all
                     countRemain++;
-                    if (countRemain >= baritone.settings().exploreChunkSetMinimumSize.get()) {
+                    if (countRemain >= Baritone.settings().exploreChunkSetMinimumSize.value) {
                         return countRemain;
                     }
                 }

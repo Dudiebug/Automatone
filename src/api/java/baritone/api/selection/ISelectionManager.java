@@ -18,19 +18,13 @@
 package baritone.api.selection;
 
 import baritone.api.utils.BetterBlockPos;
-import dev.onyxstudios.cca.api.v3.component.ComponentKey;
-import dev.onyxstudios.cca.api.v3.component.ComponentRegistry;
-import dev.onyxstudios.cca.api.v3.component.TransientComponent;
-import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Direction;
+import net.minecraft.core.Direction;
 
 /**
  * The selection manager handles setting Baritone's selections. You can set the selection here, as well as retrieving
  * the current selection.
  */
-public interface ISelectionManager extends AutoSyncedComponent {
-    ComponentKey<ISelectionManager> KEY = ComponentRegistry.getOrCreate(new Identifier("automatone", "selection_manager"), ISelectionManager.class);
+public interface ISelectionManager {
 
     /**
      * Adds a new selection. The added selection is returned.

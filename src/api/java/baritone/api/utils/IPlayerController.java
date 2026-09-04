@@ -17,25 +17,24 @@
 
 package baritone.api.utils;
 
-import dev.onyxstudios.cca.api.v3.component.ComponentKey;
-import dev.onyxstudios.cca.api.v3.component.ComponentRegistry;
-import dev.onyxstudios.cca.api.v3.component.TransientComponent;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.World;
+import baritone.api.BaritoneAPI;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.Container;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
 
 /**
  * @author Brady
  * @since 12/14/2018
  */
-public interface IPlayerController extends TransientComponent {
-    ComponentKey<IPlayerController> KEY = ComponentRegistry.getOrCreate(new Identifier("automatone", "controller"), IPlayerController.class);
+public interface IPlayerController {
+
+    void syncHeldItem();
 
     boolean hasBrokenBlock();
 
@@ -43,15 +42,28 @@ public interface IPlayerController extends TransientComponent {
 
     void resetBlockRemoving();
 
-    GameMode getGameType();
+    /**
+     * Swaps two slots in the explicitly supplied host container.
+     *
+     * <p>The host is not assumed to expose a player menu, so this boundary
+     * deliberately uses container indices rather than player-menu slot IDs.</p>
+     */
+    void swapContainerSlots(Container container, int firstSlot, int secondSlot);
 
-    ActionResult processRightClickBlock(PlayerEntity player, World world, Hand hand, BlockHitResult result);
+    GameType getGameType();
 
-    ActionResult processRightClick(PlayerEntity player, World world, Hand hand);
+    InteractionResult processRightClickBlock(LivingEntity player, Level world, InteractionHand hand, BlockHitResult result);
+
+    InteractionResult processRightClick(LivingEntity player, Level world, InteractionHand hand);
 
     boolean clickBlock(BlockPos loc, Direction face);
 
     void setHittingBlock(boolean hittingBlock);
 
-    double getBlockReachDistance();
+    /** Clears any host-specific delay after a completed block break. */
+    void resetDestroyDelay();
+
+    default double getBlockReachDistance() {
+        return this.getGameType().isCreative() ? 5.0F : BaritoneAPI.getSettings().blockReachDistance.value;
+    }
 }

@@ -20,38 +20,32 @@ package baritone;
 import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
 import baritone.api.Settings;
-import baritone.api.cache.IWorldProvider;
+import baritone.api.behavior.IBehavior;
+import baritone.api.event.events.TickEvent;
+import baritone.api.event.events.type.EventState;
 import baritone.api.event.listener.IEventBus;
 import baritone.api.process.IBaritoneProcess;
-import baritone.api.utils.IEntityContext;
-import baritone.behavior.Behavior;
-import baritone.behavior.InventoryBehavior;
-import baritone.behavior.LookBehavior;
-import baritone.behavior.MemoryBehavior;
-import baritone.behavior.PathingBehavior;
+import baritone.api.utils.IPlayerContext;
+import baritone.behavior.*;
 import baritone.cache.WorldProvider;
-import baritone.command.defaults.DefaultCommands;
-import baritone.command.manager.BaritoneCommandManager;
+import baritone.command.manager.CommandManager;
 import baritone.event.GameEventHandler;
-import baritone.process.BackfillProcess;
-import baritone.process.BuilderProcess;
-import baritone.process.CustomGoalProcess;
-import baritone.process.ExploreProcess;
-import baritone.process.FarmProcess;
-import baritone.process.FollowProcess;
-import baritone.process.GetToBlockProcess;
-import baritone.process.MineProcess;
-import baritone.render.ClientPathingBehaviour;
+import baritone.process.*;
+import baritone.selection.SelectionManager;
 import baritone.utils.BlockStateInterface;
 import baritone.utils.InputOverrideHandler;
 import baritone.utils.PathingControlManager;
-import baritone.utils.player.EntityContext;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import org.jetbrains.annotations.Nullable;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * @author Brady
@@ -59,12 +53,19 @@ import org.jetbrains.annotations.Nullable;
  */
 public class Baritone implements IBaritone {
 
-    private final Settings settings;
+    private static final ThreadPoolExecutor threadPool;
+
+    static {
+        threadPool = new ThreadPoolExecutor(4, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>());
+    }
+
+    private final Path directory;
+    private boolean disposed;
+
     private final GameEventHandler gameEventHandler;
 
     private final PathingBehavior pathingBehavior;
     private final LookBehavior lookBehavior;
-    private final MemoryBehavior memoryBehavior;
     private final InventoryBehavior inventoryBehavior;
     private final InputOverrideHandler inputOverrideHandler;
 
@@ -74,59 +75,75 @@ public class Baritone implements IBaritone {
     private final CustomGoalProcess customGoalProcess;
     private final BuilderProcess builderProcess;
     private final ExploreProcess exploreProcess;
-    private final BackfillProcess backfillProcess;
     private final FarmProcess farmProcess;
-    private final IBaritoneProcess execControlProcess;
+    private final InventoryPauserProcess inventoryPauserProcess;
 
     private final PathingControlManager pathingControlManager;
-    private final BaritoneCommandManager commandManager;
+    private final SelectionManager selectionManager;
+    private final CommandManager commandManager;
 
-    private final IEntityContext playerContext;
-
-    private final @Nullable ClientPathingBehaviour clientPathingBehaviour;
+    private final IPlayerContext playerContext;
+    private final WorldProvider worldProvider;
 
     public BlockStateInterface bsi;
 
-    public Baritone(LivingEntity player) {
-        this.settings = new Settings();
+    public Baritone(IPlayerContext playerContext, Path directory) {
         this.gameEventHandler = new GameEventHandler(this);
+        this.directory = directory.toAbsolutePath().normalize();
+        if (!Files.exists(this.directory)) {
+            try {
+                Files.createDirectories(this.directory);
+            } catch (IOException ignored) {}
+        }
 
         // Define this before behaviors try and get it, or else it will be null and the builds will fail!
-        this.playerContext = new EntityContext(player);
+        this.playerContext = playerContext;
 
         {
-            // the Behavior constructor calls baritone.registerBehavior(this) so this populates the behaviors arraylist
-            pathingBehavior = new PathingBehavior(this);
-            lookBehavior = new LookBehavior(this);
-            memoryBehavior = new MemoryBehavior(this);
-            inventoryBehavior = new InventoryBehavior(this);
-            inputOverrideHandler = new InputOverrideHandler(this);
+            this.lookBehavior         = this.registerBehavior(LookBehavior::new);
+            this.pathingBehavior      = this.registerBehavior(PathingBehavior::new);
+            this.inventoryBehavior    = this.registerBehavior(InventoryBehavior::new);
+            this.inputOverrideHandler = this.registerBehavior(InputOverrideHandler::new);
+            this.registerBehavior(WaypointBehavior::new);
         }
 
         this.pathingControlManager = new PathingControlManager(this);
         {
-            this.pathingControlManager.registerProcess(followProcess = new FollowProcess(this));
-            this.pathingControlManager.registerProcess(mineProcess = new MineProcess(this));
-            this.pathingControlManager.registerProcess(customGoalProcess = new CustomGoalProcess(this)); // very high iq
-            this.pathingControlManager.registerProcess(getToBlockProcess = new GetToBlockProcess(this));
-            this.pathingControlManager.registerProcess(builderProcess = new BuilderProcess(this));
-            this.pathingControlManager.registerProcess(exploreProcess = new ExploreProcess(this));
-            this.pathingControlManager.registerProcess(backfillProcess = new BackfillProcess(this));
-            this.pathingControlManager.registerProcess(farmProcess = new FarmProcess(this));
+            this.followProcess           = this.registerProcess(FollowProcess::new);
+            this.mineProcess             = this.registerProcess(MineProcess::new);
+            this.customGoalProcess       = this.registerProcess(CustomGoalProcess::new); // very high iq
+            this.getToBlockProcess       = this.registerProcess(GetToBlockProcess::new);
+            this.builderProcess          = this.registerProcess(BuilderProcess::new);
+            this.exploreProcess          = this.registerProcess(ExploreProcess::new);
+            this.farmProcess             = this.registerProcess(FarmProcess::new);
+            this.inventoryPauserProcess  = this.registerProcess(InventoryPauserProcess::new);
+            this.registerProcess(BackfillProcess::new);
         }
 
-        this.commandManager = new BaritoneCommandManager(this);
-        this.execControlProcess = DefaultCommands.controlCommands.registerProcess(this);
-        this.clientPathingBehaviour = player.getWorld().isClient ? new ClientPathingBehaviour(player) : null;
+        this.worldProvider = new WorldProvider(this, this.directory.resolve("worlds"));
+        this.selectionManager = new SelectionManager(this);
+        this.commandManager = new CommandManager(this);
+    }
+
+    public void registerBehavior(IBehavior behavior) {
+        this.gameEventHandler.registerEventListener(behavior);
+    }
+
+    public <T extends IBehavior> T registerBehavior(Function<Baritone, T> constructor) {
+        final T behavior = constructor.apply(this);
+        this.registerBehavior(behavior);
+        return behavior;
+    }
+
+    public <T extends IBaritoneProcess> T registerProcess(Function<Baritone, T> constructor) {
+        final T behavior = constructor.apply(this);
+        this.pathingControlManager.registerProcess(behavior);
+        return behavior;
     }
 
     @Override
     public PathingControlManager getPathingControlManager() {
         return this.pathingControlManager;
-    }
-
-    public void registerBehavior(Behavior behavior) {
-        this.gameEventHandler.registerEventListener(behavior);
     }
 
     @Override
@@ -145,12 +162,8 @@ public class Baritone implements IBaritone {
     }
 
     @Override
-    public IEntityContext getPlayerContext() {
+    public IPlayerContext getPlayerContext() {
         return this.playerContext;
-    }
-
-    public MemoryBehavior getMemoryBehavior() {
-        return this.memoryBehavior;
     }
 
     @Override
@@ -172,6 +185,7 @@ public class Baritone implements IBaritone {
         return this.lookBehavior;
     }
 
+    @Override
     public ExploreProcess getExploreProcess() {
         return this.exploreProcess;
     }
@@ -181,8 +195,13 @@ public class Baritone implements IBaritone {
         return this.mineProcess;
     }
 
+    @Override
     public FarmProcess getFarmProcess() {
         return this.farmProcess;
+    }
+
+    public InventoryPauserProcess getInventoryPauserProcess() {
+        return this.inventoryPauserProcess;
     }
 
     @Override
@@ -191,8 +210,13 @@ public class Baritone implements IBaritone {
     }
 
     @Override
+    public SelectionManager getSelectionManager() {
+        return selectionManager;
+    }
+
+    @Override
     public WorldProvider getWorldProvider() {
-        return (WorldProvider) IWorldProvider.KEY.get(this.getPlayerContext().world());
+        return this.worldProvider;
     }
 
     @Override
@@ -201,86 +225,64 @@ public class Baritone implements IBaritone {
     }
 
     @Override
-    public BaritoneCommandManager getCommandManager() {
+    public CommandManager getCommandManager() {
         return this.commandManager;
     }
 
-    public IBaritoneProcess getExecControlProcess() {
-        return execControlProcess;
-    }
-
-    public ClientPathingBehaviour getClientPathingBehaviour() {
-        if (this.clientPathingBehaviour == null) throw new IllegalStateException("Not a clientside baritone instance");
-        return this.clientPathingBehaviour;
+    @Override
+    public void openClick() {
+        throw new UnsupportedOperationException("Client click UI is not available from an explicitly owned runtime");
     }
 
     @Override
-    public boolean isActive() {
-        return this.pathingControlManager.isActive();
-    }
-
-    public Settings settings() {
-        return this.settings;
-    }
-
-    @Override
-    public void logDebug(String message) {
-        Automatone.LOGGER.debug(message);
-
-        if (!BaritoneAPI.getGlobalSettings().chatDebug.get()) {
+    public void tick() {
+        if (this.disposed) {
             return;
         }
-
-        // We won't log debug chat into toasts
-        // Because only a madman would want that extreme spam -_-
-        logDirect(message);
-
-        if (!this.settings.syncWithOps.get()) return;
-
-        MinecraftServer server = this.getPlayerContext().world().getServer();
-        for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
-            if (server.getPlayerManager().isOperator(p.getGameProfile())) {
-                KEY.get(p).logDirect(message);
-            }
+        final TickEvent.Type type = this.playerContext.player() == null || this.playerContext.world() == null
+                ? TickEvent.Type.OUT
+                : TickEvent.Type.IN;
+        final var events = TickEvent.createNextProvider();
+        this.gameEventHandler.onTick(events.apply(EventState.PRE, type));
+        if (type == TickEvent.Type.IN && !this.playerContext.world().isClientSide()) {
+            this.lookBehavior.applyServerTick();
         }
+        this.gameEventHandler.onPostTick(events.apply(EventState.POST, type));
     }
 
     @Override
-    public void readFromNbt(NbtCompound tag) {
-        // NO-OP
-    }
-
-    @Override
-    public void writeToNbt(NbtCompound tag) {
-        // NO-OP
-    }
-
-    @Override
-    public boolean shouldSyncWith(ServerPlayerEntity player) {
-        return player == this.playerContext.entity()
-                || (settings.syncWithOps.get() && player.server.getPermissionLevel(player.getGameProfile()) >= 2);
-    }
-
-    @Override
-    public void writeSyncPacket(PacketByteBuf buf, ServerPlayerEntity recipient) {
-        buf.writeBoolean(this.isActive());
-        this.pathingBehavior.writeToPacket(buf);
-    }
-
-    @Override
-    public void applySyncPacket(PacketByteBuf buf) {
-        assert this.clientPathingBehaviour != null : "applySyncPacket called on a server world";
-        boolean active = buf.readBoolean();
-        if (active) {
-            AutomatoneClient.renderList.add(this);
-        } else {
-            AutomatoneClient.renderList.remove(this);
+    public void dispose() {
+        if (this.disposed) {
+            return;
         }
-        this.clientPathingBehaviour.readFromPacket(buf);
+        this.disposed = true;
+        this.pathingBehavior.forceCancel();
+        this.inputOverrideHandler.clearAllKeys();
+        this.worldProvider.dispose();
+        this.bsi = null;
     }
 
     @Override
-    public void serverTick() {
-        this.getGameEventHandler().onTickServer();
+    public boolean isDisposed() {
+        return this.disposed;
+    }
+
+    @Override
+    public boolean isHostAvailable() {
+        return this.playerContext.player() != null
+                && !this.playerContext.player().isRemoved()
+                && this.playerContext.world() != null;
+    }
+
+    public Path getDirectory() {
+        return this.directory;
+    }
+
+    public static Settings settings() {
+        return BaritoneAPI.getSettings();
+    }
+
+    public static Executor getExecutor() {
+        return threadPool;
     }
 }

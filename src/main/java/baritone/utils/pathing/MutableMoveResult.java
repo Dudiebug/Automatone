@@ -19,8 +19,6 @@ package baritone.utils.pathing;
 
 import baritone.api.pathing.movement.ActionCosts;
 
-import javax.annotation.Nonnegative;
-
 /**
  * The result of a calculated movement, with destination x, y, z, and the cost of performing the movement
  *
@@ -31,13 +29,7 @@ public final class MutableMoveResult {
     public int x;
     public int y;
     public int z;
-    @Nonnegative
     public double cost;
-    /**
-     * 0 means the player can breathe throughout the whole movement
-     */
-    @Nonnegative
-    public double oxygenCost;
 
     public MutableMoveResult() {
         reset();
@@ -47,7 +39,6 @@ public final class MutableMoveResult {
         x = 0;
         y = 0;
         z = 0;
-        cost = ActionCosts.COST_INF;    // movements are assumed to be impossible until proven otherwise
-        oxygenCost = 0; // movements are assumed to be done in air until proven otherwise
+        cost = ActionCosts.COST_INF;
     }
 }

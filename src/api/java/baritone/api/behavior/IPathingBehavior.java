@@ -21,11 +21,8 @@ import baritone.api.pathing.calc.IPath;
 import baritone.api.pathing.calc.IPathFinder;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.path.IPathExecutor;
-import baritone.api.utils.BetterBlockPos;
-import net.minecraft.util.math.BlockPos;
 
 import java.util.Optional;
-import java.util.OptionalDouble;
 
 /**
  * @author Brady
@@ -40,7 +37,7 @@ public interface IPathingBehavior extends IBehavior {
      *
      * @return The estimated remaining ticks in the current segment.
      */
-    default OptionalDouble ticksRemainingInSegment() {
+    default Optional<Double> ticksRemainingInSegment() {
         return ticksRemainingInSegment(true);
     }
 
@@ -52,13 +49,13 @@ public interface IPathingBehavior extends IBehavior {
      * @param includeCurrentMovement whether or not to include the entirety of the cost of the currently executing movement in the total
      * @return The estimated remaining ticks in the current segment.
      */
-    default OptionalDouble ticksRemainingInSegment(boolean includeCurrentMovement) {
+    default Optional<Double> ticksRemainingInSegment(boolean includeCurrentMovement) {
         IPathExecutor current = getCurrent();
         if (current == null) {
-            return OptionalDouble.empty();
+            return Optional.empty();
         }
         int start = includeCurrentMovement ? current.getPosition() : current.getPosition() + 1;
-        return OptionalDouble.of(current.getPath().ticksRemainingFrom(start));
+        return Optional.of(current.getPath().ticksRemainingFrom(start));
     }
 
     /**
@@ -132,9 +129,4 @@ public interface IPathingBehavior extends IBehavior {
      * @return The next path executor
      */
     IPathExecutor getNext();
-
-    /**
-     * @return The starting {@link BlockPos} for a new path
-     */
-    BetterBlockPos pathStart();
 }

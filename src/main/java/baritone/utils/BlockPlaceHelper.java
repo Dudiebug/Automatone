@@ -17,21 +17,21 @@
 
 package baritone.utils;
 
-import baritone.api.BaritoneAPI;
-import baritone.api.utils.IEntityContext;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.BoatEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
+import baritone.Baritone;
+import baritone.api.utils.IPlayerContext;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 public class BlockPlaceHelper {
+    // base ticks between places caused by tick logic
+    private static final int BASE_PLACE_DELAY = 1;
 
-    private final IEntityContext ctx;
+    private final IPlayerContext ctx;
     private int rightClickTimer;
 
-    BlockPlaceHelper(IEntityContext playerContext) {
+    BlockPlaceHelper(IPlayerContext playerContext) {
         this.ctx = playerContext;
     }
 
@@ -41,23 +41,16 @@ public class BlockPlaceHelper {
             return;
         }
         HitResult mouseOver = ctx.objectMouseOver();
-        boolean isRowingBoat = ctx.entity().getVehicle() != null && ctx.entity().getVehicle() instanceof BoatEntity;
-        if (!rightClickRequested  || !(ctx.entity() instanceof PlayerEntity) || isRowingBoat || mouseOver == null || mouseOver.getType() != HitResult.Type.BLOCK) {
+        if (!rightClickRequested || ctx.player().isUsingItem() || mouseOver == null || mouseOver.getType() != HitResult.Type.BLOCK) {
             return;
         }
-
-        rightClickTimer = BaritoneAPI.getGlobalSettings().rightClickSpeed.get();
-        PlayerEntity player = (PlayerEntity) ctx.entity();
-
-        for (Hand hand : Hand.values()) {
-            ActionResult actionResult = ctx.playerController().processRightClickBlock(player, ctx.world(), hand, (BlockHitResult) mouseOver);
-            if (actionResult.isAccepted()) {
-                if (actionResult.shouldSwingHand()) {
-                    player.swingHand(hand);
-                }
+        rightClickTimer = Baritone.settings().rightClickSpeed.value - BASE_PLACE_DELAY;
+        for (InteractionHand hand : InteractionHand.values()) {
+            if (ctx.playerController().processRightClickBlock(ctx.player(), ctx.world(), hand, (BlockHitResult) mouseOver) == InteractionResult.SUCCESS) {
+                ctx.player().swing(hand);
                 return;
             }
-            if (!player.getStackInHand(hand).isEmpty() && ctx.playerController().processRightClick(player, ctx.world(), hand).isAccepted()) {
+            if (!ctx.player().getItemInHand(hand).isEmpty() && ctx.playerController().processRightClick(ctx.player(), ctx.world(), hand) == InteractionResult.SUCCESS) {
                 return;
             }
         }

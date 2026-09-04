@@ -1,0 +1,216 @@
+schema_version: 1
+
+project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
+accepted_baseline: null
+active_task: QUALITY-CLEANUP
+
+tasks:
+  QUALITY-CLEANUP:
+    state: BLOCKED
+    baseline: null
+    candidate: "Dirty M1 candidate at d555e41d0beb96194de5ff7c0a8dac7b701d0581; frozen source digest CB37F7959CD574ABD74C5626F34AE43A8955AFBD3D721E99992C3433BC3DD065 (435 entries). Raw baseline includes 617 generated Graphify entries; actual baseline source/config has 405 entries."
+    implementation_attempt: 1
+    repair_cycles_on_candidate: 0
+    verification_rounds: 1
+    last_verdict: FAIL
+    last_evidence: .agents/evidence/quality-cleanup-20260902/independent/round-1/report.json
+    blocker: "Independent round 1 reproduced 84 retained SpotBugs findings with no new keys; required gate remains FAIL without a waiver. Live/public contracts cannot be broken solely to silence findings. Q2/Q4 full concurrency/parity coverage remains UNVERIFIED. No accepted clean baseline or authorized candidate commit exists. Changes retained; no M2 or self-acceptance."
+    execution_authorization: "Human requested workflow bug and duplicate-code cleanup on the current work; no waiver, commit, or M2."
+  BOOTSTRAP:
+    state: BLOCKED
+    baseline: null
+    candidate: "d555e41d0beb96194de5ff7c0a8dac7b701d0581 plus dirty working tree; see .agents/evidence/bootstrap/before.json"
+    implementation_attempt: 1
+    repair_cycles_on_candidate: 3
+    repair_cycle_extension: "One additional cycle explicitly approved by human: one more then start 1.5."
+    fresh_retry_used: false
+    last_verdict: FAIL
+    last_evidence: .agents/evidence/bootstrap/tooling/repair-3/independent/blind-result.json
+    blocker: "Historical third checker repair measured 156 client-rule violations. M1.5's later source repair now passes all four architecture tests and dedicated runtime checks; shared SpotBugs/CPD failures and no accepted baseline still prevent acceptance."
+  M1.1:
+    state: BLOCKED
+    baseline: null
+    candidate: null
+    last_verdict: FAIL
+    last_evidence: .agents/evidence/M1-review-20260901/verification/results.json
+    blocker: "Ledger identity/rationale checked; required shared profile fails and import-scope review remains incomplete. No accepted baseline."
+  M1.2:
+    state: BLOCKED
+    baseline: null
+    candidate: "d555e41d0beb96194de5ff7c0a8dac7b701d0581-dirty; DC7D46DFC215C35340B96B13564AB5C5CB6B062A66AEA22956D28FB6F9EE2A1D"
+    last_verdict: FAIL
+    last_evidence: .agents/evidence/M1-review-20260901/verification/results.json
+    repair_cycles_on_candidate: 1
+    blocker: "M1.5's later shared verification passes compilation, all 39 unit tests, style and architecture. SpotBugs/CPD failures remain without an accepted baseline; M1.2 is not independently accepted by this status update."
+  M1.3:
+    state: BLOCKED
+    baseline: null
+    candidate: null
+    last_verdict: FAIL
+    last_evidence: .agents/evidence/M1-review-20260901/verification/results.json
+    blocker: "M1.5 now supplies real host/runtime lifecycle and passing dedicated-server architecture evidence. Shared SpotBugs/CPD failures and no accepted baseline remain; the historical M1.3 verdict is not silently promoted."
+  M1.4:
+    state: BLOCKED
+    baseline: null
+    candidate: null
+    last_verdict: FAIL
+    last_evidence: .agents/evidence/M1-review-20260901/verification/results.json
+    blocker: "M1.5 now exercises real native MineProcess activation/control/cancellation and passes the unchanged architecture rules. Shared SpotBugs/CPD failures remain without an accepted baseline; historical M1.4 acceptance is unchanged."
+  M1.5:
+    state: BLOCKED
+    baseline: null
+    candidate: "d555e41d0beb96194de5ff7c0a8dac7b701d0581-dirty; round-2 final helper fingerprint 77C413478D340BE472DE71B54258C7E411C9D8DC78845988EE3893D394357EF7; 960 source/config files unchanged during verification"
+    last_verdict: FAIL
+    last_evidence: .agents/evidence/M1.5/runtime-lifecycle-20260902/independent/round-2/report.json
+    execution_authorization: "Human: now do m1.5; resume full real runtime lifecycle and required approved M1 server-host repairs. No waiver or M2."
+    active_attempt_evidence: .agents/evidence/M1.5/runtime-lifecycle-20260902/CONTRACT.md
+    startup_repair_attempt: 1
+    startup_repair_result: "Runtime/regression slice independently passed: 39 unit tests, Checkstyle, one dedicated-server settings/provider GameTest and 20 world ticks."
+    runtime_repair_cycles_on_candidate: 1
+    runtime_verification_rounds: 2
+    runtime_smoke_result: "All AC-1 through AC-5 and S1 through S6 measured PASS in fresh round 2: 4 GameTests, 39 unit tests and 4 architecture tests pass. Compile, Error Prone and Checkstyle pass."
+    blocker: "Implementation/runtime verification finished, but required SpotBugs (126 main/3 test) and CPD (7 regions) fail without waivers. No accepted clean baseline; original main-port RED gap remains disclosed. Not ACCEPTED; stopped before M2."
+  M2.1:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M2.2:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M2.3:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M2.4:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M3.1:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M3.2:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M3.3:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M3.4:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M4.1:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M4.2:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M4.3:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M4.4:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M5.1:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M5.2:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M5.3:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M5.4:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M5.5:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M6.1:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M6.2:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M6.3:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+  M6.4:
+    state: PLANNED
+    baseline: null
+    candidate: null
+    last_verdict: null
+    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+
+# Per-task controller state example:
+# tasks:
+#   M3.2:
+#     state: READY
+#     baseline: abc123
+#     candidate: null
+#     implementation_attempt: 0
+#     repair_cycles_on_candidate: 0
+#     fresh_retry_used: false
+#     last_verdict: null
+#     last_evidence: null
+#     blocker: null
+
+rules:
+  max_repair_cycles_per_candidate: 2
+  max_fresh_reimplementations_after_initial: 1
+  required_fresh_context_pass_for_acceptance: true

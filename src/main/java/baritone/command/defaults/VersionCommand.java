@@ -17,17 +17,11 @@
 
 package baritone.command.defaults;
 
-import baritone.Automatone;
 import baritone.api.IBaritone;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandInvalidStateException;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
-import net.fabricmc.loader.api.Version;
-import net.fabricmc.loader.api.metadata.ModMetadata;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -35,18 +29,19 @@ import java.util.stream.Stream;
 
 public class VersionCommand extends Command {
 
-    public VersionCommand() {
-        super("version");
+    public VersionCommand(IBaritone baritone) {
+        super(baritone, "version");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(0);
-        Version version = FabricLoader.getInstance().getModContainer(Automatone.MOD_ID)
-                .map(ModContainer::getMetadata)
-                .map(ModMetadata::getVersion)
-                .orElseThrow(() -> new CommandInvalidStateException("Null version (this may be normal in a dev environment)"));
-        logDirect(source, String.format("You are running Automatone v%s", version.getFriendlyString()));
+        String version = getClass().getPackage().getImplementationVersion();
+        if (version == null) {
+            throw new CommandInvalidStateException("Null version (this is normal in a dev environment)");
+        } else {
+            logDirect(String.format("You are running Baritone v%s", version));
+        }
     }
 
     @Override
@@ -56,13 +51,13 @@ public class VersionCommand extends Command {
 
     @Override
     public String getShortDesc() {
-        return "View Automatone's version";
+        return "View the Baritone version";
     }
 
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "The version command prints the version of Automatone you're currently running.",
+                "The version command prints the version of Baritone you're currently running.",
                 "",
                 "Usage:",
                 "> version - View version information, if present"

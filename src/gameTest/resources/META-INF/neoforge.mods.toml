@@ -1,0 +1,15 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="LGPL-3.0-only"
+
+[[mods]]
+modId="automatone_gametest"
+version="1.0"
+displayName="Automatone development-only server smoke test"
+
+[[dependencies.automatone_gametest]]
+modId="automatone"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"

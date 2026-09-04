@@ -20,9 +20,6 @@ package baritone.command.defaults;
 import baritone.api.IBaritone;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
-import baritone.api.command.exception.CommandException;
-import baritone.command.argument.ArgConsumer;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Collections;
 import java.util.List;
@@ -33,26 +30,26 @@ public class CommandAlias extends Command {
     private final String shortDesc;
     public final String target;
 
-    public CommandAlias(List<String> names, String shortDesc, String target) {
-        super(names.toArray(new String[0]));
+    public CommandAlias(IBaritone baritone, List<String> names, String shortDesc, String target) {
+        super(baritone, names.toArray(new String[0]));
         this.shortDesc = shortDesc;
         this.target = target;
     }
 
-    public CommandAlias(String name, String shortDesc, String target) {
-        super(name);
+    public CommandAlias(IBaritone baritone, String name, String shortDesc, String target) {
+        super(baritone, name);
         this.shortDesc = shortDesc;
         this.target = target;
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
-        baritone.getCommandManager().execute(source, String.format("%s %s", target, args.rawRest()));
+    public void execute(String label, IArgConsumer args) {
+        this.baritone.getCommandManager().execute(String.format("%s %s", target, args.rawRest()));
     }
 
     @Override
     public Stream<String> tabComplete(String label, IArgConsumer args) {
-         return ((ArgConsumer) args).getBaritone().getCommandManager().tabComplete(String.format("%s %s", target, args.rawRest()));
+        return this.baritone.getCommandManager().tabComplete(String.format("%s %s", target, args.rawRest()));
     }
 
     @Override

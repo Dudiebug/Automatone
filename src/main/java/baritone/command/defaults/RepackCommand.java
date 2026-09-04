@@ -17,12 +17,11 @@
 
 package baritone.command.defaults;
 
+import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
-import baritone.cache.WorldScanner;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,14 +29,14 @@ import java.util.stream.Stream;
 
 public class RepackCommand extends Command {
 
-    public RepackCommand() {
-        super("repack", "rescan");
+    public RepackCommand(IBaritone baritone) {
+        super(baritone, "repack", "rescan");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(0);
-        logDirect(source, String.format("Queued %d chunks for repacking", WorldScanner.INSTANCE.repack(baritone.getPlayerContext())));
+        logDirect(String.format("Queued %d chunks for repacking", BaritoneAPI.getProvider().getWorldScanner().repack(ctx)));
     }
 
     @Override

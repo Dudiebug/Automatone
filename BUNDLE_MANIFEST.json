@@ -1,0 +1,37 @@
+{
+  "name": "automatone-agent-workflow-bundle",
+  "purpose": "Closed-loop autonomous coding scaffold for Automatone",
+  "files": [
+    ".agents/STATE.yaml",
+    ".agents/decisions/README.md",
+    ".agents/evidence/.gitkeep",
+    ".agents/examples/TASK_EXAMPLE_M3_2.md",
+    ".agents/tasks/README.md",
+    ".agents/tasks/TASK_SCHEMA.yaml",
+    ".agents/tasks/TASK_TEMPLATE.md",
+    ".agents/templates/IMPLEMENTER_AGENT.md",
+    ".agents/templates/INTEGRATION_REVIEWER_AGENT.md",
+    ".agents/templates/MAPPER_AGENT.md",
+    ".agents/templates/ORCHESTRATOR_PROMPT.md",
+    ".agents/templates/PLANNER_AGENT.md",
+    ".agents/templates/REPAIR_AGENT.md",
+    ".agents/templates/VERIFIER_AGENT.md",
+    ".agents/verification/BASELINE_POLICY.md",
+    ".agents/verification/EVIDENCE_TEMPLATE.md",
+    ".agents/verification/JAVA_SENSOR_STACK.md",
+    ".agents/verification/SENSOR_POLICY.yaml",
+    ".agents/verification/VERIFIER_CONTRACT.md",
+    ".agents/verification/report.schema.json",
+    "AGENTS.md",
+    "BOOTSTRAP_GOAL.md",
+    "BUNDLE_MANIFEST.json",
+    "EXECUTION_STRATEGY.md",
+    "README_WORKFLOW.md",
+    "SKILLS_SETUP.md"
+  ],
+  "assumptions": [
+    "Existing approved product plan remains in docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md unless explicitly superseded",
+    "old-coder and Graphify-Labs Graphify are external skills/tools and are not vendored",
+    "Sensor versions/configuration must be resolved against the actual Gradle/NeoForge repository during bootstrap"
+  ]
+}

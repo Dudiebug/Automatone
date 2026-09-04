@@ -18,12 +18,11 @@
 package baritone.cache;
 
 import baritone.api.cache.ICachedWorld;
-import baritone.api.cache.IContainerMemory;
 import baritone.api.cache.IWaypointCollection;
 import baritone.api.cache.IWorldData;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
+import net.minecraft.world.level.dimension.DimensionType;
+
+import java.nio.file.Path;
 
 /**
  * Data about a world, from baritone's point of view. Includes cached chunks, waypoints, and map data.
@@ -32,39 +31,30 @@ import net.minecraft.world.World;
  */
 public class WorldData implements IWorldData {
 
+    public final CachedWorld cache;
     private final WaypointCollection waypoints;
-    private final ContainerMemory containerMemory;
     //public final MapData map;
-    public final RegistryKey<World> dimension;
+    public final Path directory;
+    public final DimensionType dimension;
 
-    WorldData(RegistryKey<World> dimension) {
-        this.waypoints = new WaypointCollection();
-        this.containerMemory = new ContainerMemory();
+    WorldData(Path directory, DimensionType dimension) {
+        this.directory = directory;
+        this.cache = new CachedWorld(directory.resolve("cache"), dimension);
+        this.waypoints = new WaypointCollection(directory.resolve("waypoints"));
         this.dimension = dimension;
     }
 
-    public void readFromNbt(NbtCompound tag) {
-        this.containerMemory.read(tag.getCompound("containers"));
-        this.waypoints.readFromNbt(tag.getCompound("waypoints"));
-    }
-
-    public void writeToNbt(NbtCompound tag) {
-        tag.put("containers", containerMemory.toNbt());
-        tag.put("waypoints", waypoints.toNbt());
+    public void onClose() {
+        cache.close();
     }
 
     @Override
     public ICachedWorld getCachedWorld() {
-        throw new UnsupportedOperationException();
+        return this.cache;
     }
 
     @Override
     public IWaypointCollection getWaypoints() {
         return this.waypoints;
-    }
-
-    @Override
-    public IContainerMemory getContainerMemory() {
-        return this.containerMemory;
     }
 }

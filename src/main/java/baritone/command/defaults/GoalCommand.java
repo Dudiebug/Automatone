@@ -27,7 +27,6 @@ import baritone.api.command.helpers.TabCompleteHelper;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.process.ICustomGoalProcess;
 import baritone.api.utils.BetterBlockPos;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -35,27 +34,27 @@ import java.util.stream.Stream;
 
 public class GoalCommand extends Command {
 
-    public GoalCommand() {
-        super("goal");
+    public GoalCommand(IBaritone baritone) {
+        super(baritone, "goal");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         ICustomGoalProcess goalProcess = baritone.getCustomGoalProcess();
         if (args.hasAny() && Arrays.asList("reset", "clear", "none").contains(args.peekString())) {
             args.requireMax(1);
             if (goalProcess.getGoal() != null) {
                 goalProcess.setGoal(null);
-                logDirect(source, "Cleared goal");
+                logDirect("Cleared goal");
             } else {
-                logDirect(source, "There was no goal to clear");
+                logDirect("There was no goal to clear");
             }
         } else {
             args.requireMax(3);
-            BetterBlockPos origin = baritone.getPlayerContext().feetPos();
+            BetterBlockPos origin = ctx.playerFeet();
             Goal goal = args.getDatatypePost(RelativeGoal.INSTANCE, origin);
             goalProcess.setGoal(goal);
-            logDirect(source, String.format("Goal: %s", goal.toString()));
+            logDirect(String.format("Goal: %s", goal.toString()));
         }
     }
 

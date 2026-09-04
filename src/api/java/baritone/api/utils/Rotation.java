@@ -26,12 +26,12 @@ public class Rotation {
     /**
      * The yaw angle of this Rotation
      */
-    private float yaw;
+    private final float yaw;
 
     /**
      * The pitch angle of this Rotation
      */
-    private float pitch;
+    private final float pitch;
 
     public Rotation(float yaw, float pitch) {
         this.yaw = yaw;
@@ -113,6 +113,10 @@ public class Rotation {
         );
     }
 
+    public Rotation withPitch(float pitch) {
+        return new Rotation(this.yaw, pitch);
+    }
+
     /**
      * Is really close to
      *
@@ -153,6 +157,26 @@ public class Rotation {
             newYaw -= 360F;
         }
         return newYaw;
+    }
+
+    /**
+     * Gets the distance between a starting yaw and an offset yaw.
+     * Distance can be negative if the offset yaw is behind of the starting yaw.
+     *
+     * @param yaw The initial yaw
+     * @param offsetYaw The offset yaw
+     * @return The distance between the yaws
+     */
+    public static float yawDistanceFromOffset(float yaw, float offsetYaw) {
+        if ((yaw > 0 ^ offsetYaw > 0) && ((yaw > 90 || yaw < -90) ^ (offsetYaw > 90 || offsetYaw < -90))) {
+            if (yaw < 0) {
+                return 360 + (yaw - offsetYaw);
+            } else {
+                return 360 - (yaw - offsetYaw);
+            }
+        } else {
+            return yaw - offsetYaw;
+        }
     }
 
     @Override

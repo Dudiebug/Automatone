@@ -24,31 +24,27 @@ import baritone.api.command.exception.CommandException;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.utils.BetterBlockPos;
-import baritone.api.utils.IEntityContext;
-import net.minecraft.block.AirBlock;
-import net.minecraft.server.command.ServerCommandSource;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import net.minecraft.world.level.block.AirBlock;
 
 public class SurfaceCommand extends Command {
 
-    protected SurfaceCommand() {
-        super("surface", "top");
+    protected SurfaceCommand(IBaritone baritone) {
+        super(baritone, "surface", "top");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
-        IEntityContext ctx = baritone.getPlayerContext();
-        final BetterBlockPos playerPos = ctx.feetPos();
+    public void execute(String label, IArgConsumer args) throws CommandException {
+        final BetterBlockPos playerPos = ctx.playerFeet();
         final int surfaceLevel = ctx.world().getSeaLevel();
         final int worldHeight = ctx.world().getHeight();
 
         // Ensure this command will not run if you are above the surface level and the block above you is air
         // As this would imply that your are already on the open surface
-        if (playerPos.getY() > surfaceLevel && ctx.world().getBlockState(playerPos.up()).getBlock() instanceof AirBlock) {
-            logDirect(source, "Already at surface");
+        if (playerPos.getY() > surfaceLevel && ctx.world().getBlockState(playerPos.above()).getBlock() instanceof AirBlock) {
+            logDirect("Already at surface");
             return;
         }
 
@@ -58,13 +54,13 @@ public class SurfaceCommand extends Command {
             final BetterBlockPos newPos = new BetterBlockPos(playerPos.getX(), currentIteratedY, playerPos.getZ());
 
             if (!(ctx.world().getBlockState(newPos).getBlock() instanceof AirBlock) && newPos.getY() > playerPos.getY()) {
-                Goal goal = new GoalBlock(newPos.up());
-                logDirect(source, String.format("Going to: %s", goal.toString()));
+                Goal goal = new GoalBlock(newPos.above());
+                logDirect(String.format("Going to: %s", goal.toString()));
                 baritone.getCustomGoalProcess().setGoalAndPath(goal);
                 return;
             }
         }
-        logDirect(source, "No higher location found");
+        logDirect("No higher location found");
     }
 
     @Override
@@ -80,7 +76,7 @@ public class SurfaceCommand extends Command {
     @Override
     public List<String> getLongDesc() {
         return Arrays.asList(
-                "The surface/top command makes an entity head towards the closest surface-like area.",
+                "The surface/top command tells Baritone to head towards the closest surface-like area.",
                 "",
                 "This can be the surface or the highest available air space, depending on circumstances.",
                 "",

@@ -26,11 +26,11 @@ import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandInvalidTypeException;
 import baritone.api.command.exception.CommandNotEnoughArgumentsException;
 import baritone.api.command.exception.CommandTooManyArgumentsException;
-import net.minecraft.util.math.Direction;
-
+import baritone.api.utils.Helper;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.stream.Stream;
+import net.minecraft.core.Direction;
 
 /**
  * The {@link IArgConsumer} is how {@link ICommand}s read the arguments passed to them. This class has many benefits:
@@ -47,7 +47,7 @@ import java.util.stream.Stream;
  * <li>It's very easy to throw detailed exceptions. The {@link IArgConsumer}} has many different methods that can
  * enforce the number of arguments, the type of arguments, and more, throwing different types of
  * {@link CommandException}s if something seems off. You're recommended to do all validation and store all needed
- * data in variables BEFORE logging any data to chat, so that the error
+ * data in variables BEFORE logging any data to chat via {@link Helper#logDirect(String)}, so that the error
  * handlers can do their job and log the error to chat.</li>
  * </ul>
  */
@@ -571,14 +571,14 @@ public interface IArgConsumer {
 
     /**
      * @return The last argument this {@link IArgConsumer}} has consumed, or an "unknown" argument, indicated by a
-     * command argument index that has a value of {@code -1}, if no arguments have been consumed yet.
+     * comamnd argument index that has a value of {@code -1}, if no arguments have been consumed yet.
      * @see #consumedString()
      * @see #hasConsumed()
      */
     ICommandArgument consumed();
 
     /**
-     * @return The value of the last argument this {@link IArgConsumer}} has consumed, or an empty string if no arguments
+     * @return The value of thelast argument this {@link IArgConsumer}} has consumed, or an empty string if no arguments
      * have been consumed yet
      * @see #consumed()
      * @see #hasConsumed()

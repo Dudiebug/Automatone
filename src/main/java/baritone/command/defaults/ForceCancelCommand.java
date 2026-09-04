@@ -22,7 +22,6 @@ import baritone.api.behavior.IPathingBehavior;
 import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,17 +29,17 @@ import java.util.stream.Stream;
 
 public class ForceCancelCommand extends Command {
 
-    public ForceCancelCommand() {
-        super("forcecancel");
+    public ForceCancelCommand(IBaritone baritone) {
+        super(baritone, "forcecancel");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(0);
         IPathingBehavior pathingBehavior = baritone.getPathingBehavior();
         pathingBehavior.cancelEverything();
         pathingBehavior.forceCancel();
-        logDirect(source, "ok force canceled");
+        logDirect("ok force canceled");
     }
 
     @Override

@@ -17,19 +17,19 @@
 
 package baritone.api.command.helpers;
 
+import baritone.api.BaritoneAPI;
 import baritone.api.Settings;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.manager.ICommandManager;
 import baritone.api.event.events.TabCompleteEvent;
 import baritone.api.utils.SettingsUtil;
-import net.minecraft.util.Identifier;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * The {@link TabCompleteHelper} is a <b>single-use</b> object that helps you handle tab completion. It includes helper
@@ -206,13 +206,18 @@ public class TabCompleteHelper {
     /**
      * Filter out any element that doesn't start with {@code prefix} and return this object for chaining
      * <p>
-     * Assumes every element in this {@link TabCompleteHelper} is a {@link Identifier}
+     * Assumes every element in this {@link TabCompleteHelper} is a {@link ResourceLocation}
      *
      * @param prefix The prefix to filter for
      * @return This {@link TabCompleteHelper}
      */
     public TabCompleteHelper filterPrefixNamespaced(String prefix) {
-        return filterPrefix(new Identifier(prefix).toString());
+        ResourceLocation loc = ResourceLocation.tryParse(prefix);
+        if (loc == null) {
+            stream = Stream.empty();
+            return this;
+        }
+        return filterPrefix(loc.toString());
     }
 
     /**
@@ -234,10 +239,11 @@ public class TabCompleteHelper {
     /**
      * Appends every command in the specified {@link ICommandManager} to this {@link TabCompleteHelper}
      *
+     * @param manager A command manager
      * @return This {@link TabCompleteHelper}
      */
-    public TabCompleteHelper addCommands() {
-        return append(ICommandManager.registry.descendingStream()
+    public TabCompleteHelper addCommands(ICommandManager manager) {
+        return append(manager.getRegistry().descendingStream()
                 .flatMap(command -> command.getNames().stream())
                 .distinct()
         );
@@ -248,11 +254,11 @@ public class TabCompleteHelper {
      *
      * @return This {@link TabCompleteHelper}
      */
-    public TabCompleteHelper addSettings(Settings settings) {
+    public TabCompleteHelper addSettings() {
         return append(
-                settings.allSettings.stream()
+                BaritoneAPI.getSettings().allSettings.stream()
+                        .filter(s -> !s.isJavaOnly())
                         .map(Settings.Setting::getName)
-                        .filter(s -> !s.equalsIgnoreCase("logger"))
                         .sorted(String.CASE_INSENSITIVE_ORDER)
         );
     }
@@ -262,9 +268,9 @@ public class TabCompleteHelper {
      *
      * @return This {@link TabCompleteHelper}
      */
-    public TabCompleteHelper addModifiedSettings(Settings settings) {
+    public TabCompleteHelper addModifiedSettings() {
         return append(
-                SettingsUtil.modifiedSettings(settings).stream()
+                SettingsUtil.modifiedSettings(BaritoneAPI.getSettings()).stream()
                         .map(Settings.Setting::getName)
                         .sorted(String.CASE_INSENSITIVE_ORDER)
         );
@@ -275,9 +281,9 @@ public class TabCompleteHelper {
      *
      * @return This {@link TabCompleteHelper}
      */
-    public TabCompleteHelper addToggleableSettings(Settings settings) {
+    public TabCompleteHelper addToggleableSettings() {
         return append(
-                settings.getAllValuesByType(Boolean.class).stream()
+                BaritoneAPI.getSettings().getAllValuesByType(Boolean.class).stream()
                         .map(Settings.Setting::getName)
                         .sorted(String.CASE_INSENSITIVE_ORDER)
         );

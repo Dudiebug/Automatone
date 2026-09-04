@@ -1,183 +1,134 @@
-/*
- * This file is part of Baritone.
- *
- * Baritone is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Baritone is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Baritone.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-
-import net.fabricmc.loom.task.RemapJarTask
-
 plugins {
-    id 'org.quiltmc.loom' version '1.4.+'
-    id 'io.github.ladysnake.chenille' version "0.11.3"
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.144'
+    id 'checkstyle'
+    id 'jacoco'
+    id 'net.ltgt.errorprone' version '5.1.0'
+    id 'com.github.spotbugs' version '6.5.11'
+    id 'org.owasp.dependencycheck' version '13.0.0'
 }
 
-group project.maven_group
-version project.mod_version
+group = mod_group_id
+version = mod_version
 
-chenille {
-    configurePublishing {
-        withArtifactory()
-        withGithubRelease()
-    }
-    configureTestmod {
-        withBaseTestRuns()
-        withDependencyConfiguration()
-    }
-
-    javaVersion = 17
-}
-
-compileJava {
-    options.encoding = "UTF-8" // allow emoji in comments :^)
-}
-
-
-sourceSets {
-    api {
-        compileClasspath += main.compileClasspath
-    }
-    main {
-        compileClasspath += api.output
-    }
-    test {
-        compileClasspath += main.compileClasspath + main.runtimeClasspath + main.output
-        runtimeClasspath += main.compileClasspath + main.runtimeClasspath + main.output
-    }
-    launch {
-        compileClasspath += main.compileClasspath + main.runtimeClasspath + main.output
-        runtimeClasspath += main.compileClasspath + main.runtimeClasspath + main.output
-    }
-    testmod {
-        compileClasspath += launch.compileClasspath + launch.runtimeClasspath + launch.output
-        runtimeClasspath += launch.compileClasspath + launch.runtimeClasspath + launch.output
-    }
-
-    schematica_api {
-        compileClasspath += main.compileClasspath
-    }
-
-    main {
-        compileClasspath += schematica_api.output
-    }
-}
-
-repositories {
-    mavenCentral()
-
-    chenille.repositories {
-        ladysnake()
-        jamieswhiteshirt()
-    }
-
-    maven {
-        name = 'Quilt Snapshots'
-        url = 'https://maven.quiltmc.org/repository/snapshot'
-    }
-
-    mavenLocal()
-}
-
-dependencies {
-    minecraft "com.mojang:minecraft:${minecraft_version}"
-    mappings "org.quiltmc:quilt-mappings:${minecraft_version}+build.${quilt_mappings}:intermediary-v2"
-    modImplementation "org.quiltmc:quilt-loader:${project.quilt_loader_version}"
-
-    modImplementation "org.quiltmc:qsl:${qsl_version}+${minecraft_version}"
-    modImplementation "org.quiltmc.quilted-fabric-api:quilted-fabric-api:${quilted_fabric_api_version}-${minecraft_version}"
-    implementation 'com.google.code.findbugs:jsr305:3.0.2'
-    modImplementation("dev.onyxstudios.cardinal-components-api:cardinal-components-base:${cca_version}") {
-        transitive = false
-    }
-    modImplementation("dev.onyxstudios.cardinal-components-api:cardinal-components-entity:${cca_version}") {
-        transitive = false
-    }
-    modImplementation("dev.onyxstudios.cardinal-components-api:cardinal-components-world:${cca_version}") {
-        transitive = false
-    }
-    modImplementation("com.jamieswhiteshirt:reach-entity-attributes:${reach_version}") {
-        transitive = false
-    }
-    modLocalImplementation("io.github.ladysnake:elmendorf:${elmendorf_version}") {
-        transitive = false
-    }
-    compileOnly "com.demonwav.mcdev:annotations:1.0"
-
-    testImplementation 'junit:junit:4.12'
-}
-
-task testmodJar(type: Jar, dependsOn: testmodClasses) {
-    archiveBaseName.set('Otomaton')
-    archiveClassifier.set('dev')
-    filesMatching('fabric.mod.json') {
-        expand 'version': project.version
-    }
-}
-
-task remapTestmodJar(type: RemapJarTask, dependsOn: project.testmodJar) {
-    archiveBaseName.set('Otomaton')
-    inputFile.set(testmodJar.archiveFile)
-    addNestedDependencies.set(false)
-}
-
-processLaunchResources {
-    inputs.property "version", project.version
-    filesMatching('quilt.mod.json') {
-        expand "version": project.version
-    }
+base {
+    archivesName = mod_id
 }
 
 java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
     withSourcesJar()
 }
 
-javadoc {
-    options.addStringOption('Xwerror', '-quiet') // makes the build fail on travis when there is a javadoc error
-    options.linkSource true
-    options.encoding "UTF-8" // allow emoji in comments :^)
-    source = sourceSets.api.allJava
-    classpath += sourceSets.api.compileClasspath
+sourceSets {
+    main {
+        java.srcDirs = ['src/api/java', 'src/main/java', 'src/schematica_api/java']
+        resources.srcDir 'src/launch/resources'
+        resources.exclude 'quilt.mod.json'
+    }
+    gameTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
 }
 
-jar {
-    from sourceSets.launch.output, sourceSets.api.output
+def stageGameTestStructures = tasks.register('stageGameTestStructures', Copy) {
+    from 'src/gameTest/structures'
+    into layout.buildDirectory.dir('gametest-server/gameteststructures')
+}
 
+neoForge {
+    version = neo_version
+    addModdingDependenciesTo sourceSets.gameTest
+
+    parchment {
+        minecraftVersion = parchment_minecraft_version
+        mappingsVersion = parchment_mappings_version
+    }
+
+    runs {
+        server {
+            server()
+            programArgument '--nogui'
+        }
+
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gameTest
+            gameDirectory = layout.buildDirectory.dir('gametest-server')
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'automatone_gametest'
+            taskBefore stageGameTestStructures
+        }
+
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+        automatone_gametest {
+            sourceSet sourceSets.gameTest
+        }
+    }
+
+    runs.server.loadedMods = [mods."${mod_id}"]
+    runs.gameTestServer.loadedMods = [mods."${mod_id}", mods.automatone_gametest]
+
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+        loadedMods = [mods."${mod_id}"]
+    }
+}
+
+dependencies {
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    def properties = [
+            loader_version_range   : loader_version_range,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties properties
+    expand properties
+    from 'src/main/templates'
+    into layout.buildDirectory.dir('generated/sources/modMetadata')
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.named('runGameTestServer') {
+    timeout.set(java.time.Duration.ofMinutes(5))
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
-
-    manifest {
-        attributes(
-                'MixinConfigs': 'mixins.automatone.json',
-
-                'Implementation-Title': 'Automatone',
-                'Implementation-Version': project.version
-        )
-    }
 }
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
-            pom {
-                name = project.mod_name
-                licenses {
-                    license {
-                        name = 'GNU Lesser General Public License 3.0'
-                        url = 'https://www.gnu.org/licenses/lgpl-3.0.html'
-                    }
-                }
-            }
+        register('mavenJava', MavenPublication) {
+            from components.java
         }
     }
 }
+
+apply from: 'gradle/verification.gradle'

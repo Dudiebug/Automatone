@@ -17,15 +17,14 @@
 
 package baritone.utils.schematic;
 
+import baritone.api.command.registry.Registry;
 import baritone.api.schematic.ISchematicSystem;
 import baritone.api.schematic.format.ISchematicFormat;
 import baritone.utils.schematic.format.DefaultSchematicFormats;
-import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
 
 import java.io.File;
-import java.util.Locale;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -35,12 +34,10 @@ import java.util.Optional;
 public enum SchematicSystem implements ISchematicSystem {
     INSTANCE;
 
-    private final Registry<ISchematicFormat> registry = FabricRegistryBuilder.createSimple(ISchematicFormat.class, new Identifier("automatone", "schematics")).buildAndRegister();
+    private final Registry<ISchematicFormat> registry = new Registry<>();
 
     SchematicSystem() {
-        for (DefaultSchematicFormats s : DefaultSchematicFormats.values()) {
-            Registry.register(this.registry, new Identifier("automatone", s.name().toLowerCase(Locale.ROOT)), s);
-        }
+        Arrays.stream(DefaultSchematicFormats.values()).forEach(this.registry::register);
     }
 
     @Override
@@ -51,5 +48,10 @@ public enum SchematicSystem implements ISchematicSystem {
     @Override
     public Optional<ISchematicFormat> getByFile(File file) {
         return this.registry.stream().filter(format -> format.isFileType(file)).findFirst();
+    }
+
+    @Override
+    public List<String> getFileExtensions() {
+        return this.registry.stream().map(ISchematicFormat::getFileExtensions).flatMap(List::stream).toList();
     }
 }

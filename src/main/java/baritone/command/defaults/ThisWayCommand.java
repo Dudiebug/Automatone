@@ -22,8 +22,6 @@ import baritone.api.command.Command;
 import baritone.api.command.argument.IArgConsumer;
 import baritone.api.command.exception.CommandException;
 import baritone.api.pathing.goals.GoalXZ;
-import baritone.api.utils.IEntityContext;
-import net.minecraft.server.command.ServerCommandSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,21 +29,20 @@ import java.util.stream.Stream;
 
 public class ThisWayCommand extends Command {
 
-    public ThisWayCommand() {
-        super("thisway", "forward");
+    public ThisWayCommand(IBaritone baritone) {
+        super(baritone, "thisway", "forward");
     }
 
     @Override
-    public void execute(ServerCommandSource source, String label, IArgConsumer args, IBaritone baritone) throws CommandException {
+    public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireExactly(1);
-        IEntityContext ctx = baritone.getPlayerContext();
         GoalXZ goal = GoalXZ.fromDirection(
-                ctx.feetPosAsVec(),
-                ctx.entity().headYaw,
+                ctx.playerFeetAsVec(),
+                ctx.player().getYHeadRot(),
                 args.getAs(Double.class)
         );
         baritone.getCustomGoalProcess().setGoal(goal);
-        logDirect(source, String.format("Goal: %s", goal));
+        logDirect(String.format("Goal: %s", goal));
     }
 
     @Override

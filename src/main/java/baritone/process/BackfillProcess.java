@@ -26,13 +26,12 @@ import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
 import baritone.pathing.path.PathExecutor;
 import baritone.utils.BaritoneProcessHelper;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.chunk.EmptyChunk;
-
 import java.util.*;
 import java.util.stream.Collectors;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.EmptyLevelChunk;
 
 public final class BackfillProcess extends BaritoneProcessHelper {
 
@@ -44,23 +43,23 @@ public final class BackfillProcess extends BaritoneProcessHelper {
 
     @Override
     public boolean isActive() {
-        if (ctx.entity() == null || ctx.world() == null) {
+        if (ctx.player() == null || ctx.world() == null) {
             return false;
         }
-        if (!baritone.settings().backfill.get()) {
+        if (!Baritone.settings().backfill.value) {
             return false;
         }
-        if (baritone.settings().allowParkour.get()) {
+        if (Baritone.settings().allowParkour.value) {
             logDirect("Backfill cannot be used with allowParkour true");
-            baritone.settings().backfill.set(false);
+            Baritone.settings().backfill.value = false;
             return false;
         }
-        amIBreakingABlockHMMMMMMM();
         for (BlockPos pos : new ArrayList<>(blocksToReplace.keySet())) {
-            if (ctx.world().getChunk(pos) instanceof EmptyChunk) {
+            if (ctx.world().getChunk(pos) instanceof EmptyLevelChunk || ctx.world().getBlockState(pos).getBlock() != Blocks.AIR) {
                 blocksToReplace.remove(pos);
             }
         }
+        amIBreakingABlockHMMMMMMM();
         baritone.getInputOverrideHandler().clearAllKeys();
 
         return !toFillIn().isEmpty();
@@ -92,7 +91,7 @@ public final class BackfillProcess extends BaritoneProcessHelper {
     }
 
     private void amIBreakingABlockHMMMMMMM() {
-        if (!ctx.getSelectedBlock().isPresent()) {
+        if (!ctx.getSelectedBlock().isPresent() || !baritone.getPathingBehavior().isPathing()) {
             return;
         }
         blocksToReplace.put(ctx.getSelectedBlock().get(), ctx.world().getBlockState(ctx.getSelectedBlock().get()));
@@ -103,9 +102,9 @@ public final class BackfillProcess extends BaritoneProcessHelper {
                 .keySet()
                 .stream()
                 .filter(pos -> ctx.world().getBlockState(pos).getBlock() == Blocks.AIR)
-                .filter(pos -> baritone.getBuilderProcess().placementPlausible(pos, Blocks.DIRT.getDefaultState()))
+                .filter(pos -> baritone.getBuilderProcess().placementPlausible(pos, Blocks.DIRT.defaultBlockState()))
                 .filter(pos -> !partOfCurrentMovement(pos))
-                .sorted(Comparator.<BlockPos>comparingDouble(ctx.feetPos()::getSquaredDistance).reversed())
+                .sorted(Comparator.<BlockPos>comparingDouble(ctx.playerFeet()::distSqr).reversed())
                 .collect(Collectors.toList());
     }
 
