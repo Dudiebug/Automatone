@@ -188,6 +188,14 @@ Focused commands and retained results under `.agents/evidence/M2/`:
   the existing blocking threshold. This is not a zero-vulnerability claim.
   Frozen JSON: `dependency-diagnostics/repair-final-focused.json`.
 
+The independent pre-check caught four unused BeanUtils-CVE rules accidentally
+generated for unrelated shaded POMs in InstallerTools. They matched no findings
+and were removed before the verifier began Gradle. The final XML has ten rules;
+the same independent verification will remeasure the narrower disposition set.
+Of the 17 preserved concurrent policy files, only EXECUTION_STRATEGY.md now
+differs, by the explicitly authorized dependency-remediation scope amendment.
+The other 16 still match their saved byte hashes.
+
 Independent repair verification remains PENDING. Runtime/analysis dependency
 changes invalidate the relevant prior compile, unit, static and GameTest
 measurements; the same independent milestone verifier must rerun those affected

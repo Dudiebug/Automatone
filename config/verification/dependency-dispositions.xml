@@ -164,12 +164,6 @@
         <cve>CVE-2026-54513</cve>
     </suppress>
     <suppress>
-        <notes>BeanUtils is referenced only by three embedded OpenCSV bean classes. No InstallerTools class references OpenCSV or BeanUtils; the supported MERGE_MAPPING/bundler_extract path cannot supply uncontrolled bean property names to the affected introspector. Exact standalone tool only; not a claim that the outer tool is unexecuted. Parent SHA256: 9fe7c6df17299f661b9cd07fc1c4e85493b63efae6bb9da0255a97d9d0a87c60. Source/bytecode evidence and independent review: .agents/decisions/M2-EVIDENCE.md. https://github.com/neoforged/InstallerTools https://github.com/google/guava/security/advisories https://commons.apache.org/proper/commons-beanutils/security.html</notes>
-        <filePath regex="true">^.*[\\/]net\.neoforged\.installertools[\\/]installertools[\\/]2\.1\.2[\\/]62740d5aa8f75f4a4d542d363bdda5b64a198f7a[\\/]installertools\-2\.1\.2\-fatjar\.jar[\\/]META\-INF[\\/]maven[\\/]com\.google\.code\.gson[\\/]gson[\\/]pom\.xml$</filePath>
-        <cve>CVE-2019-10086</cve>
-        <cve>CVE-2025-48734</cve>
-    </suppress>
-    <suppress>
         <notes>The executed MERGE_MAPPING/bundler_extract tool never references FileBackedOutputStream, createTempDir, AtomicDoubleArray, CompoundOrdering or Java deserialization. These vulnerable Guava features exist only in its embedded unused library classes; scanning all non-Guava bytecode finds no references to them. Exact standalone tool only; not a claim that the outer tool is unexecuted. Parent SHA256: 9fe7c6df17299f661b9cd07fc1c4e85493b63efae6bb9da0255a97d9d0a87c60. Source/bytecode evidence and independent review: .agents/decisions/M2-EVIDENCE.md. https://github.com/neoforged/InstallerTools https://github.com/google/guava/security/advisories https://commons.apache.org/proper/commons-beanutils/security.html</notes>
         <filePath regex="true">^.*[\\/]net\.neoforged\.installertools[\\/]installertools[\\/]2\.1\.2[\\/]62740d5aa8f75f4a4d542d363bdda5b64a198f7a[\\/]installertools\-2\.1\.2\-fatjar\.jar[\\/]META\-INF[\\/]maven[\\/]com\.google\.guava[\\/]guava[\\/]pom\.xml$</filePath>
         <cve>CVE-2023-2976</cve>
@@ -178,25 +172,7 @@
     </suppress>
     <suppress>
         <notes>BeanUtils is referenced only by three embedded OpenCSV bean classes. No InstallerTools class references OpenCSV or BeanUtils; the supported MERGE_MAPPING/bundler_extract path cannot supply uncontrolled bean property names to the affected introspector. Exact standalone tool only; not a claim that the outer tool is unexecuted. Parent SHA256: 9fe7c6df17299f661b9cd07fc1c4e85493b63efae6bb9da0255a97d9d0a87c60. Source/bytecode evidence and independent review: .agents/decisions/M2-EVIDENCE.md. https://github.com/neoforged/InstallerTools https://github.com/google/guava/security/advisories https://commons.apache.org/proper/commons-beanutils/security.html</notes>
-        <filePath regex="true">^.*[\\/]net\.neoforged\.installertools[\\/]installertools[\\/]2\.1\.2[\\/]62740d5aa8f75f4a4d542d363bdda5b64a198f7a[\\/]installertools\-2\.1\.2\-fatjar\.jar[\\/]META\-INF[\\/]maven[\\/]com\.opencsv[\\/]opencsv[\\/]pom\.xml$</filePath>
-        <cve>CVE-2019-10086</cve>
-        <cve>CVE-2025-48734</cve>
-    </suppress>
-    <suppress>
-        <notes>BeanUtils is referenced only by three embedded OpenCSV bean classes. No InstallerTools class references OpenCSV or BeanUtils; the supported MERGE_MAPPING/bundler_extract path cannot supply uncontrolled bean property names to the affected introspector. Exact standalone tool only; not a claim that the outer tool is unexecuted. Parent SHA256: 9fe7c6df17299f661b9cd07fc1c4e85493b63efae6bb9da0255a97d9d0a87c60. Source/bytecode evidence and independent review: .agents/decisions/M2-EVIDENCE.md. https://github.com/neoforged/InstallerTools https://github.com/google/guava/security/advisories https://commons.apache.org/proper/commons-beanutils/security.html</notes>
         <filePath regex="true">^.*[\\/]net\.neoforged\.installertools[\\/]installertools[\\/]2\.1\.2[\\/]62740d5aa8f75f4a4d542d363bdda5b64a198f7a[\\/]installertools\-2\.1\.2\-fatjar\.jar[\\/]META\-INF[\\/]maven[\\/]commons\-beanutils[\\/]commons\-beanutils[\\/]pom\.xml$</filePath>
-        <cve>CVE-2019-10086</cve>
-        <cve>CVE-2025-48734</cve>
-    </suppress>
-    <suppress>
-        <notes>BeanUtils is referenced only by three embedded OpenCSV bean classes. No InstallerTools class references OpenCSV or BeanUtils; the supported MERGE_MAPPING/bundler_extract path cannot supply uncontrolled bean property names to the affected introspector. Exact standalone tool only; not a claim that the outer tool is unexecuted. Parent SHA256: 9fe7c6df17299f661b9cd07fc1c4e85493b63efae6bb9da0255a97d9d0a87c60. Source/bytecode evidence and independent review: .agents/decisions/M2-EVIDENCE.md. https://github.com/neoforged/InstallerTools https://github.com/google/guava/security/advisories https://commons.apache.org/proper/commons-beanutils/security.html</notes>
-        <filePath regex="true">^.*[\\/]net\.neoforged\.installertools[\\/]installertools[\\/]2\.1\.2[\\/]62740d5aa8f75f4a4d542d363bdda5b64a198f7a[\\/]installertools\-2\.1\.2\-fatjar\.jar[\\/]META\-INF[\\/]maven[\\/]net\.md\-5[\\/]SpecialSource[\\/]pom\.xml$</filePath>
-        <cve>CVE-2019-10086</cve>
-        <cve>CVE-2025-48734</cve>
-    </suppress>
-    <suppress>
-        <notes>BeanUtils is referenced only by three embedded OpenCSV bean classes. No InstallerTools class references OpenCSV or BeanUtils; the supported MERGE_MAPPING/bundler_extract path cannot supply uncontrolled bean property names to the affected introspector. Exact standalone tool only; not a claim that the outer tool is unexecuted. Parent SHA256: 9fe7c6df17299f661b9cd07fc1c4e85493b63efae6bb9da0255a97d9d0a87c60. Source/bytecode evidence and independent review: .agents/decisions/M2-EVIDENCE.md. https://github.com/neoforged/InstallerTools https://github.com/google/guava/security/advisories https://commons.apache.org/proper/commons-beanutils/security.html</notes>
-        <filePath regex="true">^.*[\\/]net\.neoforged\.installertools[\\/]installertools[\\/]2\.1\.2[\\/]62740d5aa8f75f4a4d542d363bdda5b64a198f7a[\\/]installertools\-2\.1\.2\-fatjar\.jar[\\/]META\-INF[\\/]maven[\\/]org\.apache\.commons[\\/]commons\-collections4[\\/]pom\.xml$</filePath>
         <cve>CVE-2019-10086</cve>
         <cve>CVE-2025-48734</cve>
     </suppress>
