@@ -1,18 +1,19 @@
 schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
-accepted_baseline: fe41d20bae6adfbc68d03aae4d865831b8b07fad
+accepted_baseline: 30561e6bad934087848cc252796b352c0630444d
 active_task: null
-active_gate: M2
+active_gate: null
 
 milestones:
   M2:
-    state: IN_PROGRESS
-    candidate: 647e5efbfc3eff89e7f5f7e4a248f84f18a18d47
-    last_verdict: FAIL
+    state: ACCEPTED
+    candidate: 30561e6bad934087848cc252796b352c0630444d
+    last_verdict: PASS
     last_evidence: .agents/decisions/M2-EVIDENCE.md
     blocker: null
-    execution_authorization: "2026-09-05: user grants full permission for dependency/toolchain remediation and necessary workflow changes; preserve thresholds and stop before M3. Dependency gate remains FAIL pending repairs and verification."
+    execution_authorization: "2026-09-05: user grants full permission for dependency/toolchain remediation and necessary workflow changes; preserve thresholds and stop before M3."
+    independent_evidence: .agents/evidence/M2/dependency-repair-independent-final-review.json
 
 tasks:
   WORKFLOW-PROPORTIONAL:
@@ -92,7 +93,7 @@ tasks:
     implementation_plan: docs/M2_WORKER_IMPLEMENTATION_PLAN.md
     execution_authorization: "Human approved M2 implementation; QUALITY-CLEANUP prerequisite accepted."
     blocker: null
-    deferred: "M2 milestone profile PENDING until completion of M2.4."
+    deferred: null
     last_evidence: .agents/evidence/M2.1/EVIDENCE.md
   M2.2:
     state: COMPLETE
@@ -101,7 +102,7 @@ tasks:
     last_verdict: PASS
     blocker: null
     execution_authorization: "2026-09-05: human approved the two exact WorkerContext exceptions, with independent confirmation at final M2 gate."
-    deferred: "Full M2 milestone profile PENDING until M2.4."
+    deferred: null
     last_evidence: .agents/decisions/M2.2-EVIDENCE.md
   M2.3:
     state: COMPLETE
@@ -110,7 +111,7 @@ tasks:
     last_verdict: PASS
     blocker: null
     last_evidence: .agents/decisions/M2.3-EVIDENCE.md
-    deferred: "Full M2 profile and independent milestone gate PENDING until M2.4."
+    deferred: null
   M2.4:
     state: COMPLETE
     baseline: cf3783b5c9ffaf904b4dfc16c16914e9b0c60651
@@ -118,7 +119,7 @@ tasks:
     last_verdict: PASS
     blocker: null
     last_evidence: .agents/decisions/M2.4-EVIDENCE.md
-    deferred: "Single independent M2 gate completed; dependency profile FAIL blocks milestone acceptance."
+    deferred: null
   M3.1:
     state: PLANNED
     baseline: null

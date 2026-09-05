@@ -1,9 +1,10 @@
 # M2 controller evidence and dependency decision
 
-Status: IN_PROGRESS at the milestone gate; M2.1 through M2.4 are COMPLETE.
-Dependency scope was approved and focused repairs pass; independent repair
-verification remains PENDING.
-Stop before M3. Accepted prerequisite remains QUALITY-CLEANUP
+Status: ACCEPTED by the controller on 2026-09-05; M2.1 through M2.4 are COMPLETE.
+Accepted candidate: `30561e6bad934087848cc252796b352c0630444d`.
+The same independent milestone verifier supplied passing repair evidence; all
+required criteria are satisfied. M3 has not started.
+Accepted prerequisite was QUALITY-CLEANUP
 `fe41d20bae6adfbc68d03aae4d865831b8b07fad`.
 
 Product candidate: `70de937f7cb419bf62ee73fe4019209db945f51c`.
@@ -28,9 +29,10 @@ source, dependency versions, analyzer scope, rules or thresholds.
 - PASS: compile, Error Prone, Checkstyle, SpotBugs, 85 JUnit/architecture cases
   (zero failures/errors/skips, including four architecture cases per project),
   zero CPD regions, 25 library GameTests and 14 worker GameTests.
-- Both built artifacts are separate: Automatone has 466 baritone classes and
-  zero worker classes; worker has eight worker classes and zero baritone
-  classes. Worker metadata requires the separate Automatone dependency.
+- Both built artifacts are separate. The earlier counts of 466 baritone and
+  eight worker ZIP entries included directories; actual class counts are 407
+  baritone and seven worker classes, with no cross-bundled classes. Worker
+  metadata requires the separate Automatone dependency.
 - The verifier independently CONFIRMED the two already human-approved exact
   WorkerContext EI_EXPOSE_REP exceptions. Source/eligibility hashes match; raw
   analysis retains exactly those two findings, no errors or missing classes.
@@ -207,12 +209,59 @@ source edit. Ordinary non-security Gradle task caching is unchanged. The same
 verifier must confirm normal dependency invocations really reanalyze; the
 passing union/runtime evidence is not invalidated by this input-only repair.
 
-Independent repair verification remains PENDING. Runtime/analysis dependency
-changes invalidate the relevant prior compile, unit, static and GameTest
-measurements; the same independent milestone verifier must rerun those affected
-checks, confirm the dispositions and actual runtime libraries, inspect both
-separate artifacts, and obtain three fresh worker server passes. Unchanged
-native ownership and the two approved WorkerContext exceptions remain required.
+## Controller acceptance
+
+Independent final record:
+`.agents/evidence/M2/dependency-repair-independent-final-review.json`.
+Its retained bytecode/archive proof is
+`dependency-disposition-independent-bytecode-30561e6.log` in the same directory.
+The controller checked the current reports, artifact hashes, source/candidate
+scope and prerequisite ancestry before accepting M2.
+
+- The affected union at clean `127ebdf0` passed compile, Error Prone,
+  Checkstyle, SpotBugs, ArchUnit, CPD and GameTests. Current JUnit XML totals
+  77 library tests plus four architecture tests per project: 85 cases, zero
+  failures/errors/skips. CPD has zero duplicate regions. There are no separate
+  worker unit cases; worker behavior is covered by dedicated-server tests.
+- All 25 library and 14 worker GameTests passed in the union. Two additional
+  fresh worker servers each passed all 14 tests (`worker-server-final-run2-127ebdf0.log`
+  and `worker-server-final-run3-127ebdf0.log`). Thus all three consecutive fresh
+  worker runs cover native flat goal, rise, cancellation and removal.
+- Actual GameTest classpaths use Netty 4.1.137.Final, Log4j 2.26.0 and Plexus
+  3.6.1. Native path calculation/control/cancellation remain in Automatone;
+  the worker has no replacement pathfinder, fake player or packet input layer.
+- Both final artifacts were built and inspected: Automatone has 407 baritone
+  classes and zero worker classes (SHA256
+  `efe405f4944f3146862f06aebb19d455f126306bef260712cc58e934698f8fe5`);
+  worker has seven worker classes and zero baritone classes (SHA256
+  `42c948bb71d62beeee36e2527d7495086eaced601298a6b1d663de44af09ee60`).
+- The two already-approved exact WorkerContext EI_EXPOSE_REP dispositions
+  remain independently confirmed. No new worker SpotBugs exception was added.
+- The final dependency-cache repair at clean `30561e6b` passed two normal,
+  consecutive independent dependency invocations, 35s and 33s. Both analyses
+  executed in each invocation; neither reused an up-to-date result. The scans
+  resolved 321 root and 322 worker records, each retaining 15 active occurrences
+  (nine CVEs, maximum CVSSv3 6.1) and 136 exact suppressed occurrences. Threshold
+  remains 7. There is no zero-vulnerability claim or blanket/debt waiver.
+- The independent verifier confirmed the ten exact disposition bounds through
+  archive inventories, hashes, `jdeps` and `javap`. These are static assessments
+  of the current standalone tools, not exhaustive dynamic tracing or proof
+  about future artifacts/launches. InstallerTools' affected embedded classes
+  still exist but are unreferenced by the supported operations; this limitation
+  is retained. Reassess if the pinned artifact or supported launch/operation
+  changes. Controller inspection also confines outer reflective class loading
+  to ExtractInheritance, which is not one of this NeoForm configuration's
+  MERGE_MAPPING/bundler_extract operations.
+- The last repair changes only dependency analysis inputs/caching and evidence.
+  It cannot invalidate the passing `127ebdf0` runtime, artifact, ownership,
+  compile/static or test measurements. Those are reused explicitly, alongside
+  the new dependency measurements. No additional full profile was run.
+
+Graphify update succeeded (4,715 nodes / 12,572 edges; eight known Groovy parse
+limits remain advisory). The controller accepts the milestone and advances the
+accepted baseline to `30561e6b`; no required gate is PENDING or UNVERIFIED.
+Final bookkeeping edits do not change the verified product or dependencies.
+
 No external server deployment was requested or performed. Standalone NeoForge
 installations do not consume Gradle version overrides automatically; release
 deployment must align its runtime libraries to the verified Gradle classpath.
