@@ -32,7 +32,8 @@ The subsequent 2026-09-05 user authorization expands the M2 gate repair scope
 to dependency and toolchain remediation, including necessary version-pin and
 workflow changes. Do not ask again for routine changes within that scope.
 The controller may correct exact, evidence-proven dependency identity/version
-false positives, retaining raw findings and independent review of each
+false positives or findings whose required vulnerable feature is proven
+unreachable in the supported execution path, retaining raw findings and independent review of each
 disposition. This does not authorize blanket suppressions, lower thresholds,
 acceptance of affected dependencies as debt, or advancement into M3. Preserve
 the single milestone verifier and rerun checks invalidated by the repairs.

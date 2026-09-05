@@ -1,6 +1,8 @@
 # M2 controller evidence and dependency decision
 
-Status: BLOCKED at the milestone gate; M2.1 through M2.4 are COMPLETE.
+Status: IN_PROGRESS at the milestone gate; M2.1 through M2.4 are COMPLETE.
+Dependency scope was approved and focused repairs pass; independent repair
+verification remains PENDING.
 Stop before M3. Accepted prerequisite remains QUALITY-CLEANUP
 `fe41d20bae6adfbc68d03aae4d865831b8b07fad`.
 
@@ -72,7 +74,7 @@ Concrete scope examples from the report's dependency provenance:
 | JST bundle 2.0.10 shaded Netty 4.2.0.RC2 | NeoForm external build tools; generic Netty CPE matches need module-level validation |
 | InstallerTools 2.1.2 shaded Guava/BeanUtils | Bundled build-tool dependency findings; a normal top-level version constraint may not replace shaded copies |
 
-## Decision required before further implementation
+## Initial scope blocker (resolved by user authorization)
 
 Read-only follow-up triage (no dispositions or suppressions applied):
 
@@ -93,7 +95,7 @@ Read-only follow-up triage (no dispositions or suppressions applied):
 This bounded triage does not change the failing dependency verdict or authorize
 pin changes. No additional broad checks were run.
 
-The approved plan says to keep pinned dependency versions. EXECUTION_STRATEGY.md
+The original approved plan said to keep pinned dependency versions. EXECUTION_STRATEGY.md
 requires human authority for product-plan changes, accepting baseline debt or
 waiving checks. The two approved WorkerContext exceptions do not authorize
 dependency exceptions. Therefore M2 is NOT ACCEPTED, and no thresholds,
@@ -108,7 +110,90 @@ Do not apply blanket suppressions, exclude build-tool configurations, lower the
 CVSS threshold or accept baseline debt implicitly. Any necessary exact exception
 must have its own evidence and authority. Stop before M3 throughout.
 
-Controller confirms all M2 product criteria and the independent ownership review.
-The unresolved dependency gate prevents milestone acceptance. No broad profile
-was repeated after the NVD fetch repair. All other measured evidence remains
-applicable because the repair changed only vulnerability-data acquisition.
+The user subsequently granted full permission to remediate dependency/toolchain
+findings and change blocking workflow provisions on 2026-09-05. Commit `4617fbf7`
+records the expanded plan/workflow scope. No renewed approval is required for
+these repairs. This does not authorize lowering thresholds or entering M3.
+
+## Authorized dependency repair candidate
+
+`gradle/dependency-remediation.gradle` applies compatible fixes to both projects,
+including generated NeoForm and analysis configurations. Netty's BOM also
+publishes the runtime alignment to Gradle consumers. Product Java is unchanged.
+
+| Component | Resolved repair | Evidence / scope |
+| --- | --- | --- |
+| Netty | 4.1.97.Final -> 4.1.137.Final | Official Netty 2026-08-06 security release; server runtime libraries |
+| Log4j | 2.22.1 -> 2.26.0 | Apache security fixes for CVE-2026-34478/34479/34480; align all modules |
+| Plexus Utils | 3.3.0 -> 3.6.1 | Upstream CVE-2025-67030 fix while retaining the bundled XML API |
+| HTTP Core 5 | 5.1.3 -> 5.4.3 | CVE-2026-54399/54428 fixes; CPD tool dependencies |
+| Error Prone dataflow | 3.41.0-eisop1 -> 3.49.5-eisop1 | Replaces shaded Guava 30.1.1 with 33.1.0.2; compilation passes |
+| Commons Compress | 1.18 -> 1.28.0 | Resolved legacy MergeTool dependency; that legacy tool is unused by MC 1.21.1 |
+
+Primary references: https://netty.io/news/2026/08/06/4-1-137-Final.html,
+https://logging.apache.org/security.html,
+https://github.com/codehaus-plexus/plexus-utils/releases/tag/plexus-utils-3.6.1.
+Pinned published Maven artifacts and NVD descriptions in the retained raw
+reports establish the other versions and findings.
+
+Exact dispositions live in `config/verification/dependency-dispositions.xml`.
+Each rule selects an immutable Maven artifact path, including its content-hash
+directory and shaded-POM suffix where applicable, and enumerates CVE IDs.
+Notes retain the actual parent SHA256 and primary references. No CPE-wide,
+configuration-wide, CVSS-based or future-CVE suppression is used.
+
+| Exact artifact | Disposition and proof |
+| --- | --- |
+| JST 2.0.10 Netty buffer/common | 60 CVEs per component describe absent codec/handler/transport/resolver modules. The jar contains only 543 `io/netty/util` and 154 `io/netty/buffer` classes. Every CVE maps to upstream Netty advisories; raw mapping is `dependency-diagnostics/netty-module-dispositions.json`. |
+| JLine reader/terminal 3.20.0 | Two Telnet CVEs per jar require absent `remote-telnet`/`TelnetIO`; the resolved graph has neither. |
+| SrgUtils 0.4.15 / MergeTool 1.1.7 | Two Minecraft-server CVEs per jar are product-identity mismatches, as established above. |
+| Mixin 0.15.2 shaded Guava | CVE-2023-2976 requires FileBackedOutputStream, absent from the minimized bundle. |
+| JST 2.0.10 shaded Jackson | CVE-2026-54512/54513 require polymorphic typing. All non-Jackson bytecode has no typing-enable/PTV/JsonTypeInfo references. The only ObjectMapper consumers are IntelliJ `eventLog.LogEventSerializer`, `eventLog.SerializationHelper`, and `config.SerializationHelper`; they use concrete types/nodes, not polymorphic typing. |
+| InstallerTools 2.1.2 shaded Guava / BeanUtils | Five CVEs require unused temp-file/Java-deserialization/bean-introspection features. All non-Guava bytecode has no references to the affected Guava methods/types. BeanUtils is referenced only by three embedded OpenCSV bean classes; no InstallerTools class references OpenCSV or BeanUtils. The outer tool IS executed, so this is feature unreachability, not absent-tool reasoning. |
+
+The JST/InstallerTools proof is limited to NeoFormRuntime's supported standalone
+`java -jar` launch. JST's manifest has no Class-Path, and its service descriptor
+contains only its four embedded transformer providers. The JST `--classpath`
+argument supplies parser symbols, not a process/plugin classpath. Reassess these
+dispositions if the launch contract or immutable artifacts change.
+
+Read-only helper and controller inspected published binary artifacts with
+`javap` and jar/class inventories: NFR 2.0.24 `ExternalJavaToolAction`,
+`ApplySourceTransformAction`, `ArtifactManager`; ModDevGradle 2.0.144
+`ArtifactManifestEntry`, `NeoFormRuntimeTask`, `DependencyUtils`.
+An attempted InstallerTools 4.0.12 override was rejected and removed: it breaks
+NeoForm's MERGE_MAPPING arguments, and the selected-GAV artifact manifest can
+miss the old requested coordinate and fetch 2.1.2 outside Gradle. The final
+candidate retains the actual 2.1.2 tool and its exact feature dispositions.
+The same manifest behavior means runtime version alignment does not imply all
+NeoForm preprocessing symbol-classpath downloads change. Runtime classpaths
+must be checked directly. Commons Compress's old legacy tool is not executed.
+
+Focused commands and retained results under `.agents/evidence/M2/`:
+
+- `dependency-repair-first.log`: same dependency sensor command as above, FAIL;
+  compatible ordinary upgrades reduce 766 to 162 occurrences/project.
+- `dependency-repair-compile.log`: `compileJava :worker:compileJava --no-daemon
+  --no-parallel --console=plain`, exit 0. Compiler warnings remain in the raw
+  log, including WorkerEntityController reference equality for required live
+  identity; no warning rule was changed.
+- `dependency-repair-second.log`: FAIL parsing the initial XML: its schema
+  permits only one artifact selector. Repaired to the immutable full Maven
+  artifact path; no measurement was claimed from the failed analyzer.
+- `dependency-repair-third.log`: FAIL on Jackson CVEs with the subsequently
+  rejected InstallerTools override; not acceptance evidence.
+- `dependency-repair-final-focused.log`: dependency sensors, exit 0, 32s.
+  Both projects pass CVSS 7. Root JSON has 321 dependency records, 136 exact
+  suppressed occurrences and 15 remaining occurrences across nine CVEs below
+  the existing blocking threshold. This is not a zero-vulnerability claim.
+  Frozen JSON: `dependency-diagnostics/repair-final-focused.json`.
+
+Independent repair verification remains PENDING. Runtime/analysis dependency
+changes invalidate the relevant prior compile, unit, static and GameTest
+measurements; the same independent milestone verifier must rerun those affected
+checks, confirm the dispositions and actual runtime libraries, inspect both
+separate artifacts, and obtain three fresh worker server passes. Unchanged
+native ownership and the two approved WorkerContext exceptions remain required.
+No external server deployment was requested or performed. Standalone NeoForge
+installations do not consume Gradle version overrides automatically; release
+deployment must align its runtime libraries to the verified Gradle classpath.

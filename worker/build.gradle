@@ -10,6 +10,7 @@ plugins {
 
 group = rootProject.group
 version = rootProject.version
+apply from: rootProject.file('gradle/dependency-remediation.gradle')
 base.archivesName = 'automatone-worker'
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 

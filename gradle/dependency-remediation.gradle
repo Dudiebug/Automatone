@@ -1,0 +1,21 @@
+// M2 security fixes. Apply to generated NeoForm/tool configurations as well as mod classpaths.
+def fixedVersions = [
+    'org.apache.commons:commons-compress': '1.28.0',
+    'org.codehaus.plexus:plexus-utils': '3.6.1',
+    'org.apache.httpcomponents.core5:httpcore5': '5.4.3',
+    'org.apache.httpcomponents.core5:httpcore5-h2': '5.4.3',
+    'io.github.eisop:dataflow-errorprone': '3.49.5-eisop1',
+]
+
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        def requested = details.requested
+        def fixed = requested.group == 'io.netty' ? netty_version :
+                requested.group == 'org.apache.logging.log4j' ? '2.26.0' :
+                fixedVersions["${requested.group}:${requested.name}".toString()]
+        if (fixed != null) {
+            details.useVersion(fixed)
+            details.because('M2 verified dependency security remediation; see .agents/decisions/M2-EVIDENCE.md')
+        }
+    }
+}

@@ -12,6 +12,8 @@ plugins {
 group = mod_group_id
 version = mod_version
 
+apply from: 'gradle/dependency-remediation.gradle'
+
 base {
     archivesName = mod_id
 }
@@ -90,6 +92,7 @@ neoForge {
 }
 
 dependencies {
+    implementation platform("io.netty:netty-bom:${netty_version}")
     // Optional mod placeholders are compile-time contracts, not runtime mods.
     compileOnly sourceSets.schematicaApi.output
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
