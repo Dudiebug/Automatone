@@ -8,6 +8,10 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.control.JumpControl;
+import net.minecraft.world.entity.ai.control.LookControl;
+import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -27,6 +31,40 @@ public class WorkerEntity extends Mob implements Container {
         super(type, level);
         setPersistenceRequired();
         setCanPickUpLoot(false);
+        // Native server input owns this worker; vanilla controls must not replace it.
+        moveControl = new MoveControl(this) {
+            @Override
+            public void tick() {
+            }
+        };
+        lookControl = new LookControl(this) {
+            @Override
+            public void tick() {
+            }
+        };
+        jumpControl = new JumpControl(this) {
+            @Override
+            public void tick() {
+            }
+        };
+    }
+
+    @Override
+    public float getSpeed() {
+        // Mob.setSpeed also changes forward input. Travel needs only the attribute.
+        return (float) getAttributeValue(Attributes.MOVEMENT_SPEED);
+    }
+
+    @Override
+    public void aiStep() {
+        if (!level().isClientSide()) {
+            getNavigation().stop();
+            if (onGround() && xxa == 0.0F && zza == 0.0F) {
+                setDeltaMovement(0.0D, getDeltaMovement().y, 0.0D);
+            }
+        }
+        // Preserve vanilla travel, collision, gravity and jumping.
+        super.aiStep();
     }
 
     public IBaritone runtime() {
