@@ -1,6 +1,6 @@
-name = "luna_old_coder"
-description = "Luna for small Old Coder test assignments and one independent milestone verification."
-model = "gpt-5.6-luna"
+name = "terra_old_coder"
+description = "Terra for small Old Coder test assignments and one independent milestone verification."
+model = "gpt-5.6-terra"
 model_reasoning_effort = "max"
 
 developer_instructions = """

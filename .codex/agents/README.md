@@ -1,16 +1,20 @@
 # Automatone helper roles
 
-The parent implements and repairs production/workflow code. `luna_old_coder`
-(GPT-5.6 Luna / Max) is for small Old Coder test assignments only. Reuse related
-focused work. At milestone completion use one fresh independent Luna test
-verification in a clean candidate; the verifier and integration role describe
-that same gate, not two mandatory review rounds.
+Astra is the primary implementer and controller. Terra/Luna delegation is mandatory for test writing; Sol implementation/repair is optional.
+Use them only when delegation adds value. Astra may work directly, reassign or
+take over without asking the user. Every helper escalates directly to Astra;
+no redelegation or automatic handoff chain. Astra reviews changes and evidence
+and approves satisfactory work autonomously; failures still require repair.
 
-Role templates follow AGENTS.md and EXECUTION_STRATEGY.md. No automatic dispatch
-chain, mutation/coverage/property-based layer, or broad profile per task is
-required. Deferred milestone checks are PENDING, never PASS. The parent owns task
-completion and milestone acceptance; these roles do not alter that authority.
+The implementer/repair roles default to Sol; verifier/integration roles default
+to Terra. `luna_old_coder` and `terra_old_coder` are the required test-authoring roles.
+Use explicit Terra/Luna dispatch when a test role is unavailable; do not substitute another test author. Saved definitions may require a new session to become available;
+never claim a role or model ran unless dispatch confirms it.
 
-These files configure dispatchable roles, not a background service. Host exposure
-of custom names is environment-dependent; use only the explicit Luna/Max fallback
-in AGENTS.md when needed. No global configuration or permissions are changed.
+Keep one fresh independent milestone verification context separate from the
+implementation/test authors. The verifier and integration role describe the same
+gate, not two runs. Automated GameTests require no user participation. Ask only
+for actual manual checks, missing access/input, or unresolved decisions outside
+the approved scope. AGENTS.md and EXECUTION_STRATEGY.md define the full policy.
+
+All test writing and modifications, including fixtures and test-harness repairs, must go to Terra or Luna. Astra defines acceptance criteria, reviews and integrates tests, and may run existing checks. Astra and Sol must not author or edit tests. If a test helper stalls, escalate directly to Astra for reassignment to Terra/Luna; do not substitute another test author.

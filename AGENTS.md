@@ -45,13 +45,16 @@ Use the installed `graphify` skill for structural preflight, impact queries, and
 
 Use the installed `old-coder` skill for focused test work under this policy. Its optional extended testing layers do not override the proportional verification policy above.
 
-### Required Old Coder routing
+### Astra ownership and optional delegation
 
-- Route all `old-coder` skill execution to the project custom subagent `luna_old_coder`, defined in `.codex/agents/luna_old_coder.toml`, using `gpt-5.6-luna` with `max` reasoning.
-- The parent implements and repairs production/workflow code, assigns small test scopes, and reviews evidence. Use Luna only for Old Coder test work; no implementation or classification swarm, redundant reviewers, or automatic handoff chain.
-- Reuse a test agent for related focused work. At the milestone gate use one fresh Luna context for independent test verification, separate from the context that authored the tests. The parent must not silently substitute another model for Old Coder test work.
-- If the host cannot load the custom agent, use an explicit Luna/Max subagent request carrying the same role instructions when supported. If neither route is available, or delegation is prohibited, report the blocker and do not substitute parent execution. This policy does not authorize subagents in contexts that prohibit them.
-- Never change the model or fall back automatically when Luna fails or is unavailable; ask the user before changing this routing policy.
+- Astra is the primary implementer and controller. Implement, diagnose, repair, run checks and integrate directly by default; delegate only when a bounded assignment adds value.
+- All test writing and test modifications, including regressions, fixtures and test-harness repairs, must be assigned to Terra or Luna. Astra defines acceptance criteria, reviews tests and evidence, and may run existing checks, but neither Astra nor Sol authors or edits tests. Astra may switch between Terra and Luna without user approval; if neither is available, preserve the pending test work and report the capability blocker instead of substituting another author.
+- Sol implementation/repair and additional verification delegation remain optional. Astra chooses reasoning effort, reviews and integrates results, and may take over production work without user approval. Old Coder test authoring follows the mandatory Terra/Luna routing above.
+- Assign explicit scope, owned files, acceptance checks and escalation conditions. Helpers are not alone in the checkout: preserve others' changes. Helpers must not redelegate or approve their own work.
+- Every helper escalates directly to Astra on ambiguity, unexpected scope, conflicting evidence, a failed repair or lack of progress. Return current changes, results and the smallest unresolved issue instead of starting a handoff chain.
+- Astra automatically reviews helper changes and evidence, repairs or rejects inadequate work, and approves integration/task completion when checks establish the criteria. Automatic review does not mean automatic PASS. Do not ask the user to review or approve helper output.
+- Reuse helper contexts for related work. Preserve one fresh independent milestone verification context, separate from implementation/test authoring; Astra selects its model and reviews its evidence. Do not claim independence for Astra's own implementation context.
+- Involve the user only for genuinely manual interaction, unavailable access/input, or an unresolved decision outside the approved product scope. Run automated GameTests autonomously; request user participation only for a check that actually requires a person. Tool permission restrictions remain authoritative.
 
 Do not copy third-party skill text into repository output. Invoke/reference the installed skills.
 

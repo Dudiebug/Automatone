@@ -35,26 +35,4 @@ copies merely to eliminate these warnings would change runtime ownership.
 The separate static-executor exposure warning is not included in this example
 set and still requires assessment.
 
-## Rule
-
-1. Limit eligibility to the existing e81 candidate's finding inventory. Record
-   pattern, class, method/signature or field, source location, message, and source
-   commit for every proposed exception. Matching type totals is insufficient.
-2. For each exception, cite the approved contract requiring the reported behavior
-   and independent evidence that the warning does not establish a defect under
-   that contract. Required live-owner identity must be exercised where feasible.
-3. An independent Luna verifier must approve the technical classification. The
-   implementer cannot exempt its own findings. Unresolved claims remain blocking.
-4. Apply only exact-match, documented exceptions, retaining the unsuppressed report
-   and a before/after inventory. No package-wide exclusions, detector disabling,
-   severity relaxation, or blanket baseline refresh.
-5. Findings added or changed by subsequent implementation are new and blocking;
-   they cannot inherit an exception just because a similar warning existed.
-6. Repair actual defects and obtain missing required evidence. SpotBugs exceptions
-   do not waive unit/runtime/architecture/duplication or other acceptance criteria.
-7. Re-run the full required profile from a clean candidate. Record an accepted
-   baseline only after independent acceptance; M2 starts afterward.
-
-M2 stays behind baseline acceptance until the repairs, exact reviewed exceptions,
-and required evidence pass. Do not break live/public contracts or bypass the gate.
-The filename is retained so the approval link remains stable.
+## 

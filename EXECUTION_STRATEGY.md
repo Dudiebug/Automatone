@@ -9,12 +9,24 @@ checkout, or multiple independent rounds for every task. It changes verification
 cadence, not product criteria, architecture, analyzer thresholds, or permission
 to waive failures.
 
-The parent selects scope, implements and repairs code, and confirms task
-completion. Use `luna_old_coder` (GPT-5.6 Luna / Max) only for Old Coder test work.
-Keep assignments small, reuse related test work, and avoid redundant reviewers
-and handoffs. A milestone gets one fresh independent test verifier. A verifier
-does not repair the code or tests it grades. Graphify is an advisory structural
-sensor: use scoped queries when useful and update after meaningful changes.
+Astra is the primary implementer and controller. Work directly by default.
+Always delegate test authoring and modification to Terra or Luna. Astra reviews
+tests and may run existing checks; Astra and Sol do not write or edit tests.
+Delegate other work only when useful: Sol for focused implementation/repair
+and suitable helpers for verification. Follow AGENTS.md's delegation
+and escalation rules. Astra selects models, takes over stalled work, reviews
+helper changes and evidence, and approves satisfactory work autonomously. Helpers
+escalate directly to Astra, never through an automatic agent chain or to the user.
+A milestone gets one fresh independent verifier selected by Astra; that verifier
+does not repair the code or tests it grades. Graphify is advisory: use scoped
+queries when useful and update after meaningful changes.
+
+The 2026-09-05 user instruction supersedes mandatory Luna routing and model-change
+approval requirements. Routine implementation, testing, delegation, review and
+integration decisions require no user participation. Run automated GameTests
+locally; ask the user only for actual manual checks, missing access/input, or
+unresolved decisions outside the approved product scope. This routing revision
+does not waive required checks or change the product architecture.
 
 ## Task completion and milestone acceptance
 

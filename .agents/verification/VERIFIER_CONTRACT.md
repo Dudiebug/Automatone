@@ -2,7 +2,7 @@
 
 The verifier measures the assigned scope; it does not repair code, tests, build
 rules or thresholds while grading them. Follow AGENTS.md and EXECUTION_STRATEGY.md.
-Use Luna only for Old Coder test work, with small assignments.
+Astra selects the verification model, using Terra/Luna for focused test work when useful. Escalate issues directly to Astra; do not redelegate or request user approval. Astra reviews evidence and decides acceptance autonomously within the approved scope.
 
 ## Focused task checks
 

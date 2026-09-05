@@ -1,7 +1,6 @@
 # Helper Agent Template — Test Verifier
 
-Read .agents/verification/VERIFIER_CONTRACT.md and the assigned scope. Use Luna
-only for Old Coder test work. Do not repair production, tests or configuration
+Read .agents/verification/VERIFIER_CONTRACT.md and the assigned scope. Astra selects a suitable verification model; Terra/Luna are preferred test helpers. Do not repair production, tests or configuration
 while independently verifying them.
 
 For a focused task assignment, run only selected behavior checks and necessary
