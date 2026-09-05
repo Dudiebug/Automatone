@@ -250,6 +250,8 @@ tasks.register('sensorAll') {
 dependencyCheck {
     outputDirectory = layout.buildDirectory.dir('reports/dependency-check').get().asFile
     failBuildOnCVSS = 7.0
+    // Official NVD feeds avoid sending the analyzer's empty default API-key header.
+    nvd.datafeedUrl = 'https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz'
 }
 
 // Direct main analysis and aggregate sensors both require fresh exact disposition checks.
