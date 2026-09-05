@@ -23,15 +23,9 @@ import net.minecraft.world.level.block.Rotation;
 
 public class SubRegionPlacement {
 
-    public BlockPos getPos() {
-        throw new LinkageError();
-    }
+    public native BlockPos getPos();
 
-    public Rotation getRotation() {
-        throw new LinkageError();
-    }
+    public native Rotation getRotation();
 
-    public Mirror getMirror() {
-        throw new LinkageError();
-    }
+    public native Mirror getMirror();
 }

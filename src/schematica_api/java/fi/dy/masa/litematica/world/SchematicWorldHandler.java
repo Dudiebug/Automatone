@@ -19,7 +19,6 @@ package fi.dy.masa.litematica.world;
 
 public class SchematicWorldHandler {
 
-    public static WorldSchematic getSchematicWorld() {
-        throw new LinkageError();
-    }
+    // Compile-only declaration; the optional mod supplies the actual implementation.
+    public static native WorldSchematic getSchematicWorld();
 }

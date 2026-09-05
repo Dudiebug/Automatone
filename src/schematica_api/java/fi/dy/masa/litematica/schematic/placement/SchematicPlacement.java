@@ -25,27 +25,15 @@ import net.minecraft.world.level.block.Rotation;
 
 public class SchematicPlacement {
 
-    public String getName() {
-        throw new LinkageError();
-    }
+    public native String getName();
 
-    public BlockPos getOrigin() {
-        throw new LinkageError();
-    }
+    public native BlockPos getOrigin();
 
-    public Rotation getRotation() {
-        throw new LinkageError();
-    }
+    public native Rotation getRotation();
 
-    public Mirror getMirror() {
-        throw new LinkageError();
-    }
+    public native Mirror getMirror();
 
-    public ImmutableMap<String, SubRegionPlacement> getEnabledRelativeSubRegionPlacements() {
-        throw new LinkageError();
-    }
+    public native ImmutableMap<String, SubRegionPlacement> getEnabledRelativeSubRegionPlacements();
 
-    public LitematicaSchematic getSchematic() {
-        throw new LinkageError();
-    }
+    public native LitematicaSchematic getSchematic();
 }

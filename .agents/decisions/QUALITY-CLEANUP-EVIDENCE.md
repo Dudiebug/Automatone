@@ -117,3 +117,21 @@ Graphify's incremental update completed after the parser/build changes (4,512
 nodes, 11,732 edges). Its Groovy parser partially extracted six build/test scripts;
 these advisory graph limitations do not stand in for Gradle compilation or the
 deterministic architecture checks.
+
+The independent full profile on clean `2661017a9ca63e043444ae14aee249601a71f255`
+passed compilation, unit tests, style, Error Prone, architecture, duplication and
+all 25 server GameTests. The exact gate and jar controls passed. SpotBugs alone
+failed on two Litematica helper stores: its auxiliary compile-only API methods
+unconditionally threw `LinkageError`, falsely making following integration code
+unreachable. The raw analysis was complete (68 findings, no errors/missing classes).
+
+The controller replaced the 13 fake throwing method bodies in the six Litematica
+compile-only API files with bodyless declarations, retaining the same method
+names, parameters, return types and static/instance contracts. Java's `native`
+modifier expresses a declaration here; these classes remain absent from the
+artifact/runtime, and the optional mod supplies the real Java implementations.
+No native runtime binding or optional integration implementation is introduced.
+The failed analyzer result is the regression for this contract-modeling defect.
+Affected compilation, stub style, analysis and artifact checks remain PENDING;
+the passing runtime/unit/architecture evidence can be retained because their
+product source and runtime ownership are unchanged.
