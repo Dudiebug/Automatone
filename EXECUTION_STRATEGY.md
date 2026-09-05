@@ -28,6 +28,15 @@ locally; ask the user only for actual manual checks, missing access/input, or
 unresolved decisions outside the approved product scope. This routing revision
 does not waive required checks or change the product architecture.
 
+The subsequent 2026-09-05 user authorization expands the M2 gate repair scope
+to dependency and toolchain remediation, including necessary version-pin and
+workflow changes. Do not ask again for routine changes within that scope.
+The controller may correct exact, evidence-proven dependency identity/version
+false positives, retaining raw findings and independent review of each
+disposition. This does not authorize blanket suppressions, lower thresholds,
+acceptance of affected dependencies as debt, or advancement into M3. Preserve
+the single milestone verifier and rerun checks invalidated by the repairs.
+
 ## Task completion and milestone acceptance
 
 Task states:

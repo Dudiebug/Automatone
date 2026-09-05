@@ -33,8 +33,10 @@ No graph rebuild was performed during planning.
   GameTests live in `worker/src/gameTest/java/automatone/worker/gametest/`.
   Unit and architecture tests use the corresponding `test` and `sensorTest`
   source sets. Mod metadata and structures use their source-set resource paths.
-- Retain Java 21, NeoForge 21.1.249, and ModDevGradle 2.0.144. Keep pinned
-  dependency versions and the existing library artifact intact.
+- Retain Java 21 and Minecraft 1.21.1 compatibility and the separate library
+  artifact. On 2026-09-05 the user approved M2 dependency remediation, including
+  necessary pinned dependency, NeoForge and build-tool version changes. Select
+  compatible fixes from evidence and verify the affected runtime/build paths.
 - Reuse `IPlayerContext` despite its legacy name. No public Automatone API
   signature changes or new wire protocol are planned.
 - All adaptation, inventory changes, runtime attachment, and movement occur on
