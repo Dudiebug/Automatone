@@ -74,6 +74,25 @@ Concrete scope examples from the report's dependency provenance:
 
 ## Decision required before further implementation
 
+Read-only follow-up triage (no dispositions or suppressions applied):
+
+- `srgutils-0.4.15.jar` and `mergetool-1.1.7-fatjar.jar` each match
+  CVE-2023-33245 and CVE-2021-35054 through a generic Minecraft CPE. Their
+  published POMs identify a Java mapping utility and a jar-merging utility;
+  inspection found 41 and 232 classes respectively, with no Minecraft server
+  classes. These four occurrences per report are strong product-identity
+  mismatch candidates. The CVEs describe older Minecraft server world-file
+  handling, not these utilities. This is static triage, not an approved exception.
+- Do not dismiss all tool findings: the resolved `plexus-utils:3.3.0` contains
+  `Expand.extractFile`, and `javap -c -p` confirms an absolute-path string-prefix
+  check. The upstream fix for CVE-2025-67030 replaces that check with canonical
+  paths and a directory separator. Component identity and vulnerable code are
+  credible here; build-tool reachability and remediation remain unverified.
+  Primary fix: https://github.com/codehaus-plexus/plexus-utils/commit/6d780b3378829318ba5c2d29547e0012d5b29642.
+
+This bounded triage does not change the failing dependency verdict or authorize
+pin changes. No additional broad checks were run.
+
 The approved plan says to keep pinned dependency versions. EXECUTION_STRATEGY.md
 requires human authority for product-plan changes, accepting baseline debt or
 waiving checks. The two approved WorkerContext exceptions do not authorize
