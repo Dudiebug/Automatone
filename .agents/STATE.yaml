@@ -5,6 +5,14 @@ accepted_baseline: fe41d20bae6adfbc68d03aae4d865831b8b07fad
 active_task: null
 active_gate: M2
 
+milestones:
+  M2:
+    state: BLOCKED
+    candidate: 647e5efbfc3eff89e7f5f7e4a248f84f18a18d47
+    last_verdict: FAIL
+    last_evidence: .agents/decisions/M2-EVIDENCE.md
+    blocker: "Independent product/profile checks pass, but completed dependency scans fail CVSS 7 threshold (37 dependencies, 766 finding occurrences per report). Dependency remediation/pinned-version scope or exact debt/exception authority requires a human decision."
+
 tasks:
   WORKFLOW-PROPORTIONAL:
     state: COMPLETE
@@ -105,11 +113,11 @@ tasks:
   M2.4:
     state: COMPLETE
     baseline: cf3783b5c9ffaf904b4dfc16c16914e9b0c60651
-    candidate: null
+    candidate: 70de937f7cb419bf62ee73fe4019209db945f51c
     last_verdict: PASS
     blocker: null
     last_evidence: .agents/decisions/M2.4-EVIDENCE.md
-    deferred: "Single fresh independent clean-candidate M2 milestone profile gate PENDING."
+    deferred: "Single independent M2 gate completed; dependency profile FAIL blocks milestone acceptance."
   M3.1:
     state: PLANNED
     baseline: null
