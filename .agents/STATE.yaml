@@ -21,7 +21,7 @@ tasks:
     verification_rounds: 1
     last_verdict: FAIL
     last_evidence: .agents/evidence/quality-cleanup-20260902/independent/round-1/report.json
-    blocker: "Resumed under proportional policy. Existing focused regressions retained; correcting exact eligibility row 81 metadata, then remaining dispositions and one clean prerequisite acceptance gate."
+    blocker: "Focused cleanup repairs pass, including parser constants and optional-integration artifact ownership. Applied 66 independently reviewed exact approvals; final analyzer confirmation and one clean prerequisite gate remain pending."
     execution_authorization: "2026-09-04: user approved the exception policy and explicitly instructed fixing bugs found in the workflow. Continue prerequisite cleanup and then M2 in approved dependency order."
     continuation_candidate: e81dbad7ab53647920c61d824fb927f15ef67a89
     continuation_evidence: .agents/evidence/quality-cleanup-20260904/

@@ -1,0 +1,44 @@
+gradle.projectsEvaluated {
+    def root = gradle.rootProject
+    def taskName = 'verifyOptionalSchematicJar'
+    if (root.tasks.findByName(taskName) != null) {
+        return
+    }
+
+    def jarTask = root.tasks.findByName('jar')
+    if (jarTask == null) {
+        throw new GradleException('Optional schematic jar contract: root jar task is unavailable')
+    }
+
+    root.tasks.register(taskName) {
+        group = 'verification'
+        description = 'Checks optional schematic ownership in the root jar.'
+        dependsOn(jarTask)
+
+        doLast {
+            File archive = jarTask.archiveFile.get().asFile
+            java.util.zip.ZipFile zip = new java.util.zip.ZipFile(archive)
+            Set<String> entries
+            try {
+                entries = zip.entries().toList().collect { entry -> entry.name } as Set<String>
+            } finally {
+                zip.close()
+            }
+            List<String> forbidden = entries.findAll { entry ->
+                entry.startsWith('com/github/lunatrius/') || entry.startsWith('fi/dy/masa/litematica/')
+            }.sort()
+            List<String> required = [
+                    'baritone/utils/schematic/schematica/SchematicaHelper.class',
+                    'baritone/utils/schematic/litematica/LitematicaHelper.class'
+            ].findAll { entry -> !entries.contains(entry) }
+            if (!forbidden.isEmpty() || !required.isEmpty()) {
+                throw new GradleException(
+                        "Optional schematic ownership violation in ${archive}: " +
+                                "forbidden=${forbidden}, missingHelpers=${required}"
+                )
+            }
+            println("OPTIONAL_SCHEMATIC_JAR_CHECK=PASS archive=${archive.name} " +
+                    "forbidden=0 helpers=${2 - required.size()}/2")
+        }
+    }
+}

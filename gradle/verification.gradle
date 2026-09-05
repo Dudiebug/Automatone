@@ -117,7 +117,7 @@ def sensorUnitTests = tasks.register('sensorUnitTests') {
 
 def sensorCheckstyle = tasks.register('sensorCheckstyle') {
     group = 'verification'
-    dependsOn 'checkstyleMain', 'checkstyleTest', sensorCheckstyleTask
+    dependsOn 'checkstyleMain', 'checkstyleSchematicaApi', 'checkstyleTest', sensorCheckstyleTask
     doLast {
         emitSensor('checkstyle', 'PASS', 'Checkstyle completed for product, unit-test, and sensor sources.')
     }

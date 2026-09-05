@@ -19,8 +19,14 @@ extra child-node text). The extraction metadata is corrected from the pinned
 original XML and its focused regression passes. Independent exact dispositions
 remain pending. This is not a warning waiver or cleanup acceptance.
 
-Remaining prerequisite obligations are PENDING: resolve the exact warning
-dispositions, then one clean independent gate using default,
+The independent review approved 66 exact warnings. Its nine rejected findings
+led to immutable parser constants and compile-only optional integration
+placeholders; their focused regressions now pass. See the single current record
+at `.agents/decisions/QUALITY-CLEANUP-EVIDENCE.md`. The last raw analyzer count
+above predates these two repairs and is not a fresh post-repair measurement.
+
+Remaining prerequisite obligations are PENDING: final analyzer confirmation and
+one clean independent gate using default,
 architecture_sensitive and runtime_minecraft profiles plus relevant gate controls.
 Reuse existing focused evidence; workflow-only edits do not justify repeating
 unchanged Java behavior tests. M2 stays behind this prerequisite acceptance.

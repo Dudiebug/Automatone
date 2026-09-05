@@ -22,8 +22,11 @@ java {
 }
 
 sourceSets {
+    schematicaApi {
+        java.srcDirs = ['src/schematica_api/java']
+    }
     main {
-        java.srcDirs = ['src/api/java', 'src/main/java', 'src/schematica_api/java']
+        java.srcDirs = ['src/api/java', 'src/main/java']
         resources.srcDir 'src/launch/resources'
         resources.exclude 'quilt.mod.json'
     }
@@ -40,6 +43,7 @@ def stageGameTestStructures = tasks.register('stageGameTestStructures', Copy) {
 
 neoForge {
     version = neo_version
+    addModdingDependenciesTo sourceSets.schematicaApi
     addModdingDependenciesTo sourceSets.gameTest
 
     parchment {
@@ -86,6 +90,8 @@ neoForge {
 }
 
 dependencies {
+    // Optional mod placeholders are compile-time contracts, not runtime mods.
+    compileOnly sourceSets.schematicaApi.output
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
     testImplementation 'junit:junit:4.13.2'
 }
