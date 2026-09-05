@@ -256,6 +256,13 @@ dependencyCheck {
     nvd.datafeedUrl = 'https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz'
 }
 
+tasks.named('dependencyCheckAnalyze') {
+    inputs.file(rootProject.file('config/verification/dependency-dispositions.xml'))
+            .withPropertyName('dependencyDispositions')
+    // CVE data can change without a source/dependency edit; an explicitly requested scan must run.
+    outputs.upToDateWhen { false }
+}
+
 // Direct main analysis and aggregate sensors both require fresh exact disposition checks.
 // Worker exceptions are limited to the two exact human-approved M2.2 identities.
 if (project != rootProject && project.path != ':worker') {

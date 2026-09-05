@@ -196,6 +196,17 @@ Of the 17 preserved concurrent policy files, only EXECUTION_STRATEGY.md now
 differs, by the explicitly authorized dependency-remediation scope amendment.
 The other 16 still match their saved byte hashes.
 
+The independent union passed on `127ebdf0`, but both dependency analyses were
+UP-TO-DATE despite the XML edit. The verifier's forced dependency-only rerun
+exited 0 and measured the ten-rule candidate freshly (raw:
+`dependency-repair-independent-rerun-127ebdf0.log`). This exposed a task-input
+defect: the plugin tracked the suppression path, not its contents. The repair
+declares the XML as an input and disables up-to-date skipping for explicitly
+requested vulnerability analyses, because NVD data can also change without a
+source edit. Ordinary non-security Gradle task caching is unchanged. The same
+verifier must confirm normal dependency invocations really reanalyze; the
+passing union/runtime evidence is not invalidated by this input-only repair.
+
 Independent repair verification remains PENDING. Runtime/analysis dependency
 changes invalidate the relevant prior compile, unit, static and GameTest
 measurements; the same independent milestone verifier must rerun those affected
