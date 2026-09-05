@@ -253,17 +253,24 @@ dependencyCheck {
 }
 
 // Direct main analysis and aggregate sensors both require fresh exact disposition checks.
-// Only the library has frozen historical exceptions. New worker findings fail normally.
-if (project != rootProject) {
+// Worker exceptions are limited to the two exact human-approved M2.2 identities.
+if (project != rootProject && project.path != ':worker') {
     return
 }
-apply from: rootProject.file('gradle/spotbugs-dispositions.gradle')
+if (project == rootProject) {
+    apply from: rootProject.file('gradle/spotbugs-dispositions.gradle')
+}
 
 def mainSpotBugs = tasks.named('spotbugsMain').get()
 def rawMainReport = layout.buildDirectory.file('reports/spotbugs/main-raw.xml')
 def approvedMainReport = layout.buildDirectory.file('reports/spotbugs/main-approved.xml')
-def eligibilityFile = rootProject.file('config/verification/spotbugs-e81-eligibility.json')
-def approvalFile = rootProject.file('config/verification/spotbugs-approved.json')
+def workerExceptions = project.path == ':worker'
+def eligibilityFile = rootProject.file(workerExceptions
+        ? 'config/verification/spotbugs-worker-m22-eligibility.json'
+        : 'config/verification/spotbugs-e81-eligibility.json')
+def approvalFile = rootProject.file(workerExceptions
+        ? 'config/verification/spotbugs-worker-m22-approved.json'
+        : 'config/verification/spotbugs-approved.json')
 
 def rawMainAnalysis = tasks.register('analyzeRawMainSpotBugs', JavaExec) {
     group = 'verification'
@@ -341,7 +348,7 @@ def dispositionCheck = tasks.register('verifyMainSpotBugsDispositions') {
     outputs.upToDateWhen { false }
     doLast {
         rootProject.ext.verifySpotBugsDispositions(rawMainReport.get().asFile, eligibilityFile,
-                approvalFile, rootProject.projectDir, approvedMainReport.get().asFile)
+                approvalFile, rootProject.projectDir, approvedMainReport.get().asFile, workerExceptions)
     }
 }
 

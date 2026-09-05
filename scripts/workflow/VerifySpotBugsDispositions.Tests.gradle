@@ -64,9 +64,13 @@ gradle.projectsEvaluated {
             File frozenEligibility = root.file('config/verification/spotbugs-e81-eligibility.json')
             File exactBugFixture = root.file('scripts/workflow/fixtures/spotbugs-e81-finding-1.xml')
             File row81BugFixture = root.file('scripts/workflow/fixtures/spotbugs-e81-finding-81.xml')
+            File workerEligibility = root.file('config/verification/spotbugs-worker-m22-eligibility.json')
+            File workerApproval = root.file('config/verification/spotbugs-worker-m22-approved.json')
             require(frozenEligibility.isFile(), 'frozen eligibility JSON is unavailable')
             require(exactBugFixture.isFile(), 'tracked e81 BugInstance fixture is unavailable')
             require(row81BugFixture.isFile(), 'tracked row 81 BugInstance fixture is unavailable')
+            require(workerEligibility.isFile(), 'worker eligibility JSON is unavailable')
+            require(workerApproval.isFile(), 'worker approval JSON is unavailable')
 
             def eligibility = new JsonSlurper().parse(frozenEligibility, 'UTF-8')
             require(eligibility instanceof Map && eligibility.entries instanceof List,
@@ -116,6 +120,44 @@ gradle.projectsEvaluated {
   ''' + bugs.join('\n  ') + '''
 </BugCollection>
 '''
+            }
+
+            def xmlEscape = { Object value ->
+                value.toString().replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                        .replace('"', '&quot;').replace("'", '&apos;')
+            }
+            def makeWorkerBug = { Map entry, Map overrides = [:] ->
+                def value = { String field -> overrides.containsKey(field) ? overrides[field] : entry[field] }
+                '''<BugInstance type="''' + xmlEscape(value('pattern')) + '''">
+  <LongMessage>''' + xmlEscape(value('message')) + '''</LongMessage>
+  <Class classname="''' + xmlEscape(value('class')) + '''" primary="true"/>
+  <Method name="''' + xmlEscape(value('method')) + '''" signature="''' + xmlEscape(value('methodSignature')) + '''" primary="true"/>
+  <Field name="''' + xmlEscape(value('field')) + '''" signature="''' + xmlEscape(value('fieldSignature')) + '''" primary="true"/>
+  <SourceLine sourcepath="''' + xmlEscape(value('sourcePath')) + '''" start="''' + xmlEscape(value('start')) + '''" end="''' + xmlEscape(value('end')) + '''" primary="true"/>
+</BugInstance>'''
+            }
+
+            def workerInventory = new JsonSlurper().parse(workerEligibility, 'UTF-8')
+            def workerApprovals = new JsonSlurper().parse(workerApproval, 'UTF-8')
+            require(workerInventory instanceof Map && workerInventory.entries instanceof List
+                            && workerInventory.entries.size() == 2,
+                    'worker eligibility inventory must contain exactly two findings')
+            require(workerInventory.entries*.id == [1, 2],
+                    'worker eligibility inventory ids must be exactly [1, 2]')
+            require(workerApprovals instanceof Map && workerApprovals.entries instanceof List
+                            && workerApprovals.entries.size() == 2,
+                    'worker approval manifest must contain exactly two findings')
+            require(workerApprovals.entries*.id == [1, 2],
+                    'worker approval manifest ids must be exactly [1, 2]')
+            workerInventory.entries.each { entry ->
+                require(root.file(entry.sourceFile as String).isFile(),
+                        "worker source for finding ${entry.id} is unavailable")
+            }
+            workerApprovals.entries.each { approval ->
+                require(approval.status == 'APPROVED' && approval.reviewer == 'human',
+                        "worker finding ${approval.id} is not human-approved")
+                require(root.file((approval.evidence as String).split('#', 2)[0]).isFile(),
+                        "worker evidence for finding ${approval.id} is unavailable")
             }
 
             def makeFixture = {
@@ -168,9 +210,41 @@ gradle.projectsEvaluated {
                  approval: approvalFile, evidence: evidenceFile, raw: rawFile,
                  generated: generatedFile, bug: exactBugXml, approvalEntry: approvalEntry]
             }
+            def makeWorkerFixture = {
+                File fixtureRoot = Files.createTempDirectory(
+                        root.layout.buildDirectory.dir('tmp').get().asFile.toPath(), 'spotbugs-worker-gate-').toFile()
+                File eligibilityFile = new File(fixtureRoot, 'config/verification/spotbugs-worker-m22-eligibility.json')
+                File approvalFile = new File(fixtureRoot, 'config/verification/spotbugs-worker-m22-approved.json')
+                eligibilityFile.parentFile.mkdirs()
+                Files.copy(workerEligibility.toPath(), eligibilityFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                Files.copy(workerApproval.toPath(), approvalFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                workerInventory.entries.each { entry ->
+                    File source = new File(fixtureRoot, entry.sourceFile as String)
+                    source.parentFile.mkdirs()
+                    Files.copy(root.file(entry.sourceFile as String).toPath(), source.toPath(),
+                            StandardCopyOption.REPLACE_EXISTING)
+                }
+                workerApprovals.entries.each { approval ->
+                    String evidencePath = (approval.evidence as String).split('#', 2)[0]
+                    File evidence = new File(fixtureRoot, evidencePath)
+                    evidence.parentFile.mkdirs()
+                    Files.copy(root.file(evidencePath).toPath(), evidence.toPath(),
+                            StandardCopyOption.REPLACE_EXISTING)
+                }
+                List<String> bugs = workerInventory.entries.collect { makeWorkerBug(it) }
+                File rawFile = new File(fixtureRoot, 'worker-main-raw.xml')
+                writeText(rawFile, makeRaw(bugs))
+                File generatedFile = new File(fixtureRoot, 'worker-main-approved.xml')
+                [root: fixtureRoot, eligibility: eligibilityFile, approval: approvalFile,
+                 raw: rawFile, generated: generatedFile, bugs: bugs]
+            }
             def invoke = { Map fixture ->
                 checker.call(fixture.raw, fixture.eligibility, fixture.approval,
                         fixture.root, fixture.generated)
+            }
+            def invokeWorker = { Map fixture ->
+                checker.call(fixture.raw, fixture.eligibility, fixture.approval,
+                        fixture.root, fixture.generated, true)
             }
             def discard = { Map fixture ->
                 if (fixture.root?.exists()) {
@@ -372,6 +446,73 @@ gradle.projectsEvaluated {
                     discard(samePath)
                 }
 
+                // The worker opt-in accepts only the two exact human-approved
+                // WorkerContext identities under its separate frozen inventory.
+                Map workerPositive = makeWorkerFixture()
+                try {
+                    invokeWorker(workerPositive)
+                    require(workerPositive.generated.isFile(),
+                            'worker exact two-finding fixture emitted no approved report')
+                    String workerGenerated = workerPositive.generated.getText('UTF-8')
+                    require(workerInventory.entries.every { workerGenerated.contains(it.message as String) },
+                            'worker approved report did not retain both exact finding identities')
+                } finally {
+                    discard(workerPositive)
+                }
+
+                Map workerExtra = makeWorkerFixture()
+                try {
+                    writeText(workerExtra.raw,
+                            makeRaw([workerExtra.bugs[0], workerExtra.bugs[0], workerExtra.bugs[1]]))
+                    expectFailure('worker extra finding occurrence') { invokeWorker(workerExtra) }
+                    require(!workerExtra.generated.exists(),
+                            'worker extra finding left a usable generated report')
+                } finally {
+                    discard(workerExtra)
+                }
+
+                Map workerChanged = makeWorkerFixture()
+                try {
+                    String changedBug = workerChanged.bugs[0].replaceFirst(
+                            /(?s)<LongMessage>.*?<\/LongMessage>/,
+                            '<LongMessage>changed WorkerContext finding</LongMessage>')
+                    writeText(workerChanged.raw, makeRaw([changedBug, workerChanged.bugs[1]]))
+                    expectFailure('worker changed finding identity') { invokeWorker(workerChanged) }
+                    require(!workerChanged.generated.exists(),
+                            'worker changed finding left a usable generated report')
+                } finally {
+                    discard(workerChanged)
+                }
+
+                Map workerChangedSource = makeWorkerFixture()
+                try {
+                    String sourceText = workerChangedSource.root
+                            .toPath()
+                            .resolve(workerInventory.entries[0].sourceFile as String)
+                            .toFile()
+                            .getText('UTF-8')
+                    writeText(new File(workerChangedSource.root, workerInventory.entries[0].sourceFile as String),
+                            sourceText + '\n// approved source drift\n')
+                    expectFailure('worker approved source drift') { invokeWorker(workerChangedSource) }
+                    require(!workerChangedSource.generated.exists(),
+                            'worker source drift left a usable generated report')
+                } finally {
+                    discard(workerChangedSource)
+                }
+
+                Map workerInventoryReplacement = makeWorkerFixture()
+                try {
+                    Files.copy(frozenEligibility.toPath(), workerInventoryReplacement.eligibility.toPath(),
+                            StandardCopyOption.REPLACE_EXISTING)
+                    expectFailure('worker eligibility inventory replacement') {
+                        invokeWorker(workerInventoryReplacement)
+                    }
+                    require(!workerInventoryReplacement.generated.exists(),
+                            'worker inventory replacement left a usable generated report')
+                } finally {
+                    discard(workerInventoryReplacement)
+                }
+
                 // Inspect the task graph and strict finding behavior installed by
                 // the production build.  This prevents an aggregate-only gate from
                 // being bypassed by invoking spotbugsMain directly.
@@ -379,15 +520,28 @@ gradle.projectsEvaluated {
                     require(root.tasks.findByName(name) != null, "required Gradle task ${name} is unavailable")
                     root.tasks.named(name).get()
                 }
-                def directDependencyNames = { task ->
-                    task.taskDependencies.getDependencies(task).collect { it.name } as Set
+                // Resolve only the task's declared dependency values. Calling
+                // taskDependencies.getDependencies during a parallel build can
+                // acquire the cross-project worker graph lock while its task is
+                // executing, so aggregate wiring is intentionally inspected
+                // without graph resolution.
+                def declaredDependencyNames = { task ->
+                    task.dependsOn.collect { dependency ->
+                        if (dependency instanceof org.gradle.api.Task
+                                || dependency instanceof org.gradle.api.tasks.TaskProvider) {
+                            return dependency.name
+                        }
+                        String value = dependency.toString()
+                        value = value.replaceFirst(/^task '/, '').replaceFirst(/'$/, '')
+                        value.contains(':') ? value.substring(value.lastIndexOf(':') + 1) : value
+                    }.findAll { it } as Set
                 }
                 def mainSpotBugs = named('spotbugsMain')
                 def gateTask = named('verifyMainSpotBugsDispositions')
                 def rawTask = named('analyzeRawMainSpotBugs')
-                require(directDependencyNames(mainSpotBugs).contains(gateTask.name),
+                require(declaredDependencyNames(mainSpotBugs).contains(gateTask.name),
                         'spotbugsMain does not directly depend on the exact disposition gate')
-                require(directDependencyNames(gateTask).contains(rawTask.name),
+                require(declaredDependencyNames(gateTask).contains(rawTask.name),
                         'the disposition gate does not directly depend on fresh raw analysis')
                 ['spotbugsMain', 'spotbugsTest', 'spotbugsSensorTest'].each { String name ->
                     def task = named(name)
@@ -395,13 +549,35 @@ gradle.projectsEvaluated {
                     require(task.reports.xml.required.get(), "${name} does not retain XML output")
                 }
                 def aggregate = named('sensorSpotBugs')
-                Set aggregateDependencies = directDependencyNames(aggregate)
+                Set aggregateDependencies = declaredDependencyNames(aggregate)
                 ['spotbugsMain', 'spotbugsTest', 'spotbugsSensorTest'].each { String name ->
                     require(aggregateDependencies.contains(name),
                             "sensorSpotBugs does not include ${name}")
                 }
 
-                logger.lifecycle('SpotBugs disposition contract: PASS (positive fixture, exact identity controls, fail-closed controls, hashing, and wiring)')
+                def workerProject = root.findProject(':worker')
+                require(workerProject != null, 'worker project is unavailable')
+                def workerNamed = { String name ->
+                    require(workerProject.tasks.findByName(name) != null,
+                            "required worker Gradle task ${name} is unavailable")
+                    workerProject.tasks.named(name).get()
+                }
+                def workerMainSpotBugs = workerNamed('spotbugsMain')
+                def workerGateTask = workerNamed('verifyMainSpotBugsDispositions')
+                def workerRawTask = workerNamed('analyzeRawMainSpotBugs')
+                require(declaredDependencyNames(workerMainSpotBugs).contains(workerGateTask.name),
+                        'worker spotbugsMain does not directly depend on the exact disposition gate')
+                require(declaredDependencyNames(workerGateTask).contains(workerRawTask.name),
+                        'worker disposition gate does not directly depend on fresh raw analysis')
+                require(workerMainSpotBugs.ignoreFailures == false,
+                        'worker spotbugsMain is not strict')
+                require(workerMainSpotBugs.reports.xml.required.get(),
+                        'worker spotbugsMain does not retain XML output')
+                def workerAggregate = workerNamed('sensorSpotBugs')
+                require(declaredDependencyNames(workerAggregate).contains('spotbugsMain'),
+                        'worker sensorSpotBugs does not include spotbugsMain')
+
+                logger.lifecycle('SpotBugs disposition contract: PASS (root and worker exact identity controls, fail-closed controls, hashing, and wiring)')
             } finally {
                 discard(positive)
             }

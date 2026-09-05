@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "hashEncoding": "utf8-lf",
+  "baselineCommit": "7e1833b4bc84f251b86d39d61e092b1112bd9087",
+  "analyzerVersion": "4.10.2",
+  "baselineReportSha256": "20403e89c297b742731f6d09c7e4662ba94459218308f73341b5742fafa52448",
+  "entries": [
+    {
+      "id": 1,
+      "pattern": "EI_EXPOSE_REP",
+      "class": "automatone.worker.WorkerContext",
+      "method": "player",
+      "methodSignature": "()Lnet/minecraft/world/entity/LivingEntity;",
+      "field": "worker",
+      "fieldSignature": "Lautomatone/worker/WorkerEntity;",
+      "sourcePath": "automatone/worker/WorkerContext.java",
+      "start": "25",
+      "end": "25",
+      "message": "automatone.worker.WorkerContext.player() may expose internal representation by returning WorkerContext.worker",
+      "sourceFile": "worker/src/main/java/automatone/worker/WorkerContext.java"
+    },
+    {
+      "id": 2,
+      "pattern": "EI_EXPOSE_REP",
+      "class": "automatone.worker.WorkerContext",
+      "method": "playerController",
+      "methodSignature": "()Lbaritone/api/utils/IPlayerController;",
+      "field": "controller",
+      "fieldSignature": "Lautomatone/worker/WorkerEntityController;",
+      "sourcePath": "automatone/worker/WorkerContext.java",
+      "start": "45",
+      "end": "45",
+      "message": "automatone.worker.WorkerContext.playerController() may expose internal representation by returning WorkerContext.controller",
+      "sourceFile": "worker/src/main/java/automatone/worker/WorkerContext.java"
+    }
+  ]
+}

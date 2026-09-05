@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "hashEncoding": "utf8-lf",
+  "eligibilitySha256": "702059b4c089c7ebecfbd7a741a76389bebca990bcd70f97532681d729b5565d",
+  "entries": [
+    {
+      "id": 1,
+      "status": "APPROVED",
+      "reviewer": "human",
+      "sourceSha256": "7cfc075211e43f866cd5dfd10bb04be0a7108e62420b4b39070b300afb114eb3",
+      "contract": "M2.2 requires the actual worker and its one stable controller. Human approved these two exact exceptions on 2026-09-05; independent confirmation remains required at the final M2 gate.",
+      "evidence": ".agents/decisions/M2.2-EVIDENCE.md#human-approved-exceptions"
+    },
+    {
+      "id": 2,
+      "status": "APPROVED",
+      "reviewer": "human",
+      "sourceSha256": "7cfc075211e43f866cd5dfd10bb04be0a7108e62420b4b39070b300afb114eb3",
+      "contract": "M2.2 requires the actual worker and its one stable controller. Human approved these two exact exceptions on 2026-09-05; independent confirmation remains required at the final M2 gate.",
+      "evidence": ".agents/decisions/M2.2-EVIDENCE.md#human-approved-exceptions"
+    }
+  ]
+}

@@ -6,9 +6,6 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
-// The eligibility inventory is frozen to the independently measured e81 candidate.
-def eligibilityDigest = '873d6dc2e5ba53d148210b159ddd92ba9c787f04975ec97595936ce73870d50e'
-def baselineCommit = 'e81dbad7ab53647920c61d824fb927f15ef67a89'
 def identityFields = ['pattern', 'class', 'method', 'methodSignature', 'field',
                       'fieldSignature', 'sourcePath', 'start', 'end', 'message']
 def canonicalHash = { File file ->
@@ -29,7 +26,16 @@ def readJson = { File file ->
 }
 
 rootProject.ext.verifySpotBugsDispositions = {
-    File rawReport, File eligibilityFile, File approvalFile, File sourceRoot, File generatedBaseline ->
+    File rawReport, File eligibilityFile, File approvalFile, File sourceRoot, File generatedBaseline,
+    boolean workerExceptions = false ->
+    // Separate frozen inventories: historical library approvals and the two human-approved M2.2 exceptions.
+    def eligibilityDigest = workerExceptions
+            ? '702059b4c089c7ebecfbd7a741a76389bebca990bcd70f97532681d729b5565d'
+            : '873d6dc2e5ba53d148210b159ddd92ba9c787f04975ec97595936ce73870d50e'
+    def baselineCommit = workerExceptions
+            ? '7e1833b4bc84f251b86d39d61e092b1112bd9087'
+            : 'e81dbad7ab53647920c61d824fb927f15ef67a89'
+    def reviewer = workerExceptions ? 'human' : 'luna_old_coder'
     File temporary = new File(generatedBaseline.path + '.tmp')
     if (rawReport.canonicalFile in [generatedBaseline.canonicalFile, temporary.canonicalFile]) {
         reject('raw and generated report paths must differ')
@@ -44,7 +50,7 @@ rootProject.ext.verifySpotBugsDispositions = {
     if (!(eligible instanceof Map) || eligible.schemaVersion != 1 || eligible.hashEncoding != 'utf8-lf'
             || eligible.baselineCommit != baselineCommit || eligible.analyzerVersion != '4.10.2'
             || !(eligible.entries instanceof List) || canonicalHash(eligibilityFile) != eligibilityDigest) {
-        reject('eligibility inventory differs from the frozen e81 inventory')
+        reject('eligibility inventory differs from the frozen inventory')
     }
     if (!(approvals instanceof Map) || approvals.schemaVersion != 1 || approvals.hashEncoding != 'utf8-lf'
             || approvals.eligibilitySha256 != eligibilityDigest || !(approvals.entries instanceof List)) {
@@ -69,7 +75,7 @@ rootProject.ext.verifySpotBugsDispositions = {
     Map approvedById = [:]
     approvals.entries.each { approval ->
         if (!(approval instanceof Map) || !(approval.id instanceof Integer)
-                || approval.status != 'APPROVED' || approval.reviewer != 'luna_old_coder'
+                || approval.status != 'APPROVED' || approval.reviewer != reviewer
                 || !(approval.sourceSha256 instanceof String) || !(approval.sourceSha256 ==~ /[0-9a-f]{64}/)
                 || !(approval.contract instanceof String) || !approval.contract.trim()
                 || !(approval.evidence instanceof String) || !approval.evidence.trim()) {

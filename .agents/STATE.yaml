@@ -85,11 +85,12 @@ tasks:
     deferred: "M2 milestone profile PENDING until completion of M2.4."
     last_evidence: .agents/evidence/M2.1/EVIDENCE.md
   M2.2:
-    state: BLOCKED
+    state: COMPLETE
     baseline: 175290553e2b29891c4c7f14078dc9f4b42204b6
     candidate: null
-    last_verdict: FAIL
-    blocker: "Two new EI_EXPOSE_REP findings on required WorkerContext live identity returns; exact human decision needed under existing warning policy."
+    last_verdict: PASS
+    blocker: null
+    execution_authorization: "2026-09-05: human approved the two exact WorkerContext exceptions, with independent confirmation at final M2 gate."
     deferred: "Full M2 milestone profile PENDING until M2.4."
     last_evidence: .agents/decisions/M2.2-EVIDENCE.md
   M2.3:
