@@ -31,7 +31,7 @@ public final class WorkerGameTestSupport {
     }
 
     public static void discardWorker(WorkerEntity worker) {
-        if (!worker.isRemoved()) {
+        if (worker != null && !worker.isRemoved()) {
             worker.remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
         }
     }
