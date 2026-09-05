@@ -117,7 +117,10 @@ def sensorUnitTests = tasks.register('sensorUnitTests') {
 
 def sensorCheckstyle = tasks.register('sensorCheckstyle') {
     group = 'verification'
-    dependsOn 'checkstyleMain', 'checkstyleSchematicaApi', 'checkstyleTest', sensorCheckstyleTask
+    dependsOn 'checkstyleMain', 'checkstyleTest', 'checkstyleGameTest', sensorCheckstyleTask
+    if (sourceSets.findByName('schematicaApi') != null) {
+        dependsOn 'checkstyleSchematicaApi'
+    }
     doLast {
         emitSensor('checkstyle', 'PASS', 'Checkstyle completed for product, unit-test, and sensor sources.')
     }
@@ -149,8 +152,14 @@ def sensorArchUnit = tasks.register('sensorArchunit') {
 
 def cpdCheck = tasks.register('cpdCheck') {
     group = 'verification'
-    def sourceDirectories = ['src/api/java', 'src/main/java', 'src/schematica_api/java', 'src/test/java', 'src/sensorTest/java']
-    inputs.files(sourceDirectories.collect { fileTree(rootProject.file(it)) })
+    def sourceDirectories = providers.provider {
+        rootProject.allprojects.collectMany { p ->
+            // Preserve the existing source-set scope while comparing across modules.
+            p.sourceSets.findAll { it.name in ['main', 'test', 'sensorTest', 'schematicaApi'] }
+                    .collectMany { it.allJava.srcDirs }.findAll { it.isDirectory() }
+        }.unique()
+    }
+    inputs.files(sourceDirectories)
     outputs.upToDateWhen { false }
     def report = verificationReportDir.map { it.file('cpd.xml') }
     outputs.file report
@@ -159,8 +168,8 @@ def cpdCheck = tasks.register('cpdCheck') {
         reportFile.parentFile.mkdirs()
         ant.taskdef(name: 'cpd', classname: 'net.sourceforge.pmd.ant.CPDTask', classpath: configurations.cpdTool.asPath)
         ant.cpd(minimumTokenCount: 100, language: 'java', format: 'xml', outputFile: reportFile, failOnError: true, encoding: 'UTF-8') {
-            ['src/api/java', 'src/main/java', 'src/schematica_api/java', 'src/test/java', 'src/sensorTest/java'].each { sourceDir ->
-                fileset(dir: rootProject.file(sourceDir)) {
+            sourceDirectories.get().each { sourceDir ->
+                fileset(dir: sourceDir) {
                     include(name: '**/*.java')
                 }
             }
@@ -176,7 +185,7 @@ def cpdCheck = tasks.register('cpdCheck') {
 
 def sensorDuplication = tasks.register('sensorDuplication') {
     group = 'verification'
-    dependsOn cpdCheck
+    dependsOn rootProject == project ? cpdCheck : rootProject.tasks.named('cpdCheck')
 }
 
 def sensorCheck = tasks.register('sensorCheck') {
@@ -185,7 +194,7 @@ def sensorCheck = tasks.register('sensorCheck') {
     dependsOn sensorCompile, sensorUnitTests, sensorCheckstyle, sensorErrorProne, sensorSpotBugs, sensorArchUnit, sensorDuplication
 }
 
-def gameTestSources = fileTree(rootProject.file('src')) {
+def gameTestSources = fileTree(file('src')) {
     include '**/*GameTest.java'
     include '**/*GameTests.java'
 }
@@ -244,6 +253,10 @@ dependencyCheck {
 }
 
 // Direct main analysis and aggregate sensors both require fresh exact disposition checks.
+// Only the library has frozen historical exceptions. New worker findings fail normally.
+if (project != rootProject) {
+    return
+}
 apply from: rootProject.file('gradle/spotbugs-dispositions.gradle')
 
 def mainSpotBugs = tasks.named('spotbugsMain').get()

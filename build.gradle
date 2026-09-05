@@ -138,3 +138,9 @@ publishing {
 }
 
 apply from: 'gradle/verification.gradle'
+
+// Root profile entry points must include the consumer, even when explicitly qualified.
+['sensorCompile', 'sensorUnitTests', 'sensorCheckstyle', 'sensorErrorProne',
+ 'sensorSpotBugs', 'sensorArchunit', 'sensorIntegration', 'sensorDependency'].each { sensor ->
+    tasks.named(sensor) { dependsOn ":worker:${sensor}" }
+}

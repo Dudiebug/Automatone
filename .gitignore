@@ -30,3 +30,4 @@ graphify-out/
 src/graphify-out/
 .agents/evidence/*
 !.agents/evidence/.gitkeep
+worker/logs/

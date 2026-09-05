@@ -1,0 +1,37 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="LGPL-3.0-or-later"
+
+[[mods]]
+modId="automatone_worker_gametest"
+version="1.0"
+displayName="Automatone Worker GameTests"
+description="Dedicated server GameTests for the minimal Automatone worker host."
+
+[[dependencies.automatone_worker_gametest]]
+modId="automatone_worker"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
+
+[[dependencies.automatone_worker_gametest]]
+modId="automatone"
+type="required"
+versionRange="*"
+ordering="AFTER"
+side="SERVER"
+
+[[dependencies.automatone_worker_gametest]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.249,)"
+ordering="NONE"
+side="SERVER"
+
+[[dependencies.automatone_worker_gametest]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+ordering="NONE"
+side="SERVER"

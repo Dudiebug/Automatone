@@ -1,8 +1,8 @@
 schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
-accepted_baseline: null
-active_task: QUALITY-CLEANUP
+accepted_baseline: fe41d20bae6adfbc68d03aae4d865831b8b07fad
+active_task: M2.1
 
 tasks:
   WORKFLOW-PROPORTIONAL:
@@ -13,18 +13,13 @@ tasks:
     last_evidence: .agents/evidence/workflow-proportional-20260904/EVIDENCE.md
     deferred: "QUALITY-CLEANUP prerequisite acceptance remains pending; reuse existing measurements."
   QUALITY-CLEANUP:
-    state: IMPLEMENTING
-    baseline: null
-    candidate: "Dirty M1 candidate at d555e41d0beb96194de5ff7c0a8dac7b701d0581; frozen source digest CB37F7959CD574ABD74C5626F34AE43A8955AFBD3D721E99992C3433BC3DD065 (435 entries). Raw baseline includes 617 generated Graphify entries; actual baseline source/config has 405 entries."
-    implementation_attempt: 1
-    repair_cycles_on_candidate: 0
-    verification_rounds: 1
-    last_verdict: FAIL
-    last_evidence: .agents/evidence/quality-cleanup-20260902/independent/round-1/report.json
-    blocker: "Focused cleanup repairs pass, including parser constants and optional-integration artifact ownership. Applied 66 independently reviewed exact approvals; final analyzer confirmation and one clean prerequisite gate remain pending."
-    execution_authorization: "2026-09-04: user approved the exception policy and explicitly instructed fixing bugs found in the workflow. Continue prerequisite cleanup and then M2 in approved dependency order."
-    continuation_candidate: e81dbad7ab53647920c61d824fb927f15ef67a89
-    continuation_evidence: .agents/evidence/quality-cleanup-20260904/
+    state: ACCEPTED
+    candidate: fe41d20bae6adfbc68d03aae4d865831b8b07fad
+    last_verdict: PASS
+    last_evidence: .agents/evidence/quality-cleanup-20260904/independent-warning-review/review-record.json
+    controller_evidence: .agents/decisions/QUALITY-CLEANUP-EVIDENCE.md
+    blocker: null
+    execution_authorization: "Human approved cleanup repairs and continuation through M2."
   BOOTSTRAP:
     state: BLOCKED
     baseline: null
@@ -80,15 +75,15 @@ tasks:
     runtime_smoke_result: "All AC-1 through AC-5 and S1 through S6 measured PASS in fresh round 2: 4 GameTests, 39 unit tests and 4 architecture tests pass. Compile, Error Prone and Checkstyle pass."
     blocker: "Implementation/runtime verification finished, but required SpotBugs (126 main/3 test) and CPD (7 regions) fail without waivers. No accepted clean baseline; original main-port RED gap remains disclosed. Not ACCEPTED; stopped before M2."
   M2.1:
-    state: PLANNED
-    baseline: null
-    candidate: null
-    last_verdict: null
+    state: COMPLETE
+    baseline: fe41d20bae6adfbc68d03aae4d865831b8b07fad
+    candidate: "Completed M2.1 working candidate; source committed with this record."
+    last_verdict: PASS
     implementation_plan: docs/M2_WORKER_IMPLEMENTATION_PLAN.md
-    execution_authorization: "User approved the proposed M2 plan and requested implementation on 2026-09-04; its baseline acceptance gate remains required."
-    entry_gate_candidate: e81dbad7ab53647920c61d824fb927f15ef67a89
-    entry_gate_evidence: .agents/evidence/M2-entry-20260904/independent/
-    blocker: "Fresh clean-commit entry verification reproduced 84 main SpotBugs findings; no accepted baseline or approved waiver exists. See .agents/decisions/BLOCKED-M2-entry-20260904.md. No M2 production implementation started."
+    execution_authorization: "Human approved M2 implementation; QUALITY-CLEANUP prerequisite accepted."
+    blocker: null
+    deferred: "M2 milestone profile PENDING until completion of M2.4."
+    last_evidence: .agents/evidence/M2.1/EVIDENCE.md
   M2.2:
     state: PLANNED
     baseline: null

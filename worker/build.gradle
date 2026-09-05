@@ -1,0 +1,82 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+    id 'checkstyle'
+    id 'jacoco'
+    id 'net.ltgt.errorprone'
+    id 'com.github.spotbugs'
+    id 'org.owasp.dependencycheck'
+}
+
+group = rootProject.group
+version = rootProject.version
+base.archivesName = 'automatone-worker'
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+sourceSets {
+    gameTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+def stageGameTestStructures = tasks.register('stageGameTestStructures', Copy) {
+    from 'src/gameTest/structures'
+    into layout.buildDirectory.dir('gametest-server/gameteststructures')
+}
+
+neoForge {
+    version = neo_version
+    addModdingDependenciesTo sourceSets.gameTest
+    parchment {
+        minecraftVersion = parchment_minecraft_version
+        mappingsVersion = parchment_mappings_version
+    }
+    mods {
+        automatone { sourceSet rootProject.sourceSets.main }
+        automatone_worker { sourceSet sourceSets.main }
+        automatone_worker_gametest { sourceSet sourceSets.gameTest }
+    }
+    runs {
+        server {
+            server()
+            programArgument '--nogui'
+            loadedMods = [mods.automatone, mods.automatone_worker]
+        }
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gameTest
+            gameDirectory = layout.buildDirectory.dir('gametest-server')
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'automatone_worker_gametest'
+            loadedMods = [mods.automatone, mods.automatone_worker, mods.automatone_worker_gametest]
+            taskBefore stageGameTestStructures
+        }
+    }
+    unitTest {
+        enable()
+        testedMod = mods.automatone_worker
+        loadedMods = [mods.automatone, mods.automatone_worker]
+    }
+}
+
+dependencies {
+    implementation project(':')
+    testImplementation 'junit:junit:4.13.2'
+    gameTestImplementation project(':')
+}
+
+tasks.named('processResources') {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
+}
+tasks.named('runGameTestServer') { timeout.set(java.time.Duration.ofMinutes(5)) }
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+apply from: rootProject.file('gradle/verification.gradle')
