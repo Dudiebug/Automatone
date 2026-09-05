@@ -2,7 +2,8 @@ schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
 accepted_baseline: fe41d20bae6adfbc68d03aae4d865831b8b07fad
-active_task: M2.3
+active_task: null
+active_gate: M2
 
 tasks:
   WORKFLOW-PROPORTIONAL:
@@ -96,17 +97,19 @@ tasks:
   M2.3:
     state: COMPLETE
     baseline: b53facf1693249f32d5648b7de73b5b43980abe5
-    candidate: null
+    candidate: cf3783b5c9ffaf904b4dfc16c16914e9b0c60651
     last_verdict: PASS
     blocker: null
     last_evidence: .agents/decisions/M2.3-EVIDENCE.md
     deferred: "Full M2 profile and independent milestone gate PENDING until M2.4."
   M2.4:
-    state: PLANNED
-    baseline: null
+    state: COMPLETE
+    baseline: cf3783b5c9ffaf904b4dfc16c16914e9b0c60651
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PASS
+    blocker: null
+    last_evidence: .agents/decisions/M2.4-EVIDENCE.md
+    deferred: "Single fresh independent clean-candidate M2 milestone profile gate PENDING."
   M3.1:
     state: PLANNED
     baseline: null
