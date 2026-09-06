@@ -7,6 +7,8 @@ import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.inventory.MenuType;
+import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
@@ -19,15 +21,19 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class WorkerMod {
     public static final String MOD_ID = "automatone_worker";
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
-    public static final DeferredHolder<Item, Item> CONTROLLER = ITEMS.registerSimpleItem("controller",
-            new Item.Properties().stacksTo(1));
+    public static final DeferredHolder<Item, WorkerControllerItem> CONTROLLER = ITEMS.register("controller", WorkerControllerItem::new);
+    private static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, MOD_ID);
+    public static final DeferredHolder<MenuType<?>, MenuType<WorkerMenu>> MENU = MENUS.register("controller",
+            () -> IMenuTypeExtension.create(WorkerMenu::new));
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, MOD_ID);
     public static final DeferredHolder<EntityType<?>, EntityType<WorkerEntity>> WORKER = ENTITIES.register("worker",
             () -> EntityType.Builder.of(WorkerEntity::new, MobCategory.MISC).sized(0.6F, 1.8F).build(MOD_ID + ":worker"));
 
     public WorkerMod(IEventBus bus) {
         ITEMS.register(bus);
+        MENUS.register(bus);
         ENTITIES.register(bus);
+        bus.addListener(WorkerNetwork::register);
         bus.addListener(WorkerMod::creativeItems);
         bus.addListener(WorkerMod::registerAttributes);
         bus.addListener(WorkerChunkLoading::register);

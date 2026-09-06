@@ -183,7 +183,7 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   algorithms remain native. Broader static/architecture and fresh independent
   clean-candidate milestone verification remain PENDING.
 
-## M5.4 — Controller item (visual acceptance BLOCKED)
+## M5.4 — Controller item (COMPLETE; human visual check deferred)
 
 - Drew the production controller directly in the Piskel browser editor with pen,
   rectangle and fill tools. Saved editable `docs/art/controller/controller.piskel`
@@ -210,3 +210,61 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
 - Requested restoration of the display or explicit deferral of this task's visual
   check to the final M5 gate. M5.4 is not COMPLETE and dependent M5.5 implementation
   has not started. Broad sensors and independent milestone acceptance remain PENDING.
+- Human resolved the blocker: "i will be your in Minecraft game tester. you don't
+  have a GPU in this session". Controller accepts M5.4 automated criteria and advances
+  to M5.5 under that explicit testing split. Actual inventory/hand observation stays
+  PENDING for the human's final M5 checklist, not PASS. Do not retry local GPU clients;
+  continue compilation, dedicated-server GameTests and required deterministic sensors.
+
+## M5.5 — Server menus and networking (IN_PROGRESS)
+
+- Added holder-scoped native menus, real nine-slot inventory binding, controller use,
+  bounded intent/snapshot codecs, monotonic session request sequencing, owner and
+  revision validation, relocation status and all current job/profile/archive actions.
+  Selection opens a fresh native menu id; server-owned batch previews retain the
+  exact job, recipients/revisions/run identities and start choice before confirmation.
+- Native 1.21.1 source disproves the assumption that vanilla rejects stale inventory
+  state IDs: ServerGamePacketListenerImpl computes staleness but calls clicked before
+  resynchronizing. One required worker-only mixin intercepts before remote-update
+  suppression. Native Slot guards additionally reject worker cloning and explicitly
+  block player-to-archive quick-move, whose merge path does not check mayPlace.
+- Archive menus share the authoritative SimpleContainer and persist actual changes;
+  no-op setChanged does not revise the archive. Existing explicit withdrawal uses the
+  same backing. Successful reactivation invalidates that backing; rejected admission
+  preserves it. Item synchronization remains Minecraft-owned.
+- Demonstrated spec/test mismatch: M2's WorkerArchitectureRulesTest banned every
+  consumer ServerPlayer reference. Approved docs/M5_GUI_CONTROLLER.md requires real
+  holder menus and networking, and pinned NeoForge openMenu/send-to-player APIs
+  require ServerPlayer. Corrected only that dependency predicate to permit exactly
+  WorkerMenu and WorkerPacketListenerMixin. All other classes, including WorkerEntity,
+  WorkerContext and WorkerEntityController, remain banned; unconditional FakePlayer/
+  Factory bans remain, plus an unconditional no-ServerPlayer-subclass rule. This is
+  the approved product boundary, not a worker impersonation waiver or relaxed analyzer.
+- Initial compile exposed the pinned readNbt(accounter) return type (Tag, not
+  CompoundTag). Repaired with an explicit compound root check; focused compile PASS
+  (`.agents/evidence/M5-menu-compile-repair.log`). Luna's real menu/packet/slot negative
+  and conservation tests are in progress under the task's Astra-authored foundation.
+  Focused runtime/architecture outcomes and milestone-wide sensors remain PENDING.
+- Focused server/client and real-player boundary sensor methods PASS, Gradle exit 0:
+  `.agents/evidence/M5-menu-boundary.log`. No complete milestone profile was run.
+  Native source confirms registered payloads use negotiated GenericPacketSplitter;
+  vanilla discarded-payload size limits do not cap registered codecs. Retained bounded
+  NBT quotas of 4 MiB for intents and 8 MiB for snapshots, sufficient for existing
+  supported 8192-character settings values without a custom fragmentation protocol.
+  Shape/field/registry/count limits still apply before product mutation.
+- Existing five roster GameTests PASS after sharing the native archive backing:
+  `.agents/evidence/M5-menu-archive-regression.log`, Gradle exit 0.
+- Controller review found an additional cross-world slot hazard: relocation replaces
+  the worker entity and inventory object while retaining UUID. Menus now require the
+  same authoritative inventory object before accepting clicks and reopen under a
+  fresh native menu id after replacement or reactivation. A UUID-only binding would
+  expose an obsolete source inventory copy. The focused menu tests include this case.
+- Controller reviewed and accepted the corrected seven real menu GameTests: focused
+  namespace automatone_worker_m5_menu_gametest PASS (all 7 required tests, 2026-09-06
+  10:17:43 local), with successful compileGameTestJava. Retained actual server log:
+  .agents/evidence/M5-menu-runtime-server.log. Tests exercise real packet handling,
+  positive current-click control, owner/session/revision/codec negatives, matching
+  archive merge and creative clone rejection, pending cancellation/resume, settings
+  isolation and single-use batch confirmation. Fixture cleanup closes menus and
+  removes the real test players even when absent from PlayerList. Diff check PASS.
+  M5.5 COMPLETE; human visual checks and independent milestone profile remain PENDING.

@@ -8,6 +8,9 @@ version="${version}"
 displayName="Automatone Worker"
 description="Minimal server worker host for Automatone."
 
+[[mixins]]
+config="automatone-worker.mixins.json"
+
 [[dependencies.automatone_worker]]
 modId="automatone"
 type="required"

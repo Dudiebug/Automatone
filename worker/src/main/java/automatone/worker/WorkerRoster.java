@@ -10,6 +10,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -53,6 +55,7 @@ public final class WorkerRoster extends SavedData {
         private String name = "Worker";
         private Map<String, String> overrides = Map.of();
         private CompoundTag entity = new CompoundTag();
+        private SimpleContainer archiveInventory;
 
         private Entry(UUID owner) { this.owner = owner; }
     }
@@ -294,6 +297,7 @@ public final class WorkerRoster extends SavedData {
             throw new IllegalStateException("SPAWN_FAILED");
         }
         reservations.remove(request);
+        entry.archiveInventory = null;
         finishRequest(request);
         entry.revision++;
         capture(entry, worker);
@@ -308,6 +312,7 @@ public final class WorkerRoster extends SavedData {
         worker.pauseMining();
         capture(entry, worker);
         entry.retired = true;
+        entry.archiveInventory = null;
         entry.revision++;
         worker.clearContent();
         worker.discard();
@@ -329,14 +334,44 @@ public final class WorkerRoster extends SavedData {
         if (reservations.values().stream().anyMatch(r -> r.worker().equals(id))) {
             throw new IllegalStateException("WORKER_PENDING");
         }
-        NonNullList<ItemStack> inventory = readInventory(entry);
-        ItemStack removed = inventory.get(slot).split(amount);
-        CompoundTag saved = new CompoundTag();
-        ContainerHelper.saveAllItems(saved, inventory, server.registryAccess());
-        entry.entity.getCompound("AutomatoneWorker").put("Inventory", saved);
-        entry.revision++;
-        setDirty();
-        return removed;
+        return archivedContainer(owner, id).removeItem(slot, amount);
+    }
+
+    /** Native slots share one authoritative archive inventory; menus enforce withdrawal-only access. */
+    Container archivedContainer(UUID owner, UUID id) {
+        Entry entry = archived(owner, id);
+        if (entry.archiveInventory == null) {
+            entry.archiveInventory = new SimpleContainer(readInventory(entry).toArray(ItemStack[]::new));
+            entry.archiveInventory.addListener(container -> {
+                requireThread();
+                if (!entry.retired) {
+                    throw new IllegalStateException("WORKER_NOT_RETIRED");
+                }
+                NonNullList<ItemStack> items = NonNullList.withSize(9, ItemStack.EMPTY);
+                for (int slot = 0; slot < items.size(); slot++) {
+                    items.set(slot, container.getItem(slot));
+                }
+                CompoundTag saved = new CompoundTag();
+                ContainerHelper.saveAllItems(saved, items, server.registryAccess());
+                if (saved.equals(entry.entity.getCompound("AutomatoneWorker").getCompound("Inventory"))) {
+                    return;
+                }
+                entry.entity.getCompound("AutomatoneWorker").put("Inventory", saved);
+                entry.revision++;
+                setDirty();
+            });
+        }
+        return entry.archiveInventory;
+    }
+
+    /** Product-only saved job data for roster cards, including unloaded and retired workers. */
+    CompoundTag jobData(UUID owner, UUID id) {
+        Entry entry = owned(owner, id);
+        WorkerEntity live = entry.retired ? null : findLive(id);
+        if (live != null) {
+            return live.saveWithoutId(new CompoundTag()).getCompound("AutomatoneWorker").getCompound("Job").copy();
+        }
+        return entry.entity.getCompound("AutomatoneWorker").getCompound("Job").copy();
     }
 
     private NonNullList<ItemStack> readInventory(Entry entry) {

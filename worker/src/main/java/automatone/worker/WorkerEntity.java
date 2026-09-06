@@ -277,7 +277,7 @@ public class WorkerEntity extends Mob implements Container {
         miningSession.configure(targets.stream().map(ResourceLocation::toString).toList(), requested);
     }
 
-    private static void validateTargets(List<ResourceLocation> targets) {
+    static void validateTargets(List<ResourceLocation> targets) {
         if (targets == null || targets.isEmpty() || targets.stream().distinct().count() > MiningSession.MAX_TARGET_BLOCKS) {
             throw new IllegalArgumentException("INVALID_BLOCK");
         }

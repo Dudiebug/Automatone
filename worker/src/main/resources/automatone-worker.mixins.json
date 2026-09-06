@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "automatone.worker.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["WorkerPacketListenerMixin"],
+  "injectors": { "defaultRequire": 1 }
+}

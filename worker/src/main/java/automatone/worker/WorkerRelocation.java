@@ -167,6 +167,12 @@ public final class WorkerRelocation {
                 .map(Job::status).toList();
     }
 
+    /** Latest bounded request history lets menus show completion, cancellation and failure after reopening. */
+    public List<Status> requests(UUID owner) {
+        requireThread();
+        return jobs.values().stream().filter(job -> job.owner.equals(owner)).map(Job::status).toList();
+    }
+
     public boolean pending(UUID worker) {
         requireThread();
         return jobs.values().stream().anyMatch(job -> job.worker.equals(worker) && job.state == State.PENDING);

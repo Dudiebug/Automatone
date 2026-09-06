@@ -83,7 +83,14 @@ public final class WorkerArchitectureRulesTest {
 
     private static final ArchRule WORKER_DOES_NOT_USE_SERVER_PLAYER = noClasses()
             .that().resideInAnyPackage("automatone.worker..")
+            // M5's real controller holder is addressed only at these two transport/menu boundaries.
+            .and().doNotHaveFullyQualifiedName("automatone.worker.WorkerMenu")
+            .and().doNotHaveFullyQualifiedName("automatone.worker.mixin.WorkerPacketListenerMixin")
             .should().dependOnClassesThat().haveFullyQualifiedName("net.minecraft.server.level.ServerPlayer");
+
+    private static final ArchRule WORKER_DOES_NOT_EXTEND_SERVER_PLAYER = noClasses()
+            .that().resideInAnyPackage("automatone.worker..")
+            .should().beAssignableTo(net.minecraft.server.level.ServerPlayer.class);
 
     private static final ArchRule LIBRARY_DOES_NOT_DEPEND_ON_WORKER = noClasses()
             .that().resideInAnyPackage("baritone", "baritone..")
@@ -132,6 +139,7 @@ public final class WorkerArchitectureRulesTest {
         JavaClasses workerClasses = importProductionClasses(WorkerEntity.class);
         WORKER_DOES_NOT_USE_FAKE_PLAYER.check(workerClasses);
         WORKER_DOES_NOT_USE_SERVER_PLAYER.check(workerClasses);
+        WORKER_DOES_NOT_EXTEND_SERVER_PLAYER.check(workerClasses);
         WORKER_DOES_NOT_USE_FAKE_PLAYER_FACTORY.check(workerClasses);
     }
 
