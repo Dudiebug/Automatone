@@ -122,19 +122,14 @@ final class WorkerActions {
                 result.putInt("Collected", menu.collectAll());
             }
             case INVENTORY_MANAGEMENT -> {
-                keys(data, "Revision", "Enabled", "Keep", "Blocks");
+                keys(data, "Revision", "Override", "Blocks");
                 selected(data, false);
-                require(data, "Blocks", Tag.TAG_LIST);
-                ListTag blocks = (ListTag) data.get("Blocks");
-                if (blocks.size() > 128 || (!blocks.isEmpty() && blocks.getElementType() != Tag.TAG_STRING)
-                        || blocks.stream().anyMatch(value -> value.getAsString().length() > 256)) {
-                    throw new IllegalArgumentException("INVALID_BLOCK");
-                }
-                List<ResourceLocation> ids = blocks.stream()
-                        .map(value -> ResourceLocation.parse(value.getAsString())).toList();
-                WorkerEntity worker = roster.active(owner, menu.worker());
-                worker.applyInventoryManagement(bool(data, "Enabled"), integer(data, "Keep", 0, 4096), ids);
-                roster.changed(worker);
+                roster.applyWorkerPickupRules(owner, menu.worker(), data.getLong("Revision"), bool(data, "Override"), pickupBlocks(data));
+            }
+            case PERSONAL_PICKUP_RULES -> {
+                keys(data, "Revision", "Blocks");
+                require(data, "Revision", Tag.TAG_LONG);
+                roster.applyPersonalPickupRules(owner, data.getLong("Revision"), pickupBlocks(data));
             }
             case RENAME -> {
                 keys(data, "Revision", "Name");
@@ -272,6 +267,16 @@ final class WorkerActions {
     }
 
     private static int quantity(CompoundTag data) { return integer(data, "Quantity", 0, MiningSession.MAX_REQUESTED_BLOCKS); }
+
+    private static List<ResourceLocation> pickupBlocks(CompoundTag data) {
+        require(data, "Blocks", Tag.TAG_LIST);
+        ListTag blocks = (ListTag) data.get("Blocks");
+        if (blocks.size() > 128 || (!blocks.isEmpty() && blocks.getElementType() != Tag.TAG_STRING)
+                || blocks.stream().anyMatch(value -> value.getAsString().length() > 256)) {
+            throw new IllegalArgumentException("INVALID_BLOCK");
+        }
+        return blocks.stream().map(value -> ResourceLocation.parse(value.getAsString())).toList();
+    }
 
     private static ResourceKey<Level> dimension(CompoundTag data) {
         ResourceLocation dimension = ResourceLocation.tryParse(string(data, "Dimension", 256));

@@ -429,11 +429,11 @@ public final class WorkerMenuGameTest {
 
             long revision = roster.view(owner.getUUID(), worker.getUUID()).revision();
             send(owner, menu, 1, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
-                    inventoryManagementData(revision, true, 32, "minecraft:dirt", "minecraft:cobblestone"));
+                    inventoryManagementData(revision, true, "minecraft:dirt", "minecraft:cobblestone"));
             CompoundTag success = response(menu);
             CompoundTag settings = worker.inventoryManagementSettings();
             helper.assertTrue(success.getString("Kind").equals("Success")
-                            && settings.getBoolean("Enabled") && settings.getInt("Keep") == 32
+                            && settings.getBoolean("Override") && !settings.contains("Keep")
                             && settings.getList("Blocks", net.minecraft.nbt.Tag.TAG_STRING).size() == 2
                             && settings.getList("Blocks", net.minecraft.nbt.Tag.TAG_STRING).getString(0).equals("minecraft:dirt")
                             && settings.getList("Blocks", net.minecraft.nbt.Tag.TAG_STRING).getString(1).equals("minecraft:cobblestone")
@@ -443,13 +443,13 @@ public final class WorkerMenuGameTest {
             ServerPlayer stranger = fixture.player();
             CompoundTag unchanged = worker.inventoryManagementSettings();
             send(stranger, menu, 2, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
-                    inventoryManagementData(revision, false, 0, "minecraft:dirt"));
+                    inventoryManagementData(revision, false, "minecraft:dirt"));
             helper.assertTrue(worker.inventoryManagementSettings().equals(unchanged)
                             && worker.miningStatus().equals(before),
                     "A wrong-owner policy intent must not mutate policy or job state");
 
             long currentRevision = roster.view(owner.getUUID(), worker.getUUID()).revision();
-            CompoundTag stale = inventoryManagementData(currentRevision - 1, false, 0, "minecraft:dirt");
+            CompoundTag stale = inventoryManagementData(currentRevision - 1, false, "minecraft:dirt");
             send(owner, menu, 2, WorkerNetwork.Action.INVENTORY_MANAGEMENT, stale);
             assertError(helper, menu, "STALE_REVISION");
             helper.assertTrue(worker.inventoryManagementSettings().equals(unchanged)
@@ -459,25 +459,26 @@ public final class WorkerMenuGameTest {
             ListTag wrongIntList = new ListTag();
             wrongIntList.add(net.minecraft.nbt.IntTag.valueOf(1));
             send(owner, menu, 3, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
-                    inventoryManagementData(currentRevision, false, 0, wrongIntList));
+                    inventoryManagementData(currentRevision, false, wrongIntList));
             assertError(helper, menu, "INVALID_BLOCK");
 
             ListTag wrongCompoundList = new ListTag();
             wrongCompoundList.add(new CompoundTag());
             send(owner, menu, 4, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
-                    inventoryManagementData(currentRevision, false, 0, wrongCompoundList));
+                    inventoryManagementData(currentRevision, false, wrongCompoundList));
             assertError(helper, menu, "INVALID_BLOCK");
 
-            send(owner, menu, 5, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
-                    inventoryManagementData(currentRevision, false, -1, "minecraft:dirt"));
-            assertError(helper, menu, "INVALID_KEEP");
+            CompoundTag invalidBoolean = inventoryManagementData(currentRevision, false, "minecraft:dirt");
+            invalidBoolean.putByte("Override", (byte) 2);
+            send(owner, menu, 5, WorkerNetwork.Action.INVENTORY_MANAGEMENT, invalidBoolean);
+            assertError(helper, menu, "INVALID_BOOLEAN");
 
             send(owner, menu, 6, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
-                    inventoryManagementData(currentRevision, false, 0, "minecraft:not_a_block"));
+                    inventoryManagementData(currentRevision, false, "minecraft:not_a_block"));
             assertError(helper, menu, "INVALID_BLOCK");
 
             send(owner, menu, 7, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
-                    inventoryManagementData(currentRevision, false, 0, "minecraft:dirt", "minecraft:dirt"));
+                    inventoryManagementData(currentRevision, false, "minecraft:dirt", "minecraft:dirt"));
             assertError(helper, menu, "INVALID_INVENTORY_POLICY");
             helper.assertTrue(worker.inventoryManagementSettings().equals(unchanged)
                             && worker.miningStatus().equals(before),
@@ -489,7 +490,7 @@ public final class WorkerMenuGameTest {
             fixture.trackPending(owner.getUUID(), request);
             long pendingRevision = roster.view(owner.getUUID(), worker.getUUID()).revision();
             send(owner, menu, 8, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
-                    inventoryManagementData(pendingRevision, false, 0, "minecraft:dirt"));
+                    inventoryManagementData(pendingRevision, false, "minecraft:dirt"));
             assertError(helper, menu, "WORKER_PENDING");
             helper.assertTrue(worker.inventoryManagementSettings().equals(unchanged),
                     "A pending relocation must reject policy changes without mutation");
@@ -735,19 +736,69 @@ public final class WorkerMenuGameTest {
         return data;
     }
 
-    private static CompoundTag inventoryManagementData(long revision, boolean enabled, int keep, String... blocks) {
+    @GameTest(template = "provider_smoke", batch = "worker_m5_menu_inventory_policy", timeoutTicks = 100)
+    public static void personalPickupDefaultsPropagateWithoutReplacingOverrides(GameTestHelper helper) {
+        Fixture fixture = new Fixture(helper);
+        try {
+            ServerPlayer owner = fixture.player();
+            ServerPlayer stranger = fixture.player();
+            WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
+            BlockPos position = helper.absolutePos(new BlockPos(0, 1, 0));
+            WorkerEntity inherited = fixture.spawnOwned(owner, helper.getLevel(), position);
+            WorkerEntity custom = fixture.spawnOwned(owner, helper.getLevel(), position.offset(2, 0, 0));
+            WorkerEntity foreign = fixture.spawnOwned(stranger, helper.getLevel(), position.offset(4, 0, 0));
+            custom.applyInventoryManagement(List.of(ResourceLocation.withDefaultNamespace("dirt")));
+            WorkerMenu.open(owner, null, false, 0);
+            WorkerMenu menu = requireMenu(owner);
+            CompoundTag rules = inventoryManagementData(0, false, "minecraft:stone");
+            rules.remove("Override");
+            send(owner, menu, 1, WorkerNetwork.Action.PERSONAL_PICKUP_RULES, rules);
+            helper.assertTrue(menu.snapshot().getCompound("Response").getString("Kind").equals("Success")
+                            && !inherited.wantsToPickUp(new ItemStack(Items.STONE))
+                            && inherited.wantsToPickUp(new ItemStack(Items.DIRT))
+                            && custom.wantsToPickUp(new ItemStack(Items.STONE))
+                            && !custom.wantsToPickUp(new ItemStack(Items.DIRT))
+                            && foreign.wantsToPickUp(new ItemStack(Items.STONE)),
+                    "Personal defaults must change only this owner's inheriting workers");
+            CompoundTag applied = roster.pickupRules(owner.getUUID());
+            send(stranger, menu, 2, WorkerNetwork.Action.PERSONAL_PICKUP_RULES, rules);
+            helper.assertTrue(applied.equals(roster.pickupRules(owner.getUUID())),
+                    "Another player cannot use the owner's menu to change global pickup rules");
+            send(owner, menu, 2, WorkerNetwork.Action.PERSONAL_PICKUP_RULES, rules);
+            assertError(helper, menu, "STALE_REVISION");
+            helper.assertTrue(applied.equals(roster.pickupRules(owner.getUUID())),
+                    "A stale global edit must not change the accepted profile");
+            roster.applyWorkerPickupRules(owner.getUUID(), custom.getUUID(),
+                    roster.view(owner.getUUID(), custom.getUUID()).revision(), false, List.of());
+            helper.assertTrue(!custom.inventoryManagementSettings().getBoolean("Override")
+                            && !custom.wantsToPickUp(new ItemStack(Items.STONE))
+                            && custom.wantsToPickUp(new ItemStack(Items.DIRT)),
+                    "Resetting a worker override must resume its owner's current pickup rules");
+            WorkerEntity next = fixture.spawnOwned(owner, helper.getLevel(), position.offset(6, 0, 0));
+            helper.assertTrue(!next.wantsToPickUp(new ItemStack(Items.STONE)),
+                    "New workers must inherit the accepted personal defaults at attachment");
+            WorkerRoster loaded = WorkerRoster.load(helper.getLevel().getServer(),
+                    roster.save(new CompoundTag(), helper.getLevel().registryAccess()));
+            helper.assertTrue(loaded.pickupRules(owner.getUUID()).equals(applied),
+                    "Personal pickup defaults and their revision must survive roster save/load");
+        } finally {
+            fixture.close();
+        }
+        helper.succeed();
+    }
+
+    private static CompoundTag inventoryManagementData(long revision, boolean override, String... blocks) {
         net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
         for (String block : blocks) {
             list.add(StringTag.valueOf(block));
         }
-        return inventoryManagementData(revision, enabled, keep, list);
+        return inventoryManagementData(revision, override, list);
     }
 
-    private static CompoundTag inventoryManagementData(long revision, boolean enabled, int keep,
+    private static CompoundTag inventoryManagementData(long revision, boolean override,
                                                         net.minecraft.nbt.ListTag blocks) {
         CompoundTag data = revisionData(revision);
-        data.putByte("Enabled", (byte) (enabled ? 1 : 0));
-        data.putInt("Keep", keep);
+        data.putByte("Override", (byte) (override ? 1 : 0));
         data.put("Blocks", blocks);
         return data;
     }

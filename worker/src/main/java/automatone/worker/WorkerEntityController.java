@@ -16,6 +16,8 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.context.DirectionalPlaceContext;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -25,7 +27,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.neoforge.common.util.BlockSnapshot;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /** Adapts native break intent and inventory access to one real server worker. */
@@ -244,7 +249,80 @@ public final class WorkerEntityController implements IPlayerController {
 
     @Override
     public InteractionResult processRightClickBlock(LivingEntity player, Level world, InteractionHand hand, BlockHitResult result) {
-        return InteractionResult.FAIL;
+        if (worker.level().isClientSide()) { return InteractionResult.FAIL; }
+        requireServerThread();
+        if (!worker.equals(player) || !worker.level().equals(world) || hand == null || result == null
+                || !worker.isAlive() || worker.isRemoved() || !worker.isAddedToLevel() || worker.runtime() == null
+                || !worker.runtime().getSettings().allowPlace.value) { return InteractionResult.FAIL; }
+        ServerLevel level = (ServerLevel) world;
+        ItemStack held = worker.getItemInHand(hand);
+        if (held.isEmpty() || !(held.getItem() instanceof BlockItem item)
+                || level.captureBlockSnapshots || level.restoringBlockSnapshots
+                || !EventHooks.canEntityGrief(level, worker)) { return InteractionResult.FAIL; }
+        HitResult trace = RayTraceUtils.rayTraceTowards(worker,
+                new Rotation(worker.getYRot(), worker.getXRot()), getBlockReachDistance());
+        if (!(trace instanceof BlockHitResult hit) || trace.getType() != HitResult.Type.BLOCK
+                || result.getType() != HitResult.Type.BLOCK || !hit.getBlockPos().equals(result.getBlockPos())
+                || hit.getDirection() != result.getDirection()
+                || worker.getEyePosition().distanceToSqr(result.getLocation()) > getBlockReachDistance() * getBlockReachDistance()) {
+            return InteractionResult.FAIL;
+        }
+        ItemStack placed = held.copy();
+        DirectionalPlaceContext clicked = new DirectionalPlaceContext(level, hit.getBlockPos(), worker.getDirection(), placed, hit.getDirection());
+        BlockPos pos = clicked.canPlace() ? hit.getBlockPos() : hit.getBlockPos().relative(hit.getDirection());
+        if (!level.hasChunkAt(pos) || level.isOutsideBuildHeight(pos) || !level.getWorldBorder().isWithinBounds(pos)) {
+            return InteractionResult.FAIL;
+        }
+        return placeBlockItem(level, item, placed, hand,
+                new DirectionalPlaceContext(level, pos, worker.getDirection(), placed, hit.getDirection()));
+    }
+
+    /** Use NeoForge snapshots just as player placement does, but attribute the event to the worker. */
+    private InteractionResult placeBlockItem(ServerLevel level, BlockItem item, ItemStack placed,
+                                             InteractionHand hand, DirectionalPlaceContext context) {
+        ItemStack before = worker.getItemInHand(hand).copy();
+        List<BlockSnapshot> snapshots = new ArrayList<>();
+        boolean committed = false;
+        int firstSnapshot = level.capturedBlockSnapshots.size();
+        try {
+            InteractionResult result;
+            level.captureBlockSnapshots = true;
+            try {
+                result = item.place(context);
+            } finally {
+                level.captureBlockSnapshots = false;
+                List<BlockSnapshot> captured = level.capturedBlockSnapshots.subList(firstSnapshot, level.capturedBlockSnapshots.size());
+                snapshots.addAll(captured);
+                captured.clear();
+            }
+            if (!result.consumesAction() || snapshots.isEmpty() || placed.getCount() != before.getCount() - 1) {
+                return InteractionResult.FAIL;
+            }
+            boolean cancelled = snapshots.size() == 1
+                    ? EventHooks.onBlockPlace(worker, snapshots.getFirst(), context.getClickedFace())
+                    : EventHooks.onMultiBlockPlace(worker, snapshots, context.getClickedFace());
+            if (cancelled || !worker.isAlive() || worker.isRemoved()
+                    || !ItemStack.matches(before, worker.getItemInHand(hand))) { return InteractionResult.FAIL; }
+            for (BlockSnapshot snapshot : snapshots) {
+                BlockState state = level.getBlockState(snapshot.getPos());
+                state.onPlace(level, snapshot.getPos(), snapshot.getState(), false);
+                level.markAndNotifyBlock(snapshot.getPos(), level.getChunkAt(snapshot.getPos()),
+                        snapshot.getState(), state, snapshot.getFlags(), 512);
+            }
+            worker.setItemInHand(hand, placed.isEmpty() ? ItemStack.EMPTY : placed);
+            worker.setChanged();
+            committed = true;
+            return InteractionResult.SUCCESS;
+        } finally {
+            if (!committed) {
+                level.restoringBlockSnapshots = true;
+                try {
+                    for (BlockSnapshot snapshot : snapshots.reversed()) { snapshot.restore(snapshot.getFlags() | Block.UPDATE_CLIENTS); }
+                } finally {
+                    level.restoringBlockSnapshots = false;
+                }
+            }
+        }
     }
 
     @Override

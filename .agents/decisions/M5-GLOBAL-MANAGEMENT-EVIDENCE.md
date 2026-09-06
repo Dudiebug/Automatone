@@ -2,7 +2,7 @@
 
 Human-approved implementation contract: `docs/M5_GLOBAL_MANAGEMENT.md`.
 Baseline: `7cce1ded` / released 0.11.1 inventory update.
-Controller: Astra. Extension IN_PROGRESS; M5.10 COMPLETE.
+Controller: Astra. Extension IN_PROGRESS; M5.10–M5.11 COMPLETE.
 
 ## Verification contract
 
@@ -39,3 +39,34 @@ detailed tests are controller-defined under the approved workflow.
 - Controller confirms M5.10 scope/behavior/architecture completion. No disproven
   product assumption. Ordinary healthy unload/cap/menu authorization retained.
 - Independent extension profile, two-process restart and manual GUI: PENDING.
+
+## M5.11 — Native placement and pickup rules
+
+- Real BlockItem placement now validates worker/thread/world/reach/hit/bounds,
+  honors entity grief and worker-attributed NeoForge placement hooks, rolls back
+  captured changes on rejection and consumes exactly one held item on success.
+  Server success is normalized for the native placement helper. Mob sneak input
+  now updates worker pose: native pillar movement requires crouch feedback.
+- Fixed always-on 64 ordinary-cobblestone reserve, zero other ignored pickups,
+  protected components/job outputs and no routine inventory ejection. Versioned
+  migration preserves custom lists and contents. Personal pickup defaults,
+  per-worker overrides/reset, bounded intents and fixed-rule UI replace old knobs.
+  Negotiated protocol is now 3. No fake player or second native movement engine.
+- Initial focused runtime: 58/62 PASS. Fixture defects: a shallow bridge gap
+  permitted descent; malformed-policy inventory assertion expected different
+  stacks than it saved. Corrected the fixtures without weakening their contracts.
+  Pillar failure exposed missing Mob crouch feedback and was repaired in the
+  adapter. Slow-demo timeout passed on the affected native rerun; final gate
+  retains this existing regression (no test limits or implementation relaxation).
+- `:worker:compileJava`: PASS (`global-placement-compile.log`). Initial menu
+  namespace: all 10 PASS (`global-placement-pickup-runtime.log`). Native/pickup
+  rerun: 51/52 PASS, only the still-shallow bridge fixture failed
+  (`global-placement-pickup-repair.log`). All eight pickup and slow-demo tests PASS.
+- Final `:worker:runGameTestServer
+  -PworkerGameTestNamespaces=automatone_worker_m5_placement_gametest --console=plain`:
+  3/3 PASS (`global-placement-focused.log`), actual native bridge/pillar completion,
+  exact consumption, direct guards and hook rollback. New namespace is included
+  in the default gate. Compilation and `git diff --check`: PASS; no new warnings.
+- Controller confirms M5.11 completion. Disproved assumption: setting Mob sneak
+  input alone supplies native crouching state. Independent profile, actual
+  restart, final GUI acceptance and packaging remain PENDING for M5.14.

@@ -24,7 +24,8 @@ public final class WorkerNetwork {
         REFRESH, OPEN_WORKER, OPEN_ROSTER, DEPLOY, REACTIVATE, RELOCATE, CANCEL_RELOCATION,
         CONFIGURE_JOB, START, PAUSE, RESUME, STOP, SELECT_TOOL, RENAME, PERSONAL_SETTINGS,
         WORKER_SETTINGS, RETIRE, PREVIEW_APPLY_JOB, APPLY_JOB, NOTIFICATION_PAGE,
-        READ_NOTIFICATION, READ_ALL_NOTIFICATIONS, NOTIFICATION_PREFERENCES, COLLECT_ALL, INVENTORY_MANAGEMENT
+        READ_NOTIFICATION, READ_ALL_NOTIFICATIONS, NOTIFICATION_PREFERENCES, COLLECT_ALL, INVENTORY_MANAGEMENT,
+        PERSONAL_PICKUP_RULES
     }
 
     public record Intent(int menuId, UUID session, long sequence, Action action, CompoundTag data)
@@ -100,7 +101,7 @@ public final class WorkerNetwork {
     private WorkerNetwork() { }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("2");
+        var registrar = event.registrar("3");
         registrar.playToServer(Intent.TYPE, Intent.CODEC, (payload, context) -> {
             if (context.player().containerMenu instanceof WorkerMenu menu) {
                 menu.handle(context.player(), payload);

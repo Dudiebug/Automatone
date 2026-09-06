@@ -322,6 +322,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
         WorkerRoster.ProfileView profile = roster.profile(owner);
         data.putLong("ProfileRevision", profile.revision());
         data.put("PersonalSettings", WorkerSettings.save(profile.settings()));
+        data.put("PickupRules", roster.pickupRules(owner));
         if (worker != null) {
             WorkerRoster.View view = roster.view(owner, worker);
             data.put("Selected", row(view));

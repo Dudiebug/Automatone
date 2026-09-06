@@ -73,8 +73,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private String message = "";
     private boolean unlimited;
     private boolean savedUnlimited;
-    private boolean cleanupEnabled;
-    private String keep = "64";
+    private boolean pickupOverride;
     private CompoundTag savedCleanup = new CompoundTag();
     private long cleanupRevision;
     private boolean compactInventory;
@@ -225,7 +224,10 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             button(translate("continue_count", recipients.size()), fx + fw - 120, bottom, 110, () -> { page = Page.JOB; rebuild = true; });
         } else {
             button(menu.retired() ? translate("active_workers") : translate("retired_workers"), fx + 10, bottom, 94, () -> navigateRoster(!menu.retired()));
-            if (!menu.retired()) { button(translate("batch_job"), fx + 106, bottom, 70, () -> navigate(Page.RECIPIENTS)); }
+            if (!menu.retired()) {
+                button(translate("batch_job"), fx + 106, bottom, 70, () -> navigate(Page.RECIPIENTS));
+                button(translate("pickup_rules"), fx + 180, bottom, 88, () -> navigate(Page.CLEANUP));
+            }
             if (menu.retired() && data.getInt("Count") > 10) {
                 button("<", fx + fw - 54, bottom, 20, () -> openRoster(true, Math.max(0, menu.page() - 1)));
                 button(">", fx + fw - 32, bottom, 20, () -> openRoster(true, menu.page() + 1));
@@ -283,7 +285,11 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         for (String id : chips) {
             int chipWidth = Math.min(110, font.width(shortId(id)) + 22);
             if (chipX + chipWidth > x + area) { break; }
-            button(shortId(id) + " ×", chipX, y + 23, chipWidth, () -> { selection.remove(id); rebuild = true; });
+            button(shortId(id) + " ×", chipX, y + 23, chipWidth, () -> {
+                selection.remove(id);
+                if (page == Page.CLEANUP) { pickupOverride = true; }
+                rebuild = true;
+            });
             chipX += chipWidth + 2;
         }
         List<Block> found = blocks.stream().filter(block -> {
@@ -306,6 +312,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                             if (selection.size() < 128) { selection.add(id); }
                             else { message = translate("select_at_most_128_target_blocks"); }
                         }
+                        if (page == Page.CLEANUP) { pickupOverride = true; }
                         rebuild = true;
                     }).createNarration(ignored -> Component.literal(block.getName().getString() + ", " + id
                             + ", " + translate(selected ? "selected" : "not_selected")))
@@ -351,45 +358,43 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         buildBlockPicker(discardBlocks);
         int x = fx + 10;
         int bottom = fy + fh - 70;
-        button(translate("cleanup_enabled", translate(cleanupEnabled ? "on" : "off")), x, bottom, 118,
-                () -> { cleanupEnabled = !cleanupEnabled; rebuild = true; })
-                .setTooltip(Tooltip.create(Component.literal(translate("cleanup_help"))));
-        edit(translate("keep_each"), keep, x + 122, bottom, 60, 4, value -> keep = value);
+        label(translate("cobblestone_reserve"), x, bottom + 4, GREEN, fw - 70);
         button(translate("reload"), x, bottom + 24, 64, () -> guardDiscard(() -> { loadCleanup(); rebuild = true; }));
-        button(translate("inventory"), x + 68, bottom + 24, 76, () -> navigate(Page.INVENTORY));
+        if (menu.worker() != null) {
+            button(translate(pickupOverride ? "use_global_rules" : "inherited_rules"), x + 68, bottom + 24, 110, () -> {
+                discardBlocks.clear();
+                data.getCompound("PickupRules").getList("Blocks", Tag.TAG_STRING).forEach(id -> discardBlocks.add(id.getAsString()));
+                pickupOverride = false;
+                rebuild = true;
+            });
+        }
         actionButton(translate("apply"), fx + fw - 86, bottom + 24, 76, () -> {
-            int retained;
-            try { retained = Integer.parseInt(keep); }
-            catch (NumberFormatException invalid) { message = translate("invalid_keep"); return; }
-            if (retained < 0 || retained > 4096) { message = translate("invalid_keep"); return; }
             CompoundTag intent = cleanupDraft();
             intent.putLong("Revision", cleanupRevision);
-            send(WorkerNetwork.Action.INVENTORY_MANAGEMENT, intent);
+            send(menu.worker() == null ? WorkerNetwork.Action.PERSONAL_PICKUP_RULES : WorkerNetwork.Action.INVENTORY_MANAGEMENT, intent);
         });
     }
 
     private CompoundTag cleanupDraft() {
         CompoundTag tag = new CompoundTag();
-        tag.putBoolean("Enabled", cleanupEnabled);
-        tag.putInt("Keep", Integer.parseInt(keep));
+        if (menu.worker() != null) { tag.putBoolean("Override", pickupOverride); }
         ListTag list = new ListTag(); discardBlocks.forEach(id -> list.add(StringTag.valueOf(id)));
         tag.put("Blocks", list);
         return tag;
     }
 
     private void loadCleanup() {
-        savedCleanup = data.getCompound("InventoryManagement").copy();
-        cleanupEnabled = savedCleanup.getBoolean("Enabled");
-        keep = Integer.toString(savedCleanup.getInt("Keep"));
+        savedCleanup = data.getCompound(menu.worker() == null ? "PickupRules" : "InventoryManagement").copy();
+        savedCleanup.remove("Revision");
+        pickupOverride = savedCleanup.getBoolean("Override");
         discardBlocks.clear();
         savedCleanup.getList("Blocks", Tag.TAG_STRING).forEach(id -> discardBlocks.add(id.getAsString()));
-        cleanupRevision = data.getCompound("Selected").getLong("Revision");
+        cleanupRevision = data.getCompound(menu.worker() == null ? "PickupRules" : "Selected").getLong("Revision");
     }
 
     private boolean cleanupDirty() {
         if (savedCleanup.isEmpty()) { return false; }
-        try { return !cleanupDraft().equals(savedCleanup); }
-        catch (NumberFormatException invalid) { return true; }
+        return !cleanupDraft().equals(savedCleanup);
     }
 
     private void buildSettings(boolean personal) {
@@ -669,7 +674,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                     saveDraft(); message = translate("batch_finished_review_each_result");
                 } else {
                     message = sentAction == WorkerNetwork.Action.COLLECT_ALL ? translate("collected_count", response.getInt("Collected")) : translate("applied");
-                    if (sentAction == WorkerNetwork.Action.INVENTORY_MANAGEMENT) { loadCleanup(); }
+                    if (sentAction == WorkerNetwork.Action.INVENTORY_MANAGEMENT || sentAction == WorkerNetwork.Action.PERSONAL_PICKUP_RULES) { loadCleanup(); }
                     if (sentAction == WorkerNetwork.Action.START || sentAction == WorkerNetwork.Action.CONFIGURE_JOB) { saveDraft(); }
                     if (sentAction == WorkerNetwork.Action.RENAME) { name = data.getCompound("Selected").getString("Name"); }
                     if (settings != null && (sentAction == WorkerNetwork.Action.PERSONAL_SETTINGS || sentAction == WorkerNetwork.Action.WORKER_SETTINGS)) {

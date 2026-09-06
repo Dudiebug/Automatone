@@ -18,6 +18,7 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.control.JumpControl;
 import net.minecraft.world.entity.ai.control.LookControl;
@@ -83,6 +84,10 @@ public class WorkerEntity extends Mob implements Container {
     public void aiStep() {
         updateSwingTime();
         if (!level().isClientSide()) {
+            // Mob has no player pose update; native placement waits for crouch feedback.
+            if (hasPose(Pose.STANDING) || hasPose(Pose.CROUCHING)) {
+                setPose(isShiftKeyDown() ? Pose.CROUCHING : Pose.STANDING);
+            }
             // Native look owns entity yaw; expose the same facing through vanilla head tracking.
             setYHeadRot(getYRot());
             ((WorkerEntityController) context.playerController()).validateBreakingTarget();
@@ -395,8 +400,7 @@ public class WorkerEntity extends Mob implements Container {
 
     @Override
     public boolean wantsToPickUp(ItemStack stack) {
-        return inventoryManagement.pickupLimit(this, stack) > 0
-                && (inventory.canAddItem(stack) || inventoryManagement.canMakeSpace(this));
+        return inventoryManagement.pickupLimit(this, stack) > 0 && inventory.canAddItem(stack);
     }
 
     @Override
@@ -404,7 +408,6 @@ public class WorkerEntity extends Mob implements Container {
         ItemStack source = itemEntity.getItem();
         int limit = inventoryManagement.pickupLimit(this, source);
         if (limit == 0) { return; }
-        if (!inventory.canAddItem(source)) { inventoryManagement.makeSpace(this, source); }
         ItemStack remainder = inventory.addItem(source.copyWithCount(limit));
         int collected = limit - remainder.getCount();
         if (collected > 0) {
@@ -421,12 +424,14 @@ public class WorkerEntity extends Mob implements Container {
 
     public CompoundTag inventoryManagementSettings() { return inventoryManagement.settings(); }
 
-    boolean hasInventorySpace(ItemStack stack) { return inventory.canAddItem(stack); }
-
-    public void applyInventoryManagement(boolean enabled, int keep, List<ResourceLocation> blocks) {
+    public void applyInventoryManagement(List<ResourceLocation> blocks) {
         requireServerThread();
-        inventoryManagement.configure(enabled, keep, blocks);
+        inventoryManagement.configure(blocks);
     }
+
+    void inheritInventoryManagement(List<ResourceLocation> blocks) { inventoryManagement.inherit(blocks); }
+
+    void resetInventoryManagement(List<ResourceLocation> blocks) { inventoryManagement.reset(blocks); }
 
     static void onBlockDrops(BlockDropsEvent event) {
         if (event.getBreaker() instanceof WorkerEntity worker) { worker.inventoryManagement.recordDrops(worker, event); }

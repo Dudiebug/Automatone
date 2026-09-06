@@ -6,6 +6,7 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -70,6 +71,8 @@ public final class WorkerRoster extends SavedData {
     private static final class Profile {
         private long revision;
         private Map<String, String> settings = Map.of();
+        private long pickupRevision;
+        private List<ResourceLocation> pickupBlocks = WorkerInventoryManagement.defaultBlocks();
         private long notificationRevision;
         private boolean toasts = true;
         private boolean sounds = true;
@@ -109,6 +112,15 @@ public final class WorkerRoster extends SavedData {
             Profile profile = new Profile();
             profile.revision = saved.getLong("Revision");
             profile.settings = WorkerSettings.load(saved.getCompound("Settings"));
+            profile.pickupRevision = saved.getLong("PickupRevision");
+            if (saved.contains("PickupBlocks", Tag.TAG_LIST)) {
+                try {
+                    profile.pickupBlocks = WorkerInventoryManagement.validate(saved.getList("PickupBlocks", Tag.TAG_STRING)
+                            .stream().map(Tag::getAsString).map(ResourceLocation::parse).toList());
+                } catch (IllegalArgumentException | net.minecraft.ResourceLocationException invalid) {
+                    profile.pickupBlocks = WorkerInventoryManagement.defaultBlocks();
+                }
+            }
             profile.notificationRevision = saved.getLong("NotificationRevision");
             profile.toasts = !saved.contains("ShowToasts") || saved.getBoolean("ShowToasts");
             profile.sounds = !saved.contains("PlaySounds") || saved.getBoolean("PlaySounds");
@@ -163,6 +175,8 @@ public final class WorkerRoster extends SavedData {
             saved.putUUID("Owner", owner);
             saved.putLong("Revision", profile.revision);
             saved.put("Settings", WorkerSettings.save(profile.settings));
+            saved.putLong("PickupRevision", profile.pickupRevision);
+            saved.put("PickupBlocks", WorkerInventoryManagement.strings(profile.pickupBlocks.stream().map(ResourceLocation::toString).toList()));
             saved.putLong("NotificationRevision", profile.notificationRevision);
             saved.putBoolean("ShowToasts", profile.toasts);
             saved.putBoolean("PlaySounds", profile.sounds);
@@ -326,6 +340,52 @@ public final class WorkerRoster extends SavedData {
         setDirty();
     }
 
+    public List<ResourceLocation> pickupBlocks(UUID owner) {
+        requireThread();
+        Profile profile = profiles.get(owner);
+        return profile == null ? WorkerInventoryManagement.defaultBlocks() : profile.pickupBlocks;
+    }
+
+    public CompoundTag pickupRules(UUID owner) {
+        requireThread();
+        CompoundTag result = new CompoundTag();
+        Profile profile = profiles.get(owner);
+        result.putLong("Revision", profile == null ? 0 : profile.pickupRevision);
+        result.put("Blocks", WorkerInventoryManagement.strings(pickupBlocks(owner).stream().map(ResourceLocation::toString).toList()));
+        return result;
+    }
+
+    public void applyPersonalPickupRules(UUID owner, long revision, List<ResourceLocation> blocks) {
+        requireThread();
+        Profile current = profiles.get(owner);
+        checkRevision(current == null ? 0 : current.pickupRevision, revision);
+        List<ResourceLocation> validated = WorkerInventoryManagement.validate(blocks);
+        Profile profile = profiles.computeIfAbsent(owner, ignored -> new Profile());
+        profile.pickupBlocks = validated;
+        profile.pickupRevision++;
+        entries.forEach((id, entry) -> {
+            if (entry.owner.equals(owner) && !entry.retired) {
+                WorkerEntity live = findLive(id);
+                if (live != null && live.isAlive() && !live.isRemoved()) {
+                    live.inheritInventoryManagement(validated);
+                    capture(entry, live);
+                }
+                entry.revision++;
+            }
+        });
+        setDirty();
+    }
+
+    public void applyWorkerPickupRules(UUID owner, UUID id, long revision, boolean override, List<ResourceLocation> blocks) {
+        Entry entry = owned(owner, id);
+        checkRevision(entry.revision, revision);
+        List<ResourceLocation> validated = WorkerInventoryManagement.validate(blocks);
+        WorkerEntity worker = active(owner, id);
+        if (override) { worker.applyInventoryManagement(validated); }
+        else { worker.resetInventoryManagement(pickupBlocks(owner)); }
+        changed(worker);
+    }
+
     public void applyOverrides(UUID owner, UUID worker, long revision, Map<String, String> values) {
         Entry entry = owned(owner, worker);
         checkRevision(entry.revision, revision);
@@ -416,6 +476,7 @@ public final class WorkerRoster extends SavedData {
         worker.setCustomName(Component.literal(entry.name));
         worker.moveTo(destination.x, destination.y, destination.z, 0, 0);
         worker.applySettings(WorkerSettings.resolve(profile(owner).settings(), entry.overrides));
+        worker.inheritInventoryManagement(pickupBlocks(owner));
         entry.retired = false;
         entries.put(reservation.worker(), entry);
         if (!level.addFreshEntity(worker)) {
@@ -562,6 +623,7 @@ public final class WorkerRoster extends SavedData {
             return;
         }
         worker.applySettings(WorkerSettings.resolve(profile(owner).settings(), entry.overrides));
+        worker.inheritInventoryManagement(pickupBlocks(owner));
         capture(entry, worker);
         if (overflow) {
             retire(owner, worker.getUUID(), entry.revision);

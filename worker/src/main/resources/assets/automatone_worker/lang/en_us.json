@@ -136,9 +136,10 @@
   "notification.automatone_worker.title": "Worker job completed",
   "gui.automatone_worker.collect_all": "Collect all",
   "gui.automatone_worker.collected_count": "Collected %s items; anything that did not fit stays with the worker.",
-  "gui.automatone_worker.automatic_cleanup": "Automatic cleanup",
-  "gui.automatone_worker.cleanup_enabled": "Cleanup: %s",
-  "gui.automatone_worker.cleanup_help": "Select unwanted blocks above. Keep this many of each; skip further pickups and drop excess stacks when room is needed. Tools, custom stacks and current job outputs are protected. Cleanup pauses while this worker menu is open.",
-  "gui.automatone_worker.keep_each": "Keep per listed block (0–4096)",
-  "gui.automatone_worker.invalid_keep": "Enter a retained count from 0 to 4096."
+  "gui.automatone_worker.automatic_cleanup": "Pickup rules",
+  "gui.automatone_worker.cleanup_help": "Keep a 64-cobblestone building reserve and skip other selected blocks. Tools, custom stacks and job outputs are protected. Existing inventory is never ejected.",
+  "gui.automatone_worker.pickup_rules": "Pickup rules",
+  "gui.automatone_worker.cobblestone_reserve": "Keep 64 cobblestone; ignore selected blocks",
+  "gui.automatone_worker.use_global_rules": "Use global rules",
+  "gui.automatone_worker.inherited_rules": "Using global rules"
 }
