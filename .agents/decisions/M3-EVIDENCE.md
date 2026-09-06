@@ -1,6 +1,6 @@
 # M3 evidence
 
-Status: IN_PROGRESS. M3.4 reopened for independent-gate runtime repairs; client observation UNVERIFIED.
+Status: automated implementation COMPLETE; M3 BLOCKED only on actual client visual/audio observation (UNVERIFIED).
 
 ## Authority and starting point
 
@@ -19,8 +19,8 @@ Status: IN_PROGRESS. M3.4 reopened for independent-gate runtime repairs; client 
 
 - Initial git status: clean. M2 prerequisite ancestry check: PASS.
 - M3.1–M3.4 focused checks: PASS (measurements below).
-- Independent profile union: static/root runtime PASS, worker runtime FAIL; affected repair checks PENDING.
-- Three fresh native mining worker-server runs: PENDING.
+- Independent profile union plus affected repair verification: all automated criteria PASS; original failed attempt preserved below.
+- Three fresh native mining worker-server runs: PASS, 31/31 each.
 - Actual client visual/audio observation: UNVERIFIED (host OpenGL unavailable).
 
 ## Explicit boundaries
@@ -401,3 +401,43 @@ implementation's responsibility. Continue those autonomously; hand off only
 visual/audio observation and keep M3 unaccepted until it passes.
 
 Independent affected static validation also found existing AIR approval ID 68 needed the same source revalidation. Reused Luna reviewer confirmed VALID: getFromChunk still returns immutable AIR for an all-air section (current line 163). IDs 67 and 68 are the only frozen BSI/WorldScanner entries. Updated only ID 68 hash/evidence; no eligibility or contract change. The failed static attempt remains recorded in independent-repair/root-affected-static.log.
+
+## Final controller closeout and in-game handoff
+
+Verified candidate: `3d4107583efeb970d8534b1b8ec852d09fabdd2c`.
+Independent follow-up: `.agents/evidence/M3/independent-repair/independent-repair-final.json`
+(schema validated). Automated sensors PASS; overall verdict INCOMPLETE solely
+because actual client visual/audio observation remains UNVERIFIED.
+
+- Root GameTests: 28/28 in 1.997s, including both retained native background-access regressions.
+- Three separate worker GameTest processes: 31/31 each, in 9.037s, 9.562s and 9.479s.
+- Affected compilation, Checkstyle and CPD passed. Fresh root/worker raw SpotBugs,
+  exact dispositions and final SpotBugs tasks passed after both AIR revalidations.
+- Unaffected unit and architecture evidence reused from the single initial
+  independent profile union; no blanket second union was run.
+- Workflow regression suite: Terra ran 39 PASS / 0 FAIL; controller reviewed
+  retained process/sensor/local-defect assertions and explicit UNVERIFIED case.
+- Final Graphify incremental update completed: 5004 nodes / 13808 edges;
+  eight existing Groovy parse advisories remain advisory.
+
+Controller confirms implementation scope and native/consumer ownership.
+M3.1-M3.4 automated work is complete. M3 remains BLOCKED/unaccepted only for
+manual appearance/audio acceptance; M4 has not started. The source changes
+are frozen; this closeout changes only status/evidence. No automated checks
+are delegated to the human.
+
+### Manual in-game checklist
+
+1. From the repository run `.\gradlew.bat :worker:runM3Client` on a machine with
+   working OpenGL. Create a disposable world with cheats enabled.
+2. Run `/gamemode spectator`, then `/worker_m3_demo start`. The demo builds an
+   elevated chamber and teleports the viewer; mining is deliberately slowed
+   to 2.5% speed so intermediate cracks can be seen.
+3. Confirm the Stevenator skin, classic arms/outer layers and held iron pickaxe.
+   Observe native movement toward ore, facing, arm swings, progressive cracks,
+   repeated hit sounds, final break particles/sound and raw-iron drops.
+4. Run `/worker_m3_demo start` again. While cracks are visible, run
+   `/worker_m3_demo cancel`. Confirm swings/hit sounds stop, cracks disappear,
+   and the unfinished ore stays intact for at least five seconds.
+5. Start once more and confirm mining resumes normally. Report any missing
+   visual/audio behavior; only mark the manual observation PASS after seeing it.
