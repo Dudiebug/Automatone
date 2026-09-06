@@ -326,6 +326,52 @@ public class WorkerEntity extends Mob implements Container {
         }
     }
 
+    void relocated() {
+        requireServerThread();
+        setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        fallDistance = 0;
+        syncChunks();
+    }
+
+    /** Keep the paused source available until the destination accepts the entity. */
+    public WorkerEntity relocateTo(ServerLevel destination, net.minecraft.world.phys.Vec3 position) {
+        requireServerThread();
+        if (miningSession.snapshot().state() == MiningSession.State.RUNNING) {
+            throw new IllegalStateException("WORKER_NOT_PAUSED");
+        }
+        if (isPassenger() || isVehicle() || isLeashed()) {
+            return null;
+        }
+        if (destination.equals(level())) {
+            return (WorkerEntity) changeDimension(new net.minecraft.world.level.portal.DimensionTransition(destination,
+                    position, net.minecraft.world.phys.Vec3.ZERO, getYRot(), getXRot(),
+                    net.minecraft.world.level.portal.DimensionTransition.DO_NOTHING));
+        }
+        if (!net.neoforged.neoforge.common.CommonHooks.onTravelToDimension(this, destination.dimension())) {
+            return null;
+        }
+        WorkerEntity replacement = Objects.requireNonNull(WorkerMod.WORKER.get().create(destination));
+        replacement.load(saveWithoutId(new CompoundTag()));
+        replacement.moveTo(position.x, position.y, position.z, getYRot(), getXRot());
+        // Both runtimes use the same identity's cache directory, so close the source before attachment.
+        detachRuntime();
+        boolean accepted = false;
+        try {
+            accepted = destination.addFreshEntity(replacement);
+            if (!accepted) {
+                return null;
+            }
+            remove(RemovalReason.CHANGED_DIMENSION);
+            return replacement;
+        } finally {
+            if (!accepted) {
+                replacement.remove(RemovalReason.CHANGED_DIMENSION);
+                attachRuntime();
+                WorkerRoster.get(destination.getServer()).attached(this);
+            }
+        }
+    }
+
     public void stopMining() {
         requireServerThread();
         pendingResume = false;

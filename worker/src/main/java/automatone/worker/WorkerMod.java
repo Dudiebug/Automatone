@@ -25,6 +25,8 @@ public final class WorkerMod {
         bus.addListener(WorkerChunkLoading::register);
         NeoForge.EVENT_BUS.addListener(WorkerChunkLoading::tick);
         NeoForge.EVENT_BUS.addListener(WorkerChunkLoading::clear);
+        NeoForge.EVENT_BUS.addListener(WorkerRelocation::onServerTick);
+        NeoForge.EVENT_BUS.addListener(WorkerRelocation::stop);
     }
 
     private static void registerAttributes(EntityAttributeCreationEvent event) {

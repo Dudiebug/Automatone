@@ -298,6 +298,33 @@ public final class WorkerRosterGameTest {
         return loaded;
     }
 
+    @GameTest(template = "provider_smoke", batch = "worker_m5_roster_legacy_cap", timeoutTicks = 100)
+    public static void legacyAdoptionAtCapacityArchivesInventoryWithoutStealingReservedSlots(GameTestHelper helper) {
+        WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
+        UUID owner = UUID.randomUUID();
+        List<UUID> requests = new ArrayList<>();
+        WorkerEntity legacy = WorkerGameTestSupport.spawnWorker(helper);
+        try {
+            for (int index = 0; index < WorkerRoster.ACTIVE_LIMIT; index++) {
+                UUID request = UUID.randomUUID();
+                requests.add(request);
+                roster.reserve(owner, request, null);
+            }
+            legacy.setItem(4, new ItemStack(Items.RAW_IRON, 7));
+            legacy.claim(owner);
+            helper.assertTrue(legacy.isRemoved() && legacy.runtime() == null && roster.list(owner, false).isEmpty()
+                            && roster.view(owner, legacy.getUUID()).retired()
+                            && roster.archivedInventory(owner, legacy.getUUID()).get(4).getCount() == 7,
+                    "Legacy overflow must preserve identity and items in retirement without exceeding active capacity");
+            expectFailure(helper, () -> roster.reserve(owner, UUID.randomUUID(), legacy.getUUID()), "ACTIVE_LIMIT",
+                    "Adoption must not steal already reserved active slots");
+        } finally {
+            requests.forEach(request -> roster.cancelReservation(owner, request));
+            WorkerGameTestSupport.discardWorker(legacy);
+        }
+        helper.succeed();
+    }
+
     private static Vec3 destination(GameTestHelper helper) {
         BlockPos pos = helper.absolutePos(new BlockPos(0, 1, 0));
         return new Vec3(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);

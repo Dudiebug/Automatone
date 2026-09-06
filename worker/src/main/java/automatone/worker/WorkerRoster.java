@@ -354,20 +354,31 @@ public final class WorkerRoster extends SavedData {
         return entry;
     }
 
-    /** Adopt legacy owned entities without discarding them when an old world already exceeds the new cap. */
+    /** Adopt legacy entities; archive overflow rather than losing identity or inventory at the active cap. */
     public void attached(WorkerEntity worker) {
         requireThread();
         if (worker.ownerUUID().isEmpty()) {
             return;
         }
         UUID owner = worker.ownerUUID().orElseThrow();
-        Entry entry = entries.computeIfAbsent(worker.getUUID(), ignored -> new Entry(owner));
+        Entry entry = entries.get(worker.getUUID());
+        boolean overflow = false;
+        if (entry == null) {
+            long active = entries.values().stream().filter(candidate -> candidate.owner.equals(owner) && !candidate.retired).count();
+            long pending = reservations.values().stream().filter(reservation -> reservation.owner().equals(owner)).count();
+            overflow = active + pending >= ACTIVE_LIMIT;
+            entry = new Entry(owner);
+            entries.put(worker.getUUID(), entry);
+        }
         if (!entry.owner.equals(owner) || entry.retired) {
             worker.discard();
             return;
         }
         worker.applySettings(WorkerSettings.resolve(profile(owner).settings(), entry.overrides));
         capture(entry, worker);
+        if (overflow) {
+            retire(owner, worker.getUUID(), entry.revision);
+        }
         setDirty();
     }
 
@@ -391,6 +402,13 @@ public final class WorkerRoster extends SavedData {
             throw new IllegalStateException("NOT_OWNER");
         }
         return entry;
+    }
+
+    void changed(WorkerEntity worker) {
+        Entry entry = owned(worker.ownerUUID().orElseThrow(), worker.getUUID());
+        capture(entry, worker);
+        entry.revision++;
+        setDirty();
     }
 
     private WorkerEntity findLive(UUID id) {

@@ -285,7 +285,7 @@ public final class WorkerChunkLoadingGameTest {
         helper.assertTrue(actual.equals(expected), message + "; expected=" + expected + ", actual=" + actual);
     }
 
-    static LongSet tickets(ServerLevel level, ResourceLocation controller, UUID owner) {
+    public static LongSet tickets(ServerLevel level, ResourceLocation controller, UUID owner) {
         ForcedChunksSavedData saved = level.getDataStorage().computeIfAbsent(
                 ForcedChunksSavedData.factory(), ForcedChunksSavedData.FILE_ID);
         Map<?, LongSet> all = saved.getEntityForcedChunks().getTickingChunks();

@@ -128,3 +128,57 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
 - M5.1 runtime isolation, progress-preserving replan and v1/v2 job persistence
   evidence reused; those implementations are unchanged. Controller confirms M5.2
   focused criteria COMPLETE and architecture intact. Milestone gate still PENDING.
+
+## M5.3 — safe deployment and relocation (COMPLETE)
+
+- Added bounded service: at most four concurrent searches, 32 sampled columns,
+  600 ticks overall and 200 ticks per preparation. Samples cover the selected
+  Overworld/Nether border; floors require support, clear worker collision volume,
+  no adjacent liquid/fire/damaging/portal blocks and valid build height. Nether
+  searches stay below its roof. Invalid dimensions and stale/foreign requests reject.
+- Pinned ServerChunkCache source disproved the assumption that getChunkFuture is
+  nonblocking on the server thread: it invokes managedBlock there. The service
+  instead adds one temporary vanilla region ticket (center and full neighbors)
+  and polls getChunkNow on later ticks. It never joins a terrain future.
+- Cancellation, bounded failure and shutdown release preparation tickets and
+  creation/reactivation reservations. Relocation pauses before preparation;
+  successful moves reset motion and immediately update existing M4 tickets.
+- Pinned Entity.changeDimension removes its source before addDuringTeleport,
+  which does not return destination admission failure. The worker adapter now
+  keeps a paused cross-world source until addFreshEntity accepts the destination,
+  closes its runtime before the copy attaches to the same identity cache, and
+  restores source runtime/roster on rejection. Same-world moves retain vanilla
+  transfer. Occupied/attached workers reject without deleting riders or leashes.
+- Focused compile PASS. Initial overloaded event-listener method-reference compile
+  failure repaired by naming the static event entry point onServerTick. Runtime
+  checks and milestone-wide sensors remain PENDING; task not COMPLETE yet.
+- Real NeoForge destination EntityJoinLevelEvent rejection regression PASS: the
+  original paused worker retains its entity/owner/position/inventory/run, restored
+  runtime and sole source anchor; no destination entity/ticket. Log
+  `.agents/evidence/M5-relocation-rejection-repair.log` (one test, Gradle exit 0).
+- Disproven fixture assumption: GameTests cannot share the production Java package
+  because they load as a separate NeoForge module (split-package ResolutionException,
+  `.agents/evidence/M5-relocation-rejection.log`). Moved tests to the established
+  gametest package and exposed the bounded server-side service seams; no module
+  flags or runtime ownership changes. Main service tests still PENDING.
+- Cap-edge follow-up from M5.2 review: grandfathering loaded legacy workers could
+  violate the approved ten-slot limit while slots were reserved. Superseded that
+  provisional migration choice: legacy overflow now retires through the same
+  preserving archive path. Five focused roster tests PASS including reserved-slot
+  overflow retaining UUID/inventory; log `.agents/evidence/M5-roster-cap-repair.log`.
+  This repairs the cap contract without granting equipment or dropping saved data.
+- Final focused relocation run PASS: all seven required tests, Gradle exit 0;
+  `.agents/evidence/M5-relocation-runtime-final.log`. Includes real default service
+  event dispatch, asynchronous admission/cancel, cap/replay, empty deployment,
+  archived reactivation, paused-original cancellation, raw preparation-ticket
+  cleanup after timeout/exhaustion, 128 seeded samples across a 20,000-block border
+  reaching both sides of each axis, hazard/collision/build checks, successful
+  Nether transfer, and destination-join rejection preserving the original worker.
+- Parent reviewed Luna fixtures and repaired absolute floor-height/all-air-column
+  assumptions, native fire support, migrated-entity/pending-request cleanup and
+  border-range assertions. Prior failures were fixture defects; final tests retain
+  the required outcomes. Removed an unnecessary test warning suppression and
+  retained the direct reference-identity assertion. No analyzer rules were waived.
+- Controller confirms M5.3 focused criteria COMPLETE. All path/mine/movement
+  algorithms remain native. Broader static/architecture and fresh independent
+  clean-candidate milestone verification remain PENDING.
