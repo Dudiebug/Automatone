@@ -43,7 +43,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     static String translate(String key, Object... args) {
         return Component.translatable("gui.automatone_worker." + key, args).getString();
     }
-    private enum Page { ROSTER, JOB, INVENTORY, SETTINGS, OVERRIDES, PERSONAL, RECIPIENTS, REQUESTS }
+    private enum Page { ROSTER, JOB, INVENTORY, SETTINGS, OVERRIDES, PERSONAL, RECIPIENTS, REQUESTS, INBOX }
     private record Caption(String text, int x, int y, int color, int maxWidth) { }
     private record BlockCell(Block block, Button button, boolean selected) { }
     private record Dialog(String title, List<String> lines, Runnable confirm) { }
@@ -125,10 +125,11 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         blockCells.clear();
         menu.showInventory(dialog == null && page == Page.INVENTORY);
         if (dialog != null) { buildDialog(); return; }
-        label("AUTOMATONE", fx + 10, fy + 9, GREEN, fw / 2);
-        button(translate("workers"), fx + fw - 206, fy + 5, 62, () -> navigateRoster(false));
-        button(translate("config"), fx + fw - 142, fy + 5, 56, () -> navigate(Page.PERSONAL));
-        button(translate("requests"), fx + fw - 84, fy + 5, 58, () -> navigate(Page.REQUESTS));
+        if (fw > 420) { label("AUTOMATONE", fx + 32, fy + 9, GREEN, fw - 304); }
+        button(translate("workers"), fx + fw - 262, fy + 5, 62, () -> navigateRoster(false));
+        button(translate("config"), fx + fw - 198, fy + 5, 56, () -> navigate(Page.PERSONAL));
+        button(translate("requests"), fx + fw - 140, fy + 5, 58, () -> navigate(Page.REQUESTS));
+        button(translate("inbox"), fx + fw - 80, fy + 5, 54, () -> navigate(Page.INBOX));
         button("X", fx + fw - 24, fy + 5, 18, this::onClose);
         if (!initialized) {
             label(translate("waiting"), fx + 12, fy + 48, MUTED, fw - 24);
@@ -136,14 +137,15 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         }
         int x = fx + 10;
         int y = fy + 34;
-        if (menu.worker() != null && page != Page.PERSONAL && page != Page.REQUESTS) {
+        if (menu.worker() != null && page != Page.PERSONAL && page != Page.REQUESTS && page != Page.INBOX) {
             label(name, x, y + 5, TEXT, Math.max(65, fw - 210));
             button(translate("job"), fx + fw - 190, y, 54, () -> navigate(Page.JOB));
             button(translate("inventory"), fx + fw - 134, y, 72, () -> navigate(Page.INVENTORY));
             button(translate("settings"), fx + fw - 60, y, 50, () -> navigate(Page.SETTINGS));
         } else {
             label(page == Page.PERSONAL ? translate("personal_configuration") : page == Page.REQUESTS ? translate("deployment_relocation")
-                    : menu.retired() ? translate("retired_workers") : translate("your_workers"), x, y + 5, TEXT, fw - 20);
+                    : page == Page.INBOX ? translate("notifications") : menu.retired() ? translate("retired_workers") : translate("your_workers"),
+                    x, y + 5, TEXT, page == Page.INBOX ? fw - 182 : fw - 20);
         }
         switch (page) {
             case ROSTER, RECIPIENTS -> buildRoster();
@@ -153,6 +155,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             case OVERRIDES -> buildSettingsPanel(false);
             case PERSONAL -> buildSettings(true);
             case REQUESTS -> buildRequests();
+            case INBOX -> buildInbox();
         }
         if (waiting > 0) {
             children().forEach(child -> { if (child instanceof AbstractWidget widget) { widget.active = false; } });
@@ -335,6 +338,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private void buildSettingsPanel(boolean personal) {
         int x = fx + 10;
         int y = fy + 60;
+        if (personal) { button(translate("alert_preferences"), fx + fw - 102, fy + 34, 92, () -> navigate(Page.INBOX)); }
         if (settings == null) {
             settingsRevision = personal ? data.getLong("ProfileRevision") : data.getCompound("Selected").getLong("Revision");
             settings = new WorkerSettingsPanel(font, values(data.getCompound(personal ? "PersonalSettings" : "Overrides")),
@@ -442,6 +446,52 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private boolean dirty() {
         return jobDirty()
                 || (settings != null && settings.dirty()) || (!name.equals(data.getCompound("Selected").getString("Name")) && menu.worker() != null);
+    }
+
+    private void buildInbox() {
+        button(translate("toasts", translate(data.getBoolean("ShowToasts") ? "on" : "off")), fx + fw - 168, fy + 34, 78,
+                () -> notificationPreferences(!data.getBoolean("ShowToasts"), data.getBoolean("PlaySounds")));
+        button(translate("sounds", translate(data.getBoolean("PlaySounds") ? "on" : "off")), fx + fw - 88, fy + 34, 78,
+                () -> notificationPreferences(data.getBoolean("ShowToasts"), !data.getBoolean("PlaySounds")));
+        ListTag inbox = data.getList("Notifications", Tag.TAG_COMPOUND);
+        int rowHeight = Math.min(60, (fh - 112) / 5);
+        for (int index = 0; index < inbox.size(); index++) {
+            CompoundTag entry = inbox.getCompound(index);
+            int y = fy + 60 + index * rowHeight;
+            String summary = translate("completion_amount", entry.getString("Name"), entry.getLong("Amount"));
+            Button row = addRenderableWidget(Button.builder(Component.empty(), ignored -> {
+                List<String> lines = new ArrayList<>();
+                lines.add(summary); lines.add(notificationTime(entry.getLong("Time")));
+                lines.add(entry.getList("Targets", Tag.TAG_STRING).stream().map(Tag::getAsString).reduce((a, b) -> a + ", " + b).orElse(""));
+                lines.add(translate("confirm_marks_read"));
+                UUID run = entry.getUUID("Run");
+                confirm(translate("completion_details"), lines, () -> {
+                    CompoundTag intent = new CompoundTag(); intent.putUUID("Run", run); send(WorkerNetwork.Action.READ_NOTIFICATION, intent);
+                });
+            }).createNarration(ignored -> Component.literal(summary + ", " + translate(entry.getBoolean("Read") ? "read" : "unread")))
+                    .bounds(fx + 10, y, fw - 20, rowHeight - 2).build());
+            row.setTooltip(Tooltip.create(Component.literal(summary + "\n" + notificationTime(entry.getLong("Time")))));
+            label((entry.getBoolean("Read") ? "" : "• ") + summary, fx + 16, y + 3, entry.getBoolean("Read") ? MUTED : GREEN, fw - 32);
+            label(notificationTime(entry.getLong("Time")), fx + 16, y + 13, MUTED, fw - 32);
+        }
+        if (inbox.isEmpty()) { label(translate("no_completions"), fx + 12, fy + 68, MUTED, fw - 24); }
+        button(translate("mark_all_read"), fx + 10, fy + fh - 46, 106,
+                () -> send(WorkerNetwork.Action.READ_ALL_NOTIFICATIONS, new CompoundTag()));
+        int current = data.getInt("NotificationPage");
+        label(translate("page_count", current + 1, Math.max(1, (data.getInt("NotificationCount") + 4) / 5)), fx + fw - 160, fy + fh - 40, MUTED, 100);
+        button("<", fx + fw - 54, fy + fh - 46, 20, () -> notificationPage(current - 1)).active = current > 0;
+        button(">", fx + fw - 32, fy + fh - 46, 20, () -> notificationPage(current + 1)).active = (current + 1) * 5 < data.getInt("NotificationCount");
+    }
+
+    private void notificationPreferences(boolean toasts, boolean sounds) {
+        CompoundTag intent = new CompoundTag(); intent.putLong("Revision", data.getLong("NotificationRevision"));
+        intent.putBoolean("Toasts", toasts); intent.putBoolean("Sounds", sounds); send(WorkerNetwork.Action.NOTIFICATION_PREFERENCES, intent);
+    }
+
+    private void notificationPage(int next) { CompoundTag intent = new CompoundTag(); intent.putInt("Page", next); send(WorkerNetwork.Action.NOTIFICATION_PAGE, intent); }
+    private static String notificationTime(long time) {
+        return java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.SHORT)
+                .format(java.time.Instant.ofEpochMilli(time).atZone(java.time.ZoneId.systemDefault()));
     }
 
     private boolean jobDirty() { return !targets.equals(savedTargets) || !quantity.equals(savedQuantity) || unlimited != savedUnlimited; }
@@ -553,7 +603,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                     }
                 }
                 rebuild = true;
-            } else if (changed && (page == Page.ROSTER || page == Page.REQUESTS || stateChanged) && dialog == null) { rebuild = true; }
+            } else if (changed && (page == Page.ROSTER || page == Page.REQUESTS || page == Page.INBOX || stateChanged) && dialog == null) { rebuild = true; }
             if (waiting == 0 && !jobDirty() && recipients.isEmpty() && menu.worker() != null) {
                 Set<String> previousTargets = Set.copyOf(targets);
                 String previousQuantity = quantity;
@@ -614,6 +664,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         graphics.fill(fx + 3, fy + 3, fx + fw - 3, fy + fh - 3, 0xFF202622);
         graphics.fill(fx + 5, fy + 29, fx + fw - 5, fy + 30, GREEN);
         graphics.fill(fx + 5, fy + fh - 23, fx + fw - 5, fy + fh - 22, 0xFF87928F);
+        if (dialog == null) { graphics.renderItem(new ItemStack(WorkerMod.CONTROLLER.get()), fx + 10, fy + 6); }
         for (int x : new int[] {fx + 3, fx + fw - 8}) {
             for (int y : new int[] {fy + 3, fy + fh - 8}) { graphics.fill(x, y, x + 5, y + 5, 0xFF9C5936); }
         }
@@ -648,6 +699,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         }
         if (dialog == null && settings != null && (page == Page.OVERRIDES || page == Page.PERSONAL)) { settings.render(graphics, mouseX, mouseY); }
         String status = menu.worker() == null ? translate("active_count", data.getInt("ActiveCount")) : jobSummary(selectedJob());
+        if (page == Page.INBOX) { status = translate("unread_count", data.getInt("Unread")); }
         if (data.getBoolean("Pending")) { status = translate("preparing") + " — " + status; }
         if (waiting > 0 || !message.isEmpty()) { status += " | " + (waiting > 0 ? translate("waiting") : message); }
         graphics.drawString(font, font.plainSubstrByWidth(status, fw - 24), fx + 12, fy + fh - 15, MUTED, false);

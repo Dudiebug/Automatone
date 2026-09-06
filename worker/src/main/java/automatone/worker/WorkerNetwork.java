@@ -8,6 +8,8 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.bus.api.Event;
 
 import java.util.UUID;
 
@@ -21,7 +23,8 @@ public final class WorkerNetwork {
     public enum Action {
         REFRESH, OPEN_WORKER, OPEN_ROSTER, DEPLOY, REACTIVATE, RELOCATE, CANCEL_RELOCATION,
         CONFIGURE_JOB, START, PAUSE, RESUME, STOP, SELECT_TOOL, RENAME, PERSONAL_SETTINGS,
-        WORKER_SETTINGS, RETIRE, PREVIEW_APPLY_JOB, APPLY_JOB
+        WORKER_SETTINGS, RETIRE, PREVIEW_APPLY_JOB, APPLY_JOB, NOTIFICATION_PAGE,
+        READ_NOTIFICATION, READ_ALL_NOTIFICATIONS, NOTIFICATION_PREFERENCES
     }
 
     public record Intent(int menuId, UUID session, long sequence, Action action, CompoundTag data)
@@ -66,6 +69,34 @@ public final class WorkerNetwork {
         public Type<Snapshot> type() { return TYPE; }
     }
 
+    public record Notice(UUID eventId, boolean summary, int unread, String workerName, long amount, boolean toast, boolean sound)
+            implements CustomPacketPayload {
+        public static final Type<Notice> TYPE = new Type<>(id("notice"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, Notice> CODEC = StreamCodec.of((buffer, notice) -> {
+            buffer.writeUUID(notice.eventId()); buffer.writeBoolean(notice.summary()); buffer.writeVarInt(notice.unread());
+            buffer.writeUtf(notice.workerName(), 64); buffer.writeLong(notice.amount());
+            buffer.writeBoolean(notice.toast()); buffer.writeBoolean(notice.sound());
+        }, buffer -> new Notice(buffer.readUUID(), buffer.readBoolean(), buffer.readVarInt(), buffer.readUtf(64),
+                buffer.readLong(), buffer.readBoolean(), buffer.readBoolean()));
+
+        public Notice {
+            if (eventId == null || workerName == null || workerName.length() > 64 || unread < 0 || unread > WorkerRoster.NOTIFICATION_LIMIT
+                    || amount < 0 || amount > MiningSession.MAX_REQUESTED_BLOCKS || (!summary && amount == 0)) {
+                throw new IllegalArgumentException("INVALID_NOTICE");
+            }
+        }
+
+        @Override
+        public Type<Notice> type() { return TYPE; }
+    }
+
+    /** Client-side subscribers own rendering; no client class is referenced by common transport. */
+    public static final class NoticeReceived extends Event {
+        private final Notice notice;
+        public NoticeReceived(Notice notice) { this.notice = notice; }
+        public Notice notice() { return notice; }
+    }
+
     private WorkerNetwork() { }
 
     public static void register(RegisterPayloadHandlersEvent event) {
@@ -80,6 +111,7 @@ public final class WorkerNetwork {
                 menu.receive(payload);
             }
         });
+        registrar.playToClient(Notice.TYPE, Notice.CODEC, (payload, context) -> NeoForge.EVENT_BUS.post(new NoticeReceived(payload)));
     }
 
     private static CompoundTag readTag(RegistryFriendlyByteBuf buffer, long limit) {

@@ -11,6 +11,9 @@ description="Minimal server worker host for Automatone."
 [[mixins]]
 config="automatone-worker.mixins.json"
 
+[[mixins]]
+config="automatone-worker-client.mixins.json"
+
 [[dependencies.automatone_worker]]
 modId="automatone"
 type="required"

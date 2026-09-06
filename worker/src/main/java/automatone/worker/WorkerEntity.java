@@ -249,6 +249,7 @@ public class WorkerEntity extends Mob implements Container {
     void onBlockDestroyed(BlockState state) {
         if (miningSession.recordBreak(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString())) {
             cancelNativeMining();
+            WorkerNotifications.completed(this);
         }
     }
 

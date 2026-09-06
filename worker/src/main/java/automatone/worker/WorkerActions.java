@@ -34,6 +34,23 @@ final class WorkerActions {
         result.putString("Kind", "Success");
         switch (action) {
             case REFRESH -> keys(data);
+            case NOTIFICATION_PAGE -> {
+                keys(data, "Page");
+                menu.notificationPage(integer(data, "Page", 0, 19));
+            }
+            case READ_NOTIFICATION -> {
+                keys(data, "Run");
+                roster.markRead(owner, uuid(data, "Run"));
+            }
+            case READ_ALL_NOTIFICATIONS -> {
+                keys(data);
+                roster.markAllRead(owner);
+            }
+            case NOTIFICATION_PREFERENCES -> {
+                keys(data, "Revision", "Toasts", "Sounds");
+                require(data, "Revision", Tag.TAG_LONG);
+                roster.applyNotificationPreferences(owner, data.getLong("Revision"), bool(data, "Toasts"), bool(data, "Sounds"));
+            }
             case OPEN_ROSTER -> {
                 keys(data, "Retired", "Page");
                 boolean retired = bool(data, "Retired");

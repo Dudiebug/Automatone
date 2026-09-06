@@ -6,8 +6,7 @@ equipment. Baseline: accepted M4; existing human workflow/document edits preserv
 
 ## Current status
 
-M5.1 COMPLETE (controller: focused criteria and architectural scope confirmed).
-M5.2 IN_PROGRESS. M5.3-M5.8 PENDING. Milestone acceptance PENDING.
+M5.1-M5.6 COMPLETE for automated task criteria. Human M5.4/M5.6 visual checks PENDING. M5.7 IN_PROGRESS; M5.8 independent gate PENDING. Milestone acceptance PENDING.
 Skills: Graphify structural query, Ponytail native/reuse-first implementation,
 Old Coder failure model under the repository proportional verification policy.
 Product spec approved; Astra owns detailed test contracts. No extra dependency,
@@ -301,3 +300,42 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   explicit instruction. Real GUI scales, keyboard/tooltips, modded search, slots,
   dialogs and visual quality remain PENDING in the final human checklist; these
   have NOT been measured or claimed PASS. Independent milestone sensors PENDING.
+
+## M5.7 — Completion notifications and inbox (automated COMPLETE)
+
+- A real successful finite source-block completion now records owner history before
+  online delivery. The roster persists the current worker's last-notified run marker,
+  latest 100 immutable completion records (run/worker/name/targets/amount/time/read),
+  and independent toast/sound preferences with their own optimistic revision. Old
+  version-one rosters without those fields retain empty history/enabled defaults.
+  Ordinary save/load, retirement and reactivation preserve the marker; arbitrary
+  historical rollback is outside the approved normal-shutdown persistence contract.
+- Login sends one unread-count summary per connection/login, never individual offline
+  replay. New server menu actions page five newest-first owner entries, mark one/all
+  read, and edit preferences. No global broadcast or controller requirement for owner
+  completion delivery. Dedicated-server Notice payload booleans remain independent.
+- Client Inbox shows records/details/read state and preferences. Native marker toasts
+  use one optional 0.20-volume amethyst chime. Pinned ToastComponent source proves its
+  automatic in/out audio has no public opt-out: one client-only mixin redirects the
+  two calls only for WorkerCompletionToast, preserving all other toast audio. Its
+  separate client config/package protects dedicated-server class loading. Actual
+  toast visuals, silent transition behavior and audio level remain human PENDING.
+- M5.5's exact ServerPlayer transport allowlist now additionally permits only
+  WorkerNotifications, whose references address real recipients/login events.
+  This implements the approved notification transport boundary; worker/runtime
+  impersonation, FakePlayer/Factory, consumer engines and common/client bans remain.
+- Shared server and client compile/processResources PASS (M5-notifications-compile.log
+  and M5-notifications-client-compile.log). Final compileGameTestJava and all four
+  focused notification GameTests PASS, final raw log M5-notifications-runtime.log.
+  Native case observes one actual target destruction, pause/apply/resume and one
+  owner payload. M5.1's existing partial-progress pause proof remains applicable.
+  The 101-record cap fixture restores valid completed NBT; it is explicitly not a
+  claim of 101 native mining executions. Full record equality/read states/preferences
+  round-trip, replay guards, noncompletion negatives, offline summary deduplication,
+  foreign-run rejection and all four presentation-flag combinations are covered.
+- Controller reviewed tests and requested the additional full-record, foreign-run,
+  both-disabled and cleanup assertions; corrected focused rerun PASS. Fixtures clean
+  login bookkeeping and restore the mining chamber even after cleanup failures.
+  Resource/translation references and diff whitespace checks PASS. No full profile
+  was run before the independent gate. M5.7 scope confirmed; M5.8 is next.
+- Human checklist: docs/M5_MANUAL_ACCEPTANCE.md. No GPU client launched in this task.

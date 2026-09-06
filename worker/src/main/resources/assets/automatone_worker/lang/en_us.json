@@ -116,5 +116,22 @@
   "gui.automatone_worker.category_pathing": "Pathing",
   "gui.automatone_worker.category_avoidance": "Avoidance",
   "gui.automatone_worker.category_cache": "Cache",
-  "gui.automatone_worker.category_other": "Other"
+  "gui.automatone_worker.category_other": "Other",
+  "gui.automatone_worker.inbox": "Inbox",
+  "gui.automatone_worker.notifications": "Notifications",
+  "gui.automatone_worker.alert_preferences": "Alert preferences",
+  "gui.automatone_worker.toasts": "Toasts: %s",
+  "gui.automatone_worker.sounds": "Sound: %s",
+  "gui.automatone_worker.completion_amount": "%s: %s blocks",
+  "gui.automatone_worker.confirm_marks_read": "Confirm to mark this completion as read.",
+  "gui.automatone_worker.completion_details": "Completion details",
+  "gui.automatone_worker.read": "read",
+  "gui.automatone_worker.unread": "unread",
+  "gui.automatone_worker.no_completions": "No completed jobs yet.",
+  "gui.automatone_worker.mark_all_read": "Mark all read",
+  "gui.automatone_worker.unread_count": "%s unread completions",
+  "notification.automatone_worker.unread": "%s unread completions in your inbox",
+  "notification.automatone_worker.completed": "%s: %s blocks",
+  "notification.automatone_worker.inbox": "Automatone inbox",
+  "notification.automatone_worker.title": "Worker job completed"
 }

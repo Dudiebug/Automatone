@@ -38,6 +38,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
     private long clientSequence;
     private long snapshotVersion;
     private int snapshotTick = -20;
+    private int notificationPage;
     private CompoundTag clientData = new CompoundTag();
     private CompoundTag response = new CompoundTag();
     private boolean inventoryVisible;
@@ -298,6 +299,17 @@ public final class WorkerMenu extends AbstractContainerMenu {
         }
         data.put("Relocations", pending);
         data.put("Response", response.copy());
+        List<WorkerRoster.Completion> inbox = roster.notifications(owner);
+        notificationPage = Math.min(notificationPage, Math.max(0, (inbox.size() - 1) / 5));
+        ListTag notifications = new ListTag();
+        int newest = inbox.size() - 1 - notificationPage * 5;
+        for (int index = newest; index >= Math.max(0, newest - 4); index--) { notifications.add(inbox.get(index).save()); }
+        data.put("Notifications", notifications);
+        data.putInt("NotificationCount", inbox.size()); data.putInt("NotificationPage", notificationPage);
+        data.putInt("Unread", roster.unread(owner));
+        WorkerRoster.NotificationPreferences preferences = roster.notificationPreferences(owner);
+        data.putLong("NotificationRevision", preferences.revision());
+        data.putBoolean("ShowToasts", preferences.toasts()); data.putBoolean("PlaySounds", preferences.sounds());
         return data;
     }
 
@@ -320,7 +332,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
 
     public void receive(WorkerNetwork.Snapshot snapshot) {
         if (roster == null && snapshot.menuId() == containerId && snapshot.session().equals(session)) {
-            clientData = snapshot.data().copy();
+            clientData = snapshot.data();
             snapshotVersion++;
             sequence = snapshot.sequence();
             clientSequence = Math.max(clientSequence, sequence);
@@ -333,6 +345,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
     public int page() { return page; }
     public long sequence() { return sequence; }
     public long snapshotVersion() { return snapshotVersion; }
+    void notificationPage(int page) { notificationPage = page; }
     public void showInventory(boolean visible) { inventoryVisible = visible; }
     Player player() { return player; }
     UUID owner() { return owner; }

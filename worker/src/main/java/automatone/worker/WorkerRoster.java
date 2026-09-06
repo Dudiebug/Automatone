@@ -23,11 +23,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Overworld-owned product records. All mutations and reservations run on the server thread. */
 public final class WorkerRoster extends SavedData {
     public static final int ACTIVE_LIMIT = 10;
+    public static final int NOTIFICATION_LIMIT = 100;
     private final MinecraftServer server;
     private final Map<UUID, Entry> entries = new LinkedHashMap<>();
     private final Map<UUID, Profile> profiles = new LinkedHashMap<>();
@@ -40,10 +42,38 @@ public final class WorkerRoster extends SavedData {
     public record ProfileView(long revision, Map<String, String> settings) {
         public ProfileView { settings = Map.copyOf(settings); }
     }
+    public record NotificationPreferences(long revision, boolean toasts, boolean sounds) { }
+    public record Completion(UUID run, UUID worker, String name, List<String> targets, long amount, long time, boolean read) {
+        public Completion { targets = List.copyOf(targets); }
+
+        public CompoundTag save() {
+            CompoundTag tag = new CompoundTag();
+            tag.putUUID("Run", run); tag.putUUID("Worker", worker); tag.putString("Name", name);
+            ListTag blocks = new ListTag(); targets.forEach(target -> blocks.add(net.minecraft.nbt.StringTag.valueOf(target)));
+            tag.put("Targets", blocks); tag.putLong("Amount", amount); tag.putLong("Time", time); tag.putBoolean("Read", read);
+            return tag;
+        }
+
+        private static Completion load(CompoundTag tag) {
+            List<String> targets = tag.getList("Targets", Tag.TAG_STRING).stream().map(Tag::getAsString).toList();
+            if (targets.isEmpty() || targets.size() > MiningSession.MAX_TARGET_BLOCKS
+                    || targets.stream().anyMatch(target -> target.length() > 256)
+                    || tag.getString("Name").length() > 64 || tag.getLong("Amount") <= 0
+                    || tag.getLong("Amount") > MiningSession.MAX_REQUESTED_BLOCKS || tag.getLong("Time") <= 0) {
+                throw new IllegalArgumentException("INVALID_SAVED_NOTIFICATION");
+            }
+            return new Completion(tag.getUUID("Run"), tag.getUUID("Worker"), tag.getString("Name"),
+                    targets, tag.getLong("Amount"), tag.getLong("Time"), tag.getBoolean("Read"));
+        }
+    }
 
     private static final class Profile {
         private long revision;
         private Map<String, String> settings = Map.of();
+        private long notificationRevision;
+        private boolean toasts = true;
+        private boolean sounds = true;
+        private final List<Completion> completions = new ArrayList<>();
     }
 
     private static final class Entry {
@@ -56,6 +86,7 @@ public final class WorkerRoster extends SavedData {
         private Map<String, String> overrides = Map.of();
         private CompoundTag entity = new CompoundTag();
         private SimpleContainer archiveInventory;
+        private UUID notifiedRun;
 
         private Entry(UUID owner) { this.owner = owner; }
     }
@@ -78,6 +109,18 @@ public final class WorkerRoster extends SavedData {
             Profile profile = new Profile();
             profile.revision = saved.getLong("Revision");
             profile.settings = WorkerSettings.load(saved.getCompound("Settings"));
+            profile.notificationRevision = saved.getLong("NotificationRevision");
+            profile.toasts = !saved.contains("ShowToasts") || saved.getBoolean("ShowToasts");
+            profile.sounds = !saved.contains("PlaySounds") || saved.getBoolean("PlaySounds");
+            ListTag notifications = saved.getList("Notifications", Tag.TAG_COMPOUND);
+            if (notifications.size() > NOTIFICATION_LIMIT) { throw new IllegalArgumentException("TOO_MANY_SAVED_NOTIFICATIONS"); }
+            for (Tag notification : notifications) {
+                Completion completion = Completion.load((CompoundTag) notification);
+                if (profile.completions.stream().anyMatch(previous -> previous.run().equals(completion.run()))) {
+                    throw new IllegalArgumentException("DUPLICATE_SAVED_NOTIFICATION");
+                }
+                profile.completions.add(completion);
+            }
             if (result.profiles.put(saved.getUUID("Owner"), profile) != null) {
                 throw new IllegalArgumentException("DUPLICATE_PROFILE");
             }
@@ -92,6 +135,7 @@ public final class WorkerRoster extends SavedData {
             entry.name = saved.getString("Name");
             entry.overrides = WorkerSettings.load(saved.getCompound("Overrides"));
             entry.entity = saved.getCompound("Entity").copy();
+            entry.notifiedRun = saved.hasUUID("NotifiedRun") ? saved.getUUID("NotifiedRun") : null;
             if (result.entries.put(saved.getUUID("Worker"), entry) != null) {
                 throw new IllegalArgumentException("DUPLICATE_WORKER");
             }
@@ -110,6 +154,11 @@ public final class WorkerRoster extends SavedData {
             saved.putUUID("Owner", owner);
             saved.putLong("Revision", profile.revision);
             saved.put("Settings", WorkerSettings.save(profile.settings));
+            saved.putLong("NotificationRevision", profile.notificationRevision);
+            saved.putBoolean("ShowToasts", profile.toasts);
+            saved.putBoolean("PlaySounds", profile.sounds);
+            ListTag notifications = new ListTag(); profile.completions.forEach(completion -> notifications.add(completion.save()));
+            saved.put("Notifications", notifications);
             savedProfiles.add(saved);
         });
         tag.put("Profiles", savedProfiles);
@@ -129,6 +178,7 @@ public final class WorkerRoster extends SavedData {
             saved.putString("Name", entry.name);
             saved.put("Overrides", WorkerSettings.save(entry.overrides));
             saved.put("Entity", entry.entity.copy());
+            if (entry.notifiedRun != null) { saved.putUUID("NotifiedRun", entry.notifiedRun); }
             savedEntries.add(saved);
         });
         tag.put("Workers", savedEntries);
@@ -174,6 +224,77 @@ public final class WorkerRoster extends SavedData {
     }
 
     public Map<String, String> overrides(UUID owner, UUID worker) { return owned(owner, worker).overrides; }
+
+    /** Current-run completion is recorded before any online presentation is attempted. */
+    public Optional<Completion> recordCompletion(WorkerEntity worker) {
+        requireThread();
+        UUID owner = worker.ownerUUID().orElse(null);
+        Entry entry = entries.get(worker.getUUID());
+        MiningSession.Snapshot job = worker.miningStatus();
+        if (owner == null || entry == null || !entry.owner.equals(owner) || entry.retired
+                || worker.isRemoved() || !worker.isAlive() || !worker.equals(findLive(worker.getUUID()))
+                || job.state() != MiningSession.State.COMPLETED || job.runId() == null
+                || job.runId().equals(entry.notifiedRun)) { return Optional.empty(); }
+        String name = worker.getName().getString();
+        Completion completion = new Completion(job.runId(), worker.getUUID(), name.substring(0, Math.min(64, name.length())),
+                job.targets(), job.completed(), System.currentTimeMillis(), false);
+        Profile profile = profiles.computeIfAbsent(owner, ignored -> new Profile());
+        // The marker survives history eviction, retirement, reactivation and ordinary restart.
+        entry.notifiedRun = job.runId();
+        profile.completions.add(completion);
+        if (profile.completions.size() > NOTIFICATION_LIMIT) { profile.completions.removeFirst(); }
+        capture(entry, worker);
+        entry.revision++;
+        setDirty();
+        return Optional.of(completion);
+    }
+
+    /** Oldest first, capped at 100. The menu presents newest first in bounded pages. */
+    public List<Completion> notifications(UUID owner) {
+        requireThread();
+        Profile profile = profiles.get(owner);
+        return profile == null ? List.of() : List.copyOf(profile.completions);
+    }
+
+    public int unread(UUID owner) { return (int) notifications(owner).stream().filter(completion -> !completion.read()).count(); }
+
+    public NotificationPreferences notificationPreferences(UUID owner) {
+        requireThread();
+        Profile profile = profiles.get(owner);
+        return profile == null ? new NotificationPreferences(0, true, true)
+                : new NotificationPreferences(profile.notificationRevision, profile.toasts, profile.sounds);
+    }
+
+    public void applyNotificationPreferences(UUID owner, long revision, boolean toasts, boolean sounds) {
+        requireThread();
+        checkRevision(notificationPreferences(owner).revision(), revision);
+        Profile profile = profiles.computeIfAbsent(Objects.requireNonNull(owner), ignored -> new Profile());
+        profile.toasts = toasts; profile.sounds = sounds; profile.notificationRevision++;
+        setDirty();
+    }
+
+    public void markRead(UUID owner, UUID run) {
+        requireThread();
+        Profile profile = profiles.get(owner);
+        if (profile != null) {
+            for (int index = 0; index < profile.completions.size(); index++) {
+                Completion completion = profile.completions.get(index);
+                if (completion.run().equals(run)) {
+                    if (!completion.read()) {
+                        profile.completions.set(index, new Completion(completion.run(), completion.worker(), completion.name(),
+                                completion.targets(), completion.amount(), completion.time(), true));
+                        setDirty();
+                    }
+                    return;
+                }
+            }
+        }
+        throw new IllegalArgumentException("NOTIFICATION_NOT_FOUND");
+    }
+
+    public void markAllRead(UUID owner) {
+        for (Completion completion : notifications(owner)) { if (!completion.read()) { markRead(owner, completion.run()); } }
+    }
 
     public void applyPersonal(UUID owner, long revision, Map<String, String> values) {
         requireThread();
