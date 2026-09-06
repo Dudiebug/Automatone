@@ -103,7 +103,7 @@ public final class WorkerNetwork {
     private WorkerNetwork() { }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("3");
+        var registrar = event.registrar("4");
         registrar.playToServer(Intent.TYPE, Intent.CODEC, (payload, context) -> {
             if (context.player().containerMenu instanceof WorkerMenu menu) {
                 menu.handle(context.player(), payload);

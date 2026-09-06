@@ -2,7 +2,7 @@ schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
 accepted_baseline: 14762d261c107f7020930aa73d905e47359f3d04
-active_task: M5.9
+active_task: M5.14
 active_gate: M5
 
 milestones:
@@ -10,9 +10,9 @@ milestones:
     state: IN_PROGRESS
     baseline: c8b68bee
     last_verdict: PENDING
-    last_evidence: .agents/decisions/M5-EVIDENCE.md
-    implementation_plan: docs/M5_GUI_CONTROLLER.md
-    execution_authorization: Human requested implementation of the approved UI/controller plan; new workers start empty.
+    last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
+    implementation_plan: docs/M5_GLOBAL_MANAGEMENT.md
+    execution_authorization: "Human approved global management; human owns all in-game testing. Delivery follows code/build/static checks."
     blocker: null
   M4:
     state: ACCEPTED
@@ -265,6 +265,31 @@ tasks:
     deferred: "Automated extension gate and restart PASS; manual GPU/client acceptance remains PENDING."
     blocker: null
     execution_authorization: "Human requested full 36-slot inventories, side-by-side UI, Collect all and configurable block-list cleanup."
+  M5.10:
+    state: COMPLETE
+    candidate: fe49af77
+    last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
+    deferred: "In-game acceptance PENDING — HUMAN TESTING; see recorded historical focused results."
+  M5.11:
+    state: COMPLETE
+    candidate: 8e9e360b
+    last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
+    deferred: "In-game acceptance PENDING — HUMAN TESTING; see recorded historical focused results."
+  M5.12:
+    state: COMPLETE
+    candidate: 12d9d9cd
+    last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
+    deferred: "In-game acceptance PENDING — HUMAN TESTING; see recorded historical focused results."
+  M5.13:
+    state: COMPLETE
+    candidate: b34a3ea0
+    last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
+    deferred: "In-game acceptance PENDING — HUMAN TESTING; see recorded historical focused results."
+  M5.14:
+    state: IMPLEMENTING
+    last_verdict: PENDING
+    last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
+    deferred: "All in-game testing belongs to the human; no agent client/GameTest/restart runs."
   M6.1:
     state: PLANNED
     baseline: null
