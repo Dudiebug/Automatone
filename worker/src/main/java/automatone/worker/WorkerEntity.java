@@ -301,7 +301,10 @@ public class WorkerEntity extends Mob implements Container {
 
     @Override
     public void onRemovedFromLevel() {
-        if (level() instanceof ServerLevel serverLevel && getRemovalReason() != RemovalReason.UNLOADED_TO_CHUNK) {
+        // Shutdown drops tracking before assigning an unload reason; retain its saved anchor.
+        RemovalReason reason = getRemovalReason();
+        if (level() instanceof ServerLevel serverLevel && reason != null
+                && (reason.shouldDestroy() || reason == RemovalReason.CHANGED_DIMENSION)) {
             chunkLoading.release(serverLevel, getUUID());
         }
         detachRuntime();

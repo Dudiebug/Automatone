@@ -8,7 +8,7 @@
       "id": 1,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bbbb5b762a69b848b1af49b688db4a2c1d145628d9f7a323030e36af30913785",
+      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -16,7 +16,7 @@
       "id": 2,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bbbb5b762a69b848b1af49b688db4a2c1d145628d9f7a323030e36af30913785",
+      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -24,7 +24,7 @@
       "id": 3,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bbbb5b762a69b848b1af49b688db4a2c1d145628d9f7a323030e36af30913785",
+      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -32,7 +32,7 @@
       "id": 4,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bbbb5b762a69b848b1af49b688db4a2c1d145628d9f7a323030e36af30913785",
+      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -40,7 +40,7 @@
       "id": 5,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bbbb5b762a69b848b1af49b688db4a2c1d145628d9f7a323030e36af30913785",
+      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -48,7 +48,7 @@
       "id": 6,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bbbb5b762a69b848b1af49b688db4a2c1d145628d9f7a323030e36af30913785",
+      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -56,7 +56,7 @@
       "id": 7,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bbbb5b762a69b848b1af49b688db4a2c1d145628d9f7a323030e36af30913785",
+      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -64,7 +64,7 @@
       "id": 8,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bbbb5b762a69b848b1af49b688db4a2c1d145628d9f7a323030e36af30913785",
+      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
       "contract": "Native executor ownership contract: getExecutor exposes the shared executor used by pathing and scanning. Replacing it with a detached or wrapped executor would change scheduling and ownership; callers are not given an arbitrary shutdown contract.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },

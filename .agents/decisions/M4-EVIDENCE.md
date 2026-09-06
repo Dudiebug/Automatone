@@ -32,3 +32,30 @@ Its actual save/restart execution and the complete milestone profile remain PEND
 for the single independent clean-candidate gate. Controller confirms worker/native
 ownership boundaries and approved scope; M4.5 is not COMPLETE until that restart
 criterion passes.
+
+Independent candidate 54824ed6: complete default/architecture/runtime union PASS
+(.agents/evidence/M4/fresh-profile-manual.raw.log): root 28 and worker 49 GameTests,
+unit tests, compilation/Error Prone, Checkstyle, ArchUnit, CPD and raw SpotBugs with
+dispositions. The two-process restart criterion FAILed: write saved partial work
+but the process timed out after shutdown; read found no loaded workers and timed
+out (logs/m45-restart-write.log and logs/m45-restart-read.log). The initial independent
+record is .agents/evidence/M4/fresh-independent-verification.json. The nonexistent
+wrapper task ID M4 was a caller error before execution; the verifier ran its exact
+underlying profile union once, without a duplicate profile run.
+
+Controller repair: vanilla stopServer removes physical chunk tickets and drops
+entity tracking before assigning a removal reason. Worker onRemovedFromLevel now
+releases persisted tickets only for destruction or dimension transfer, preserving
+shutdown anchors. Inspection of the failed world's actual entity region confirmed
+all five workers retained their RUNNING/terminal state, inventory and progress;
+chunks.dat had become empty. Baritone's four default non-daemon executor cores
+also kept the saved server process alive. The executor now creates named daemon
+threads; runtime disposal still cancels work and CachedWorld.close synchronously
+awaits its background tasks and saves its cache before shutdown completes.
+
+Existing SpotBugs approvals 1-8 revalidated by the controller under
+EXECUTION_STRATEGY.md: only the thread factory changed. Exposed context/process/
+selection identities, shared executor identity and accessor lines/contracts are
+unchanged. Updated only their UTF-8/LF source hash; eligibility, thresholds and
+original approval contracts remain unchanged. Affected raw analysis and a new
+write/read run are PENDING; the failed original evidence is retained.

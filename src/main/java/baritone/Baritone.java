@@ -56,7 +56,7 @@ public class Baritone implements IBaritone {
     private static final ThreadPoolExecutor threadPool;
 
     static {
-        threadPool = new ThreadPoolExecutor(4, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>());
+        threadPool = new ThreadPoolExecutor(4, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), Thread.ofPlatform().daemon(true).name("automatone-", 0).factory());
     }
 
     private final Path directory;
