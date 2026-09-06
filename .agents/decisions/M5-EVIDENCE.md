@@ -6,11 +6,12 @@ equipment. Baseline: accepted M4; existing human workflow/document edits preserv
 
 ## Current status
 
-M5.1-M5.7 COMPLETE for automated task criteria. Human visual/client checks PENDING. The human approved source-line migrations and removed source-file hash checks; final automated disposition recheck IN_PROGRESS. Milestone acceptance PENDING.
+M5.1-M5.7 COMPLETE for automated task criteria. Independent automated M5 profile PASS on 1d2aaa4d, with unchanged product source from b379805d. The human-approved source-line migrations and removal of source-file hash checks are verified. Human visual/client checks and milestone acceptance remain PENDING.
 Skills: Graphify structural query, Ponytail native/reuse-first implementation,
 Old Coder failure model under the repository proportional verification policy.
 Product spec approved; Astra owns detailed test contracts. No extra dependency,
-mutation or coverage target is assumed. Final independent gate remains PENDING.
+mutation or coverage target is assumed. The independent automated gate is complete;
+the manual acceptance checklist remains PENDING.
 
 ## Preflight
 
@@ -414,3 +415,20 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   (`.agents/evidence/M5/workflow-hash-removal.log`). Source fingerprints retained
   in reports only identify tested candidates; they are not source-edit approval
   checks. Download/catalogue integrity and artifact checksums are separate.
+- Final independent affected checks PASS on clean 1d2aaa4d: SpotBugs contract
+  controls and both main disposition gates (exactly 66 native/two worker historical
+  findings) passed on eab1d095; unchanged analyzer policy reused on 1d2aaa4d.
+  Workflow and repair suites passed on 1d2aaa4d, including all 34 repair controls.
+  Product source remains unchanged from b379805d, so its 28 native/77 worker
+  GameTests, unit, architecture and style results plus repaired CPD evidence remain
+  applicable. No duplicate full profile was run. Controller reviewed the final
+  evidence and confirms automated scope/invariants; no new warnings were approved.
+  Consolidated independent record:
+  `.agents/evidence/M5/final-consolidated-1d2aaa4d.json`; raw analyzer output:
+  `final-spotbugs-eab1d095.log` in that directory. Workflow output is retained in
+  the controller's `workflow-hash-removal.log`; the independent rerun's exit 0
+  and 34/34 results are recorded in the consolidated record.
+  Initial independent failures remain preserved as history. Only human client/GPU
+  acceptance remains PENDING; M5 is not ACCEPTED and M6 has not begun.
+  Updated `dist/automatone-M5-test.zip` retains the b379805d production JARs with
+  current verification notes and `docs/M5_MANUAL_ACCEPTANCE.md`.

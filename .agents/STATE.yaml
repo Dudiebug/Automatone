@@ -251,11 +251,11 @@ tasks:
     deferred: Human toast and sound checks PENDING under explicit GPU testing split.
   M5.8:
     state: IMPLEMENTING
-    candidate: b379805d
+    candidate: 1d2aaa4d0b87d062bdab9a72cbdc9157dfb4a166
     last_verdict: PENDING
     last_evidence: .agents/decisions/M5-EVIDENCE.md
     blocker: null
-    deferred: Human GPU acceptance PENDING; automated disposition recheck in progress.
+    deferred: Independent automated profile PASS; human GPU acceptance PENDING. Product source unchanged from b379805d.
   M6.1:
     state: PLANNED
     baseline: null
