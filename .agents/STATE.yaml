@@ -250,11 +250,12 @@ tasks:
     last_evidence: .agents/decisions/M5-EVIDENCE.md
     deferred: Human toast and sound checks PENDING under explicit GPU testing split.
   M5.8:
-    state: BLOCKED
+    state: IMPLEMENTING
     candidate: b379805d
     last_verdict: PENDING
     last_evidence: .agents/decisions/M5-EVIDENCE.md
-    blocker: Human decision on exact historical SpotBugs source-line migrations; manual GPU acceptance also PENDING.
+    blocker: null
+    deferred: Human GPU acceptance PENDING; automated disposition recheck in progress.
   M6.1:
     state: PLANNED
     baseline: null

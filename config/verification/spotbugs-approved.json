@@ -8,7 +8,6 @@
       "id": 1,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -16,7 +15,6 @@
       "id": 2,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -24,7 +22,6 @@
       "id": 3,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -32,7 +29,6 @@
       "id": 4,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -40,7 +36,6 @@
       "id": 5,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -48,7 +43,6 @@
       "id": 6,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -56,7 +50,6 @@
       "id": 7,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -64,7 +57,6 @@
       "id": 8,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native executor ownership contract: getExecutor exposes the shared executor used by pathing and scanning. Replacing it with a detached or wrapped executor would change scheduling and ownership; callers are not given an arbitrary shutdown contract.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -72,7 +64,6 @@
       "id": 9,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "776f6a7451541a46ec3c2c53905746a2b964e567f55f66f9307b77ab1d15037b",
       "contract": "Published pagination contract: Paginator.page and pageSize are live pagination state updated by setPageSize, skipPages and display. Returning detached or private state would change the existing command helper behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -80,7 +71,6 @@
       "id": 10,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "776f6a7451541a46ec3c2c53905746a2b964e567f55f66f9307b77ab1d15037b",
       "contract": "Published pagination contract: Paginator.page and pageSize are live pagination state updated by setPageSize, skipPages and display. Returning detached or private state would change the existing command helper behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -88,7 +78,6 @@
       "id": 11,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0f443bc59b2a0a627a0a223ec44689b47c7e9ed1b9d3f7b45678f9f8dd3d9c91",
       "contract": "Event payload identity contract: PacketEvent must retain and return the supplied live Connection and Packet payloads for event consumers.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -96,7 +85,6 @@
       "id": 12,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "0f443bc59b2a0a627a0a223ec44689b47c7e9ed1b9d3f7b45678f9f8dd3d9c91",
       "contract": "Event payload identity contract: PacketEvent must retain and return the supplied live Connection and Packet payloads for event consumers.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -104,7 +92,6 @@
       "id": 13,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "155ab253dd1e9e1f9034619dd1b634481e6d650874f5f46fae439734c6278bc2",
       "contract": "Render event contract: RenderEvent carries the live PoseStack and Matrix4f supplied by the rendering caller; event consumers must observe and mutate the current render payload.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -112,7 +99,6 @@
       "id": 14,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "155ab253dd1e9e1f9034619dd1b634481e6d650874f5f46fae439734c6278bc2",
       "contract": "Render event contract: RenderEvent carries the live PoseStack and Matrix4f supplied by the rendering caller; event consumers must observe and mutate the current render payload.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -120,7 +106,6 @@
       "id": 15,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "155ab253dd1e9e1f9034619dd1b634481e6d650874f5f46fae439734c6278bc2",
       "contract": "Render event contract: RenderEvent carries the live PoseStack and Matrix4f supplied by the rendering caller; event consumers must observe and mutate the current render payload.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -128,7 +113,6 @@
       "id": 16,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "155ab253dd1e9e1f9034619dd1b634481e6d650874f5f46fae439734c6278bc2",
       "contract": "Render event contract: RenderEvent carries the live PoseStack and Matrix4f supplied by the rendering caller; event consumers must observe and mutate the current render payload.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -136,7 +120,6 @@
       "id": 17,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "b08201629a1eb498114609bcad256bd841bebbf2bc3a43c3a49ad3c9aa32b1f8",
       "contract": "Tab completion output contract: completions is the event output slot written by ExampleBaritoneControl.onPreTabComplete for external event consumers.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -144,7 +127,6 @@
       "id": 20,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "fa90e916cb194bcaed9b7e480304c9ad6463eaa68bbe6380c6e9a2c62da14368",
       "contract": "World event contract: WorldEvent retains the live Level supplied for load and the documented null value for unload; consumers need the actual world identity.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -152,7 +134,6 @@
       "id": 21,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "fa90e916cb194bcaed9b7e480304c9ad6463eaa68bbe6380c6e9a2c62da14368",
       "contract": "World event contract: WorldEvent retains the live Level supplied for load and the documented null value for unload; consumers need the actual world identity.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -160,23 +141,28 @@
       "id": 22,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bed6993a89abecf2d5a716dbe5514c0183369c16e5bc09e85c5f6460d41b941f",
       "contract": "Constructor validation contract: the public goal constructors reject invalid caller input before publishing an object; the checked inputs are scalar/position data and no privileged resource or authority is acquired.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "49",
+        "end": "49"
+      }
     },
     {
       "id": 23,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "bed6993a89abecf2d5a716dbe5514c0183369c16e5bc09e85c5f6460d41b941f",
       "contract": "Constructor validation contract: the public goal constructors reject invalid caller input before publishing an object; the checked inputs are scalar/position data and no privileged resource or authority is acquired.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "44",
+        "end": "44"
+      }
     },
     {
       "id": 24,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "903312d21fe02a1e5f4334cd2c7b3b95dc891f42128aa5025125630d45f5a108",
       "contract": "Constructor validation contract: the public goal constructors reject invalid caller input before publishing an object; the checked inputs are scalar/position data and no privileged resource or authority is acquired.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -184,7 +170,6 @@
       "id": 25,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "e4b8798bddfbb06d91f986289bd24ca1ef4c58285b3bc7c39f1788faab35254b",
       "contract": "Native pathing compatibility contract: FALL_N_BLOCKS_COST is the published cost table consumed directly by movement and goal code and validated by ActionCostsTest. A copied table would change native tuning or break callers.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -192,7 +177,6 @@
       "id": 26,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "4a0d829d7b68e3dfdf83fabd115460bd65c022bf480b2edfc3d3f8c07236715f",
       "contract": "Constructor validation contract: PathingCommand explicitly rejects a null command type before publication; the exception is caller-input validation and does not expose a resource or authority.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -200,7 +184,6 @@
       "id": 27,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "5cca971caf33179ddcf2a20f71226c9d0378919cfb911c91b4b5d236ee5cd944",
       "contract": "Live configuration ownership contract: SubstituteSchematic intentionally retains the settings substitution map built from the live Baritone settings and consults it while resolving desired states. A detached copy would stop live configuration updates.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -208,7 +191,6 @@
       "id": 28,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "8855ddae66d36c5f078f3b6d1947679c0814d3edf80a7ba44a2379453479d0dd",
       "contract": "Registry/value identity contract: BlockOptionalMeta retains the registered Block and derives immutable state sets from it; identity matching and registry behavior require the actual block object.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -216,7 +198,6 @@
       "id": 29,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "8855ddae66d36c5f078f3b6d1947679c0814d3edf80a7ba44a2379453479d0dd",
       "contract": "Registry/value identity contract: BlockOptionalMeta retains the registered Block and derives immutable state sets from it; identity matching and registry behavior require the actual block object.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -224,7 +205,6 @@
       "id": 31,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "3b060084a0dff68dee03c0b2ba930ad478cecf3a406ab22478a92c8ed61e0313",
       "contract": "Constructor validation contract: PathCalculationResult and Rotation validate caller-supplied type/path or finite rotation values before publication; the rejection has no resource, authority or finalizer exposure.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -232,7 +212,6 @@
       "id": 32,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "3b060084a0dff68dee03c0b2ba930ad478cecf3a406ab22478a92c8ed61e0313",
       "contract": "Constructor validation contract: PathCalculationResult and Rotation validate caller-supplied type/path or finite rotation values before publication; the rejection has no resource, authority or finalizer exposure.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -240,7 +219,6 @@
       "id": 33,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "f4471bcade4de557a8a4086bbbc46f152120f6e08ceed078efad5dd1dee87cb6",
       "contract": "Constructor validation contract: PathCalculationResult and Rotation validate caller-supplied type/path or finite rotation values before publication; the rejection has no resource, authority or finalizer exposure.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -248,7 +226,6 @@
       "id": 36,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -256,7 +233,6 @@
       "id": 37,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -264,7 +240,6 @@
       "id": 38,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -272,7 +247,6 @@
       "id": 39,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -280,7 +254,6 @@
       "id": 40,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "IPathingBehavior API contract: the interface returns the current/next native path executor and its default remaining-tick query reads that executor. A detached object would report stale path state.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -288,7 +261,6 @@
       "id": 41,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "IPathingBehavior API contract: the interface returns the current/next native path executor and its default remaining-tick query reads that executor. A detached object would report stale path state.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -296,7 +268,6 @@
       "id": 42,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "30cec44176ee6e715fb8d7511b9ab9c9cc7912e4db8f51cafeb15c532e77f401",
       "contract": "Defensive-output contract already holds: CachedChunk copies positions, uses List.copyOf and an unmodifiable map before returning relative blocks. The detector does not follow the helper's deep copy and the returned value is not caller-owned mutable state.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -304,23 +275,28 @@
       "id": 43,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "21e3b9648d1ee0c5ffb62c245b973ee9cd5027948a8a2faafbdd5bea5062c72f",
       "contract": "World waypoint ownership contract: WorldData returns the live WaypointCollection used by IWaypointCollection add/remove operations; only derived tag/all views are copied or unmodifiable.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "65",
+        "end": "65"
+      }
     },
     {
       "id": 44,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "6afc6fd0821ad9ba448bb7096fa9263840a533130b0e27e7b0fe6c89b12412a5",
       "contract": "World provider ownership contract: WorldProvider retains the live Level identity for the current world and disposes the old owner when the context changes.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "67",
+        "end": "67"
+      }
     },
     {
       "id": 45,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "cb0192e2b94bc3d49edd5aa0f743998a1a1f47426ee2702abf0e346345900f17",
       "contract": "Best-effort command contract: the narrow orderpizza URI action is optional user-requested integration work; its exception is logged/ignored without losing command state or hiding native pathing errors.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -328,7 +304,6 @@
       "id": 46,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "cb0192e2b94bc3d49edd5aa0f743998a1a1f47426ee2702abf0e346345900f17",
       "contract": "Command validation contract: the catch follows hasExactlyOne and handles CommandNotEnoughArgumentsException for the command's expected argument path, preserving the command's safe failure behavior.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -336,7 +311,6 @@
       "id": 50,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "ef6bc33c36c7c56d8e794320d61ac45c36a6f2631db8a4b332bfb608d2fb38c0",
       "contract": "IArgConsumer interface contract: gradual argument consumption is explicitly mutable and copy() is the separate snapshot operation. The getters expose the same live LinkedList/Deque consumed by ArgConsumer; detached containers would change state transitions.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -344,7 +318,6 @@
       "id": 51,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "ef6bc33c36c7c56d8e794320d61ac45c36a6f2631db8a4b332bfb608d2fb38c0",
       "contract": "IArgConsumer interface contract: gradual argument consumption is explicitly mutable and copy() is the separate snapshot operation. The getters expose the same live LinkedList/Deque consumed by ArgConsumer; detached containers would change state transitions.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -352,7 +325,6 @@
       "id": 52,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "c5dc912e4e119045c4dcdb0a40f2e4ff23c7289efb098dbbcaa47112f0c78666",
       "contract": "User command contract: GcCommand requires zero arguments, intentionally calls System.gc and logs the requested operation. The narrow catch is informational command handling, not a blanket exception swallow.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -360,7 +332,6 @@
       "id": 53,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "f31c7d24ec458c0fdb674697ca2e60e60a44b0c2ab89c6c8e19c40f42af64f9c",
       "contract": "Command manager ownership contract: CommandManager retains the supplied Baritone and registers default commands. Constructor failure performs no additional privileged resource or authority acquisition.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -368,7 +339,6 @@
       "id": 54,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "4f9d6973f7ddb48a94445c6238042c6528e7fe3d7b86ed551f715ce78a36e0c0",
       "contract": "Native pathing compatibility contract: the protected coefficient table is consumed by AStarPathFinder and AbstractNodeCostSearch for native tuning and subclass behavior; hiding or copying it would alter the established search contract.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -376,7 +346,6 @@
       "id": 55,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -384,7 +353,6 @@
       "id": 56,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -392,7 +360,6 @@
       "id": 57,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -400,7 +367,6 @@
       "id": 58,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -408,7 +374,6 @@
       "id": 59,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -416,7 +381,6 @@
       "id": 60,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -424,7 +388,6 @@
       "id": 61,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "d39bae5d59a5cf2b0aef9d83a0a7cdc5c69a48869e8dcb381f22df1967ea6126",
       "contract": "Native movement state contract: getInputStates returns the live map iterated and cleared by Movement.update; a detached map would prevent input state consumption.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -432,7 +395,6 @@
       "id": 62,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "54b8e358e4a0827f040ff9cf8dc1fb2163baf3ae06e965fcb3c6832351c0d574",
       "contract": "Native movement control contract: forceSafeMode is live state set by forceSafeMode and read by safeMode during descend calculation.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -440,47 +402,61 @@
       "id": 64,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "231bfe11bdb6f5e262c25414a3786a19a9d828e8d31e48b432eb89fbfed0d0c8",
       "contract": "Native builder state contract: stopAtHeight is the current builder limit exposed through getMaxLayer and read by onTick; hiding or copying it would change layer control.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "105",
+        "end": "105"
+      }
     },
     {
       "id": 65,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "231bfe11bdb6f5e262c25414a3786a19a9d828e8d31e48b432eb89fbfed0d0c8",
       "contract": "Builder ownership contract: the nonstatic BuilderCalculationContext intentionally captures its current BuilderProcess and uses the outer schematic/settings while pathing calculations run. Detaching the enclosing process would read stale or unrelated build state.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "1107",
+        "end": "1107"
+      }
     },
     {
       "id": 66,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "ce5a7799e64598ea4f53dff5be5d3d7e475351b57c98c59231181f2062cfa71c",
       "contract": "Private parser construction contract: JsonChunkFilter is a private nested implementation that parses caller-selected input with try-with-resources and publishes local filter state only after construction. Invalid input may throw after the resource closes; external subclass/finalizer exposure is unavailable.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "231",
+        "end": "231"
+      }
     },
     {
       "id": 67,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "216c07456120a73c59e90fd1a4cc9b98300bd357572777b4a7f15a93eb5dee1f",
       "contract": "Block state value contract: AIR is the shared registry BlockState returned for out-of-range/empty sections; registry states are immutable values and no caller-owned mutable collection is exposed.",
-      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-air-warning-revalidation"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "99",
+        "end": "99"
+      }
     },
     {
       "id": 68,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "216c07456120a73c59e90fd1a4cc9b98300bd357572777b4a7f15a93eb5dee1f",
       "contract": "Block state value contract: AIR is the shared registry BlockState returned for out-of-range/empty sections; registry states are immutable values and no caller-owned mutable collection is exposed.",
-      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-air-warning-revalidation"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "169",
+        "end": "169"
+      }
     },
     {
       "id": 69,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "b15134da39a24731dd435b8e683d21a6910c12e0ce675ca1a670a8c823ecfc6e",
       "contract": "Client rendering API contract: IRenderer.color is the shared render buffer mutated by glColor and consumed by draw methods. The client-only rendering surface requires this shared state.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -488,15 +464,17 @@
       "id": 71,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "5d7803719939fe9509557e746ede411d7a3edf946775f34d5dc3f6452d249739",
       "contract": "Compatibility fallback contract: the catch narrowly surrounds BlockState.getDestroySpeed(null, null), whose pinned NeoForge implementation returns the stored destroy speed without dereferencing either argument. Unknown exceptional behavior maps to unbreakable; later item-speed work is outside the catch.",
-      "evidence": ".agents/decisions/M3-EVIDENCE.md#manual-preview-defect-slow-mining-repeatedly-restarts"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress",
+      "sourceLines": {
+        "start": "211",
+        "end": "211"
+      }
     },
     {
       "id": 72,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "7b379130fbb41678ba4828fd8cc267dbc5344049fb6150ce842245e3adbe5f09",
       "contract": "Native movement output contract: MutableMoveResult is caller-owned scratch output; Moves and Movement calculations write x/y/z/cost and callers read them. Making these fields private or copying the object would change the calculation protocol.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -504,7 +482,6 @@
       "id": 73,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "7b379130fbb41678ba4828fd8cc267dbc5344049fb6150ce842245e3adbe5f09",
       "contract": "Native movement output contract: MutableMoveResult is caller-owned scratch output; Moves and Movement calculations write x/y/z/cost and callers read them. Making these fields private or copying the object would change the calculation protocol.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -512,7 +489,6 @@
       "id": 74,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "7b379130fbb41678ba4828fd8cc267dbc5344049fb6150ce842245e3adbe5f09",
       "contract": "Native movement output contract: MutableMoveResult is caller-owned scratch output; Moves and Movement calculations write x/y/z/cost and callers read them. Making these fields private or copying the object would change the calculation protocol.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -520,7 +496,6 @@
       "id": 75,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "7b379130fbb41678ba4828fd8cc267dbc5344049fb6150ce842245e3adbe5f09",
       "contract": "Native movement output contract: MutableMoveResult is caller-owned scratch output; Moves and Movement calculations write x/y/z/cost and callers read them. Making these fields private or copying the object would change the calculation protocol.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     },
@@ -528,7 +503,6 @@
       "id": 78,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "e9054a67cbe91dd9f68328d68ee5f283afd591d7864cfaf51d70469adeb9d83f",
       "contract": "Private bit-array validation contract: LitematicaBitArray validates bit width and array shape before publishing local state; it is private and creates no externally reachable resource or authority, so invalid constructor input cannot enable a finalizer attack.",
       "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
     }

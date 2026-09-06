@@ -6,7 +6,7 @@ equipment. Baseline: accepted M4; existing human workflow/document edits preserv
 
 ## Current status
 
-M5.1-M5.7 COMPLETE for automated task criteria. Human visual/client checks PENDING. M5.8 awaits the historical SpotBugs source-line decision. Milestone acceptance PENDING.
+M5.1-M5.7 COMPLETE for automated task criteria. Human visual/client checks PENDING. The human approved source-line migrations and removed source-file hash checks; final automated disposition recheck IN_PROGRESS. Milestone acceptance PENDING.
 Skills: Graphify structural query, Ponytail native/reuse-first implementation,
 Old Coder failure model under the repository proportional verification policy.
 Product spec approved; Astra owns detailed test contracts. No extra dependency,
@@ -393,3 +393,17 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   mixin resources and no GameTest fixture classes. Test bundle:
   `dist/automatone-M5-b379805d-test.zip`, with both mods, checksums, install notes
   and the manual checklist. It is explicitly an unaccepted test candidate.
+- Human instruction: remove source-file hash checks from the workflow and approve
+  the recorded line migrations. Removed sourceSha256 requirements/comparison and
+  all 68 approval-entry hashes. Updated EXECUTION_STRATEGY accordingly, preserving
+  unrelated concurrent workflow edits. Fresh raw findings and their current
+  approved contracts remain the basis for review; whole-file changes no longer
+  trigger approval bookkeeping. Historical hash evidence above describes the old
+  policy and is superseded by this instruction.
+- Ten exact current sourceLines mappings retain all other frozen identity fields;
+  malformed/unrecorded/wrong ranges, changed methods, new/duplicate/missing findings,
+  incomplete analysis and invalid approvals still fail. Analyzer thresholds and
+  the frozen eligible-warning catalogue are unchanged. Existing contract controls
+  plus source-edit tolerance and line-migration controls PASS
+  (`.agents/evidence/M5/spotbugs-policy-contract.log`). Independent affected
+  disposition verification PENDING; runtime behavior is unchanged from b379805d.

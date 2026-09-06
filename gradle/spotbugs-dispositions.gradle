@@ -73,13 +73,13 @@ rootProject.ext.verifySpotBugsDispositions = {
         resolved
     }
     Map approvedById = [:]
+    Map approvedByIdentity = [:]
     approvals.entries.each { approval ->
         if (!(approval instanceof Map) || !(approval.id instanceof Integer)
                 || approval.status != 'APPROVED' || approval.reviewer != reviewer
-                || !(approval.sourceSha256 instanceof String) || !(approval.sourceSha256 ==~ /[0-9a-f]{64}/)
                 || !(approval.contract instanceof String) || !approval.contract.trim()
                 || !(approval.evidence instanceof String) || !approval.evidence.trim()) {
-            reject('an entry lacks an exact independent approval, source hash, contract, or evidence')
+            reject('an entry lacks an exact independent approval, contract, or evidence')
         }
         if (!eligibleById.containsKey(approval.id) || approvedById.containsKey(approval.id)) {
             reject("ineligible or duplicate approval id ${approval.id}")
@@ -92,10 +92,22 @@ rootProject.ext.verifySpotBugsDispositions = {
                 reject("contradictory ${key} in approval ${approval.id}")
             }
         }
-        if (canonicalHash(rootedFile(eligibleEntry.sourceFile)) != approval.sourceSha256) {
-            reject("source changed for approved finding ${approval.id}: ${eligibleEntry.sourceFile}")
+        rootedFile(eligibleEntry.sourceFile)
+        Map currentIdentity = new LinkedHashMap(eligibleEntry)
+        if (approval.containsKey('sourceLines')) {
+            def lines = approval.sourceLines
+            if (!(lines instanceof Map) || lines.keySet() != (['start', 'end'] as Set)
+                    || !(lines.start instanceof String) || !(lines.start ==~ /[1-9][0-9]{0,8}/)
+                    || !(lines.end instanceof String) || !(lines.end ==~ /[1-9][0-9]{0,8}/)
+                    || lines.start.toInteger() > lines.end.toInteger()) {
+                reject("invalid source lines in approval ${approval.id}")
+            }
+            currentIdentity.putAll(lines)
         }
         approvedById[approval.id] = approval
+        if (approvedByIdentity.put(identity(currentIdentity), eligibleEntry) != null) {
+            reject('duplicate approved finding identity')
+        }
     }
     if (!rawReport.isFile()) {
         reject('missing unsuppressed report')
@@ -131,7 +143,7 @@ rootProject.ext.verifySpotBugsDispositions = {
                        field: attribute(field, 'name'), fieldSignature: attribute(field, 'signature'),
                        sourcePath: attribute(location, 'sourcepath'), start: attribute(location, 'start'),
                        end: attribute(location, 'end'), message: bug.LongMessage.text()]
-        def entry = eligibleByIdentity[identity(finding)]
+        def entry = approvedByIdentity[identity(finding)]
         if (entry == null || !approvedById.containsKey(entry.id)) {
             unapproved.add("${finding.pattern} ${finding['class']} ${finding.method ?: finding.field}")
         } else if (!seen.add(entry.id)) {

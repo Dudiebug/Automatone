@@ -142,12 +142,15 @@ contract only with the contradiction recorded.
   explicit human approval requirements remain in force. No baseline refresh,
   suppression, architecture relaxation or threshold change to hide a failure.
 
-An existing source-hash disposition whose finding, affected code and approved
-contract remain unchanged may be revalidated directly by the controller, with
-a concise reason and the updated hash. Do not require a separate reviewer solely
-for an unrelated edit in the same file. Changed contracts, identities or new
-findings still follow the existing approval rules; validators and thresholds
-remain unchanged.
+The 2026-09-06 human instruction removes source-file hash checks from warning
+approvals. Do not require file hashes or hash revalidation after source edits.
+The controller checks whether the approved finding and contract still apply;
+unrelated edits in the same file do not invalidate an approval. The human also
+approved recording exact new source-line bounds for unchanged findings in the
+approval manifest. Pattern, class, method/signature, field/signature, source path
+and message remain exact, and unrecorded line changes still fail. New findings
+or changed contracts still require the existing approval process. Analyzer
+thresholds and the frozen eligible-warning inventory remain unchanged.
 
 ## Verification entry point
 

@@ -7,7 +7,6 @@
       "id": 1,
       "status": "APPROVED",
       "reviewer": "human",
-      "sourceSha256": "6ab8264748ca2907f7596ca05b68206fda38ca74a72cfa9034a12cc818a46021",
       "contract": "M2.2 requires the actual worker and its one stable controller. Human approved these two exact exceptions on 2026-09-05; independent confirmation remains required at the final M2 gate.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
@@ -15,7 +14,6 @@
       "id": 2,
       "status": "APPROVED",
       "reviewer": "human",
-      "sourceSha256": "6ab8264748ca2907f7596ca05b68206fda38ca74a72cfa9034a12cc818a46021",
       "contract": "M2.2 requires the actual worker and its one stable controller. Human approved these two exact exceptions on 2026-09-05; independent confirmation remains required at the final M2 gate.",
       "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     }

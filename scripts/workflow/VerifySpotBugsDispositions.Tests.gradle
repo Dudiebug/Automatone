@@ -163,9 +163,8 @@ gradle.projectsEvaluated {
             def makeFixture = {
                 File fixtureRoot = Files.createTempDirectory(
                         root.layout.buildDirectory.dir('tmp').get().asFile.toPath(), 'spotbugs-gate-').toFile()
-                // This source is intentionally a temporary fixture.  Its hash is
-                // approved in the synthetic manifest, while the frozen eligibility
-                // file remains the real repository-controlled e81 inventory.
+                // Source content may change without invalidating an otherwise
+                // unchanged finding. Eligibility remains repository-controlled.
                 File sourceFile = new File(fixtureRoot, chosen.sourceFile as String)
                 writeText(sourceFile, 'class Baritone {\n    Object liveOwner;\n}\n')
 
@@ -192,7 +191,6 @@ gradle.projectsEvaluated {
                         sourceFile: chosen.sourceFile,
                         status: 'APPROVED',
                         reviewer: 'luna_old_coder',
-                        sourceSha256: canonicalHash(sourceFile),
                         contract: 'The public accessor returns the exact native live process required by callers.',
                         evidence: 'review.md#live-owner-contract'
                 ]
@@ -333,17 +331,44 @@ gradle.projectsEvaluated {
                     discard(extra)
                 }
 
+                Map moved = makeFixture()
+                try {
+                    Map approvals = new JsonSlurper().parse(moved.approval, 'UTF-8')
+                    approvals.entries[0].sourceLines = [start: '200', end: '201']
+                    writeJson(moved.approval, approvals)
+                    expectFailure('recorded location must match the actual report') { invoke(moved) }
+                    writeText(moved.raw, makeRaw([makeWorkerBug(chosen, [start: '200', end: '201'])]))
+                    invoke(moved)
+                    require(moved.generated.isFile(), 'exact recorded line migration was rejected')
+
+                    writeText(moved.raw, makeRaw([makeWorkerBug(chosen,
+                            [start: '200', end: '201', method: 'changedMethod'])]))
+                    expectFailure('line migration cannot approve a different method') { invoke(moved) }
+                    require(!moved.generated.exists(), 'changed method retained a usable approval')
+
+                    writeText(moved.raw, makeRaw([makeWorkerBug(chosen, [start: '200', end: '202'])]))
+                    expectFailure('line migration requires the exact end bound') { invoke(moved) }
+                    require(!moved.generated.exists(), 'wrong range retained a usable approval')
+
+                    writeText(moved.raw, makeRaw([makeWorkerBug(chosen, [start: '200', end: '201'])]))
+                    approvals.entries[0].remove('sourceLines')
+                    writeJson(moved.approval, approvals)
+                    expectFailure('unrecorded line migration') { invoke(moved) }
+                } finally {
+                    discard(moved)
+                }
+
                 Map changedSource = makeFixture()
                 try {
                     writeText(changedSource.source,
                             changedSource.source.getText('UTF-8') + '\n// source drift\n')
-                    expectFailure('approved source drift') { invoke(changedSource) }
-                    require(!changedSource.generated.exists(), 'source drift left a generated report')
+                    invoke(changedSource)
+                    require(changedSource.generated.isFile(), 'unrelated source edits invalidated an unchanged finding')
                 } finally {
                     discard(changedSource)
                 }
 
-                // Canonical UTF-8/LF hashing must survive a supported CRLF checkout.
+                // Frozen eligibility integrity must survive a supported CRLF checkout.
                 Map crlf = makeFixture()
                 try {
                     def toCrlf = { String text -> text.replace('\r\n', '\n').replace('\n', '\r\n') }
@@ -362,8 +387,11 @@ gradle.projectsEvaluated {
                         ['wrong reviewer', { it.approvalEntry.reviewer = 'implementer' }],
                         ['wrong approval id', { it.approvalEntry.id = 999 }],
                         ['wrong eligibility reference', { it.approvals.eligibilitySha256 = '0' * 64 }],
-                        ['missing source hash', { it.approvalEntry.remove('sourceSha256') }],
-                        ['malformed source hash', { it.approvalEntry.sourceSha256 = 'not-a-sha' }],
+                        ['non-object source lines', { it.approvalEntry.sourceLines = '200-201' }],
+                        ['missing source line bound', { it.approvalEntry.sourceLines = [start: '200'] }],
+                        ['invalid source line bound', { it.approvalEntry.sourceLines = [start: '-1', end: '201'] }],
+                        ['reversed source lines', { it.approvalEntry.sourceLines = [start: '201', end: '200'] }],
+                        ['unexpected source line field', { it.approvalEntry.sourceLines = [start: '200', end: '201', method: 'other'] }],
                         ['missing contract', { it.approvalEntry.remove('contract') }],
                         ['missing evidence', { it.approvalEntry.remove('evidence') }],
                         ['blank contract', { it.approvalEntry.contract = '  ' }],
@@ -493,9 +521,9 @@ gradle.projectsEvaluated {
                             .getText('UTF-8')
                     writeText(new File(workerChangedSource.root, workerInventory.entries[0].sourceFile as String),
                             sourceText + '\n// approved source drift\n')
-                    expectFailure('worker approved source drift') { invokeWorker(workerChangedSource) }
-                    require(!workerChangedSource.generated.exists(),
-                            'worker source drift left a usable generated report')
+                    invokeWorker(workerChangedSource)
+                    require(workerChangedSource.generated.isFile(),
+                            'unrelated worker source edits invalidated unchanged findings')
                 } finally {
                     discard(workerChangedSource)
                 }
@@ -577,7 +605,7 @@ gradle.projectsEvaluated {
                 require(declaredDependencyNames(workerAggregate).contains('spotbugsMain'),
                         'worker sensorSpotBugs does not include spotbugsMain')
 
-                logger.lifecycle('SpotBugs disposition contract: PASS (root and worker exact identity controls, fail-closed controls, hashing, and wiring)')
+            logger.lifecycle('SpotBugs disposition contract: PASS (exact identities, recorded line migrations, source-edit tolerance, inventory integrity, and wiring)')
             } finally {
                 discard(positive)
             }
