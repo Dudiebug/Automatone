@@ -89,3 +89,42 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   runtime_minecraft profiles. Network authorization is checked by explicit worker
   tests included in integration; profiles.json has no named network_security profile.
   This mapping does not waive network checks or add a policy/profile exception.
+
+## M5.2 — roster, profiles and retirement (COMPLETE)
+
+- Added overworld SavedData roster with owner isolation, ten active/pending slots,
+  server-thread reservations, repeated/stale request rejection, profile and worker
+  revisions, native default/personal/override composition and reset-by-removal.
+- Retirement pauses native work, snapshots entity identity/job/selected slot and
+  inventory, clears the removed entity's inventory, then discards it through the
+  existing runtime/ticket lifecycle. Archives expose copied items and revisioned
+  withdrawal only. Reactivation restores the same UUID and remaining stacks;
+  unfinished jobs stay paused and new workers have nine empty slots.
+- Owned legacy entities are adopted on load/claim. Existing legacy workers above
+  the new cap are retained; further reservations are denied until capacity exists.
+  Versioned roster saves preserve profiles/overrides/archive. Pending destination
+  searches are transient and do not consume slots after restart.
+- Native setting parsing uses SettingsUtil on isolated copies, with strict boolean,
+  registry, finite-number and bounded-cost validation. Editable names are scoped
+  to actual server mining/path/movement/cache consumers; fixed reach, client and
+  other-process/integration settings have unavailable reasons. Empty lists retain
+  native empty-list semantics without parsing an empty registry identifier.
+- Structural Graphify query PASS (advisory, stale line numbers; source inspected).
+  `gradlew.bat :worker:compileJava --console=plain` PASS, three existing warnings.
+  Dedicated-server roster tests are PENDING. Milestone sensors and fresh independent
+  clean-candidate verification remain PENDING; this task is not COMPLETE yet.
+- Focused final runtime PASS: all four required roster GameTests; log
+  `.agents/evidence/M5-roster-runtime.log` (Gradle exit 0). Tests cover actual
+  server-thread rejection, active+pending cap, ownership/replay, copied profiles,
+  inheritance/reset, strict/stale validation, active roster save/load, retirement
+  of a just-started running job, removed runtime/cleared inventory/released tickets,
+  archive copy isolation/exact withdrawal/stale repeat, pending reactivation guards,
+  archive save/load, and same-UUID paused reactivation with only remaining stacks.
+- Parent reviewed Luna assertions; strengthened the genuine v1 fixture to omit
+  both v2 job fields and assert retained entity UUID/owner and migrated target.
+  Final affected four-test rerun PASS. Earlier helper run had one expectation
+  mismatch after numeric validation consolidated NaN into SETTING_OUT_OF_RANGE;
+  corrected expected error without changing the required rejection behavior.
+- M5.1 runtime isolation, progress-preserving replan and v1/v2 job persistence
+  evidence reused; those implementations are unchanged. Controller confirms M5.2
+  focused criteria COMPLETE and architecture intact. Milestone gate still PENDING.

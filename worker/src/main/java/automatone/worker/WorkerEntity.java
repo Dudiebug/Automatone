@@ -148,7 +148,13 @@ public class WorkerEntity extends Mob implements Container {
         if (owner != null && !owner.equals(claimant)) {
             throw new IllegalStateException("WORKER_OWNED");
         }
+        if (claimant.equals(owner)) {
+            return;
+        }
         owner = claimant;
+        if (isAddedToLevel() && level() instanceof ServerLevel serverLevel) {
+            WorkerRoster.get(serverLevel.getServer()).attached(this);
+        }
     }
 
     @Override
@@ -375,6 +381,9 @@ public class WorkerEntity extends Mob implements Container {
     public void onAddedToLevel() {
         super.onAddedToLevel();
         attachRuntime();
+        if (level() instanceof ServerLevel serverLevel) {
+            WorkerRoster.get(serverLevel.getServer()).attached(this);
+        }
         syncChunks();
     }
 
@@ -382,6 +391,9 @@ public class WorkerEntity extends Mob implements Container {
     public void onRemovedFromLevel() {
         // Shutdown drops tracking before assigning an unload reason; retain its saved anchor.
         RemovalReason reason = getRemovalReason();
+        if (level() instanceof ServerLevel serverLevel) {
+            WorkerRoster.get(serverLevel.getServer()).removed(this, reason);
+        }
         if (level() instanceof ServerLevel serverLevel && reason != null
                 && (reason.shouldDestroy() || reason == RemovalReason.CHANGED_DIMENSION)) {
             chunkLoading.release(serverLevel, getUUID());
