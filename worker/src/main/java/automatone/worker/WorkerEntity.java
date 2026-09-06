@@ -482,13 +482,40 @@ public class WorkerEntity extends Mob implements Container {
     }
 
     @Override
+    protected void dropAllDeathLoot(ServerLevel level, DamageSource source) {
+        // LivingEntity reaches this only after the cancellable death event succeeds.
+        if (!WorkerRoster.get(level.getServer()).archiveDeath(this)) {
+            super.dropAllDeathLoot(level, source);
+        }
+    }
+
+    @Override
     public void die(DamageSource source) {
         boolean wasDead = dead;
         super.die(source);
         if (!wasDead && dead && level() instanceof ServerLevel serverLevel) {
-            WorkerRoster.get(serverLevel.getServer()).removed(this, RemovalReason.KILLED);
+            // Some killers suppress loot; still archive through the same idempotent path.
+            if (WorkerRoster.get(serverLevel.getServer()).archiveDeath(this)) { discard(); }
             chunkLoading.release(serverLevel, getUUID());
         }
+    }
+
+    void clearArchivedContents() {
+        clearContent();
+        for (EquipmentSlot slot : EquipmentSlot.values()) { setItemSlot(slot, ItemStack.EMPTY); }
+    }
+
+    void prepareReactivation() {
+        dead = false;
+        deathTime = 0;
+        hurtTime = 0;
+        fallDistance = 0;
+        clearFire();
+        setHealth(getMaxHealth());
+        setAirSupply(getMaxAirSupply());
+        setPose(net.minecraft.world.entity.Pose.STANDING);
+        setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        pauseMining();
     }
 
     public Container inventory() {

@@ -3,6 +3,7 @@ package automatone.worker.gametest;
 import automatone.worker.MiningSession;
 import automatone.worker.WorkerChunkLoading;
 import automatone.worker.WorkerEntity;
+import automatone.worker.WorkerRoster;
 import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -133,6 +134,13 @@ public final class WorkerRestartProbe {
             WorkerEntity completed = createMiner(new BlockPos(512, 96, 640), false, false);
             WorkerEntity cancelled = createMiner(new BlockPos(512, 96, 704), false, false);
             WorkerEntity failed = createMiner(new BlockPos(512, 96, 768), false, false);
+            WorkerEntity dead = createMiner(new BlockPos(512, 96, 832), true, false);
+
+            dead.startMining(TARGET, 11);
+            dead.setHealth(0.0F);
+            dead.die(dead.damageSources().genericKill());
+            require(WorkerRoster.get(server).view(OWNER, dead.getUUID()).retired(),
+                    "confirmed death must archive before the restart save");
 
             finite.startMining(TARGET, FINITE_REQUESTED);
             unlimited.startMining(TARGET, 0);
@@ -148,6 +156,7 @@ public final class WorkerRestartProbe {
             manifest.setProperty("completed.uuid", completed.getUUID().toString());
             manifest.setProperty("cancelled.uuid", cancelled.getUUID().toString());
             manifest.setProperty("failed.uuid", failed.getUUID().toString());
+            manifest.setProperty("dead.uuid", dead.getUUID().toString());
             manifest.setProperty("finite.owner", OWNER.toString());
             manifest.setProperty("finite.selected", Integer.toString(finite.selectedSlot()));
             manifest.setProperty("orphan.uuid", ORPHAN.toString());
@@ -253,10 +262,26 @@ public final class WorkerRestartProbe {
             UUID orphan = UUID.fromString(manifest.getProperty("orphan.uuid"));
             require(WorkerChunkLoadingGameTest.tickets(level, WorkerChunkLoading.CENTER_CONTROLLER_ID, orphan).isEmpty(),
                     "orphan center ticket was not cleaned after entity loading");
+            verifyDeathArchive();
             LOGGER.info("M45_RESTART_READ_PASS finiteSaved={} finiteFinal={} unlimitedSaved={} unlimitedFinal={}",
                     finiteSaved, finite.miningStatus().completed(), unlimitedSaved, unlimited.miningStatus().completed());
             probe = null;
             server.halt(false);
+        }
+
+        private void verifyDeathArchive() {
+            UUID id = UUID.fromString(manifest.getProperty("dead.uuid"));
+            WorkerRoster roster = WorkerRoster.get(server);
+            require(roster.view(OWNER, id).retired(), "death archive was lost across the real restart");
+            java.util.List<ItemStack> items = roster.archivedInventory(OWNER, id);
+            require(items.get(1).is(Items.DIAMOND) && items.get(1).getCount() == 7
+                            && items.get(3).is(Items.IRON_PICKAXE)
+                            && items.get(WorkerEntity.INVENTORY_SIZE - 1).is(Items.EMERALD)
+                            && items.get(WorkerEntity.INVENTORY_SIZE - 1).getCount() == 13,
+                    "death archive changed main-hand or storage items across restart");
+            require(level.getEntity(id) == null, "retired dead worker must not reappear as a live entity");
+            require(WorkerChunkLoadingGameTest.tickets(level, WorkerChunkLoading.CENTER_CONTROLLER_ID, id).isEmpty(),
+                    "death archive must not restore an entity ticking ticket");
         }
 
         private void verifyPersistedIdentity(WorkerEntity finite) {

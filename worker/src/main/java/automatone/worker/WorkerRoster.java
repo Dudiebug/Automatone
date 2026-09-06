@@ -135,12 +135,14 @@ public final class WorkerRoster extends SavedData {
             entry.name = saved.getString("Name");
             entry.overrides = WorkerSettings.load(saved.getCompound("Overrides"));
             entry.entity = saved.getCompound("Entity").copy();
-            // Older versions could unload a dying worker after releasing its last ticket,
-            // leaving an active roster entry that can never resolve to a living entity.
+            // Recover the last available contents of legacy dead workers as archives.
             if (!entry.retired && entry.entity.contains("Health", Tag.TAG_ANY_NUMERIC)
                     && entry.entity.getFloat("Health") <= 0.0F) {
+                entry.retired = true;
+                entry.revision++;
+                CompoundTag job = entry.entity.getCompound("AutomatoneWorker").getCompound("Job");
+                if (job.getString("State").equals("RUNNING")) { job.putString("State", "PAUSED"); }
                 result.setDirty();
-                continue;
             }
             entry.notifiedRun = saved.hasUUID("NotifiedRun") ? saved.getUUID("NotifiedRun") : null;
             if (result.entries.put(saved.getUUID("Worker"), entry) != null) {
@@ -407,7 +409,7 @@ public final class WorkerRoster extends SavedData {
         WorkerEntity worker = Objects.requireNonNull(WorkerMod.WORKER.get().create(level));
         if (reservation.reactivation()) {
             worker.load(entry.entity.copy());
-            worker.pauseMining();
+            worker.prepareReactivation();
         }
         worker.setUUID(reservation.worker());
         worker.claim(owner);
@@ -437,13 +439,30 @@ public final class WorkerRoster extends SavedData {
         Entry entry = owned(owner, id);
         checkRevision(entry.revision, revision);
         WorkerEntity worker = active(owner, id);
+        archive(entry, worker);
+        worker.discard();
+    }
+
+    /** Called after death cancellation, before vanilla can drop or damage equipment. */
+    boolean archiveDeath(WorkerEntity worker) {
+        requireThread();
+        if (worker.ownerUUID().isEmpty()) { return false; }
+        UUID owner = worker.ownerUUID().orElseThrow();
+        WorkerEntity live = findLive(worker.getUUID());
+        if (live != null && !live.equals(worker)) { return true; }
+        Entry entry = entries.computeIfAbsent(worker.getUUID(), ignored -> new Entry(owner));
+        if (!entry.owner.equals(owner)) { return false; }
+        if (!entry.retired) { archive(entry, worker); }
+        return true;
+    }
+
+    private void archive(Entry entry, WorkerEntity worker) {
         worker.pauseMining();
         capture(entry, worker);
         entry.retired = true;
         entry.archiveInventory = null;
         entry.revision++;
-        worker.clearContent();
-        worker.discard();
+        worker.clearArchivedContents();
         setDirty();
     }
 
@@ -522,6 +541,7 @@ public final class WorkerRoster extends SavedData {
         requireThread();
         if (worker.getHealth() <= 0.0F) {
             removed(worker, Entity.RemovalReason.KILLED);
+            worker.discard();
             return;
         }
         if (worker.ownerUUID().isEmpty()) {
@@ -551,9 +571,13 @@ public final class WorkerRoster extends SavedData {
 
     public void removed(WorkerEntity worker, Entity.RemovalReason reason) {
         requireThread();
+        if (worker.getHealth() <= 0.0F || reason == Entity.RemovalReason.KILLED) {
+            archiveDeath(worker);
+            return;
+        }
         Entry entry = entries.get(worker.getUUID());
         if (entry != null && !entry.retired) {
-            if (worker.getHealth() <= 0.0F || (reason != null && reason.shouldDestroy())) {
+            if (reason != null && reason.shouldDestroy()) {
                 entries.remove(worker.getUUID());
             } else {
                 capture(entry, worker);

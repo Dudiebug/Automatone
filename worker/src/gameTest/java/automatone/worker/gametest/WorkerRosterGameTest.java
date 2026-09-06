@@ -6,14 +6,19 @@ import automatone.worker.WorkerEntity;
 import automatone.worker.WorkerMod;
 import automatone.worker.WorkerRoster;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -22,6 +27,9 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.entity.EntityTypeTest;
+import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import net.minecraft.world.level.ChunkPos;
 
 /** Dedicated-server contract tests for the M5.2 owner roster and archive. */
 @GameTestHolder("automatone_worker_m5_roster_gametest")
@@ -68,7 +75,7 @@ public final class WorkerRosterGameTest {
             helper.assertTrue(deployed.getUUID().equals(deployReservation.worker())
                             && roster.list(owner, false).size() == 1
                             && isEmpty(deployed),
-                    "A committed creation must retain its reserved identity and start with nine empty slots");
+                    "A committed creation must retain its reserved identity and start with 36 empty slots");
             expectFailure(helper, () -> roster.deploy(owner, firstRequest, helper.getLevel(), destination(helper)),
                     "INVALID_RESERVATION", "A committed request token must not be replayable");
 
@@ -342,55 +349,160 @@ public final class WorkerRosterGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "provider_smoke", batch = "worker_m5_roster_recovery", timeoutTicks = 120)
-    public static void deadWorkerUnloadReleasesRosterSlotAndSaveLoadDropsRecord(GameTestHelper helper) {
-        WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
+    @GameTest(template = "worker_native_mining", batch = "worker_m5_roster_recovery", timeoutTicks = 160)
+    public static void deadOwnedWorkerArchivesAllContentsAndReactivatesIdentity(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        WorkerRoster roster = WorkerRoster.get(level.getServer());
         UUID owner = UUID.randomUUID();
         WorkerEntity worker = WorkerGameTestSupport.spawnWorker(helper);
-        List<UUID> requests = new ArrayList<>();
+        WorkerEntity reactivated = null;
         try {
+            roster.applyPersonal(owner, 0, Map.of("allowBreak", "false"));
             worker.claim(owner);
             UUID workerId = worker.getUUID();
-            helper.assertTrue(roster.list(owner, false).stream().anyMatch(view -> view.worker().equals(workerId)),
-                    "Death cleanup setup must register the owned worker as active");
+            long revision = roster.view(owner, workerId).revision();
+            roster.rename(owner, workerId, revision, "Fallen Worker");
+            revision = roster.view(owner, workerId).revision();
+            roster.applyOverrides(owner, workerId, revision, Map.of("allowBreak", "true"));
 
+            for (int slot = 0; slot < WorkerEntity.INVENTORY_SIZE; slot++) {
+                worker.setItem(slot, marked(Items.COBBLESTONE, slot + 1, "inventory-" + slot));
+            }
+            worker.setSelectedSlot(3);
+            ItemStack mainHand = marked(Items.DIAMOND_PICKAXE, 1, "main-hand");
+            ItemStack offHand = marked(Items.SHIELD, 1, "off-hand");
+            ItemStack head = marked(Items.NETHERITE_HELMET, 1, "head");
+            ItemStack chest = marked(Items.NETHERITE_CHESTPLATE, 1, "chest");
+            ItemStack legs = marked(Items.NETHERITE_LEGGINGS, 1, "legs");
+            ItemStack feet = marked(Items.NETHERITE_BOOTS, 1, "feet");
+            mainHand.set(DataComponents.CUSTOM_DATA, customMarker("main-hand-data"));
+            offHand.set(DataComponents.CUSTOM_DATA, customMarker("off-hand-data"));
+            head.set(DataComponents.CUSTOM_DATA, customMarker("head-data"));
+            chest.set(DataComponents.CUSTOM_DATA, customMarker("chest-data"));
+            legs.set(DataComponents.CUSTOM_DATA, customMarker("legs-data"));
+            feet.set(DataComponents.CUSTOM_DATA, customMarker("feet-data"));
+            worker.setItemSlot(EquipmentSlot.MAINHAND, mainHand);
+            worker.setItemSlot(EquipmentSlot.OFFHAND, offHand);
+            worker.setItemSlot(EquipmentSlot.HEAD, head);
+            worker.setItemSlot(EquipmentSlot.CHEST, chest);
+            worker.setItemSlot(EquipmentSlot.LEGS, legs);
+            worker.setItemSlot(EquipmentSlot.FEET, feet);
+            List<ItemStack> expectedInventory = copyInventory(worker);
+            List<ItemStack> expectedEquipment = List.of(mainHand.copy(), offHand.copy(), head.copy(), chest.copy(),
+                    legs.copy(), feet.copy());
+            CompoundTag expectedEntity = worker.saveWithoutId(new CompoundTag());
+
+            worker.startMining(IRON_ORE, 3);
+            UUID runId = worker.miningStatus().runId();
+            ChunkPos center = worker.chunkPosition();
+            CompoundTag progressSave = worker.saveWithoutId(new CompoundTag());
+            progressSave.getCompound("AutomatoneWorker").getCompound("Job").putLong("Completed", 1);
+            worker.readAdditionalSaveData(progressSave);
+            helper.assertTrue(worker.miningStatus().state() == MiningSession.State.RUNNING
+                            && worker.miningStatus().requested() == 3 && worker.miningStatus().completed() == 1
+                            && runId != null
+                            && WorkerChunkLoadingGameTest.tickets(level,
+                            WorkerChunkLoading.CENTER_CONTROLLER_ID, workerId).contains(center.toLong())
+                            && WorkerChunkLoadingGameTest.tickets(level,
+                            WorkerChunkLoading.WORKING_RING_CONTROLLER_ID, workerId).size() == 8,
+                    "Death setup must have a running owned job with center and working-ring tickets");
+
+            clearNearbyItems(level, worker);
+            worker.setRemainingFireTicks(200);
             worker.setHealth(0.0F);
             worker.die(worker.damageSources().genericKill());
-            helper.assertTrue(worker.getHealth() <= 0.0F && !worker.isAlive(),
-                    "The real worker death path must mark the worker dead before unload cleanup");
-            helper.assertTrue(roster.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
-                    "Death must release the roster slot before the chunk can unload");
-            worker.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
-            helper.assertTrue(worker.isRemoved()
-                            && worker.getRemovalReason() == Entity.RemovalReason.UNLOADED_TO_CHUNK,
-                    "The recovery fixture must exercise an unload before vanilla death completion");
-            helper.assertTrue(roster.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
-                    "A dead worker unloaded before death completion must not remain active or occupy the roster");
+            helper.assertTrue(worker.getHealth() <= 0.0F && !worker.isAlive() && worker.isRemoved()
+                            && worker.getRemovalReason() == Entity.RemovalReason.DISCARDED,
+                    "Confirmed death must remove the live worker immediately after archiving");
+            helper.assertTrue(roster.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId))
+                            && roster.list(owner, true).stream().anyMatch(view -> view.worker().equals(workerId)),
+                    "Confirmed death must move the owned identity from active workers to archives");
+            helper.assertTrue(WorkerChunkLoadingGameTest.tickets(level,
+                            WorkerChunkLoading.CENTER_CONTROLLER_ID, workerId).isEmpty()
+                            && WorkerChunkLoadingGameTest.tickets(level,
+                            WorkerChunkLoading.WORKING_RING_CONTROLLER_ID, workerId).isEmpty(),
+                    "Confirmed death must release the center and working-ring tickets");
+            helper.assertTrue(nearbyItems(level, worker).isEmpty(),
+                    "Confirmed death must publish no equipment or inventory ItemEntities");
 
-            for (int index = 0; index < WorkerRoster.ACTIVE_LIMIT; index++) {
-                UUID request = UUID.randomUUID();
-                requests.add(request);
-                roster.reserve(owner, request, null);
-            }
-            expectFailure(helper, () -> roster.reserve(owner, UUID.randomUUID(), null), "ACTIVE_LIMIT",
-                    "The dead worker must release its active slot for a full replacement reservation set");
-            requests.forEach(request -> roster.cancelReservation(owner, request));
-            requests.clear();
+            CompoundTag archivedEntity = rosterEntity(roster, owner, workerId, level);
+            helper.assertTrue(archivedEntity.getList("HandItems", Tag.TAG_COMPOUND)
+                            .equals(expectedEntity.getList("HandItems", Tag.TAG_COMPOUND))
+                            && archivedEntity.getList("ArmorItems", Tag.TAG_COMPOUND)
+                            .equals(expectedEntity.getList("ArmorItems", Tag.TAG_COMPOUND)),
+                    "The archive must retain exact hand and armor components before live contents are cleared");
+            helper.assertTrue(matchesInventory(roster.archivedInventory(owner, workerId), expectedInventory),
+                    "The archive must retain every one of the 36 inventory slots with components");
+            CompoundTag job = archivedEntity.getCompound("AutomatoneWorker").getCompound("Job");
+            helper.assertTrue(job.getString("State").equals(MiningSession.State.PAUSED.name())
+                            && job.getInt("Requested") == 3 && job.getLong("Completed") == 1
+                            && job.hasUUID("RunId") && job.getUUID("RunId").equals(runId),
+                    "Death must archive the paused job and its progress without changing the run identity");
+            helper.assertTrue(roster.view(owner, workerId).name().equals("Fallen Worker")
+                            && roster.profile(owner).settings().get("allowbreak").equals("false")
+                            && roster.overrides(owner, workerId).get("allowbreak").equals("true"),
+                    "Death must archive identity, name and isolated settings");
 
-            CompoundTag saved = roster.save(new CompoundTag(), helper.getLevel().getServer().registryAccess());
-            WorkerRoster loaded = WorkerRoster.load(helper.getLevel().getServer(), saved);
-            helper.assertTrue(loaded.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
-                    "A saved and reloaded roster must not resurrect a dead active worker record");
+            List<ItemStack> beforeRepeatedCallback = roster.archivedInventory(owner, workerId);
+            CompoundTag beforeRepeatedSave = roster.save(new CompoundTag(), level.getServer().registryAccess());
+            roster.removed(worker, Entity.RemovalReason.KILLED);
+            worker.remove(Entity.RemovalReason.KILLED);
+            roster.removed(worker, Entity.RemovalReason.KILLED);
+            helper.assertTrue(matchesInventory(roster.archivedInventory(owner, workerId), beforeRepeatedCallback)
+                            && roster.save(new CompoundTag(), level.getServer().registryAccess()).equals(beforeRepeatedSave),
+                    "Repeated death/remove callbacks must not overwrite the archive with cleared contents");
+
+            long archiveRevision = roster.view(owner, workerId).revision();
+            ItemStack withdrawn = roster.withdraw(owner, workerId, archiveRevision,
+                    WorkerEntity.INVENTORY_SIZE - 1, 1);
+            expectedInventory.get(WorkerEntity.INVENTORY_SIZE - 1).shrink(1);
+            helper.assertTrue(ItemStack.matches(withdrawn,
+                            beforeRepeatedCallback.get(WorkerEntity.INVENTORY_SIZE - 1).copyWithCount(1))
+                            && matchesInventory(roster.archivedInventory(owner, workerId), expectedInventory),
+                    "Archive withdrawal must remove exactly one item from the selected source slot");
+            expectFailure(helper, () -> roster.withdraw(owner, workerId, archiveRevision,
+                    WorkerEntity.INVENTORY_SIZE - 1, 1), "STALE_REVISION",
+                    "A repeated archive withdrawal must be rejected after one authoritative mutation");
+
+            CompoundTag saved = roster.save(new CompoundTag(), level.getServer().registryAccess());
+            WorkerRoster loaded = WorkerRoster.load(level.getServer(), saved);
+            helper.assertTrue(loaded.view(owner, workerId).retired()
+                            && matchesInventory(loaded.archivedInventory(owner, workerId), expectedInventory),
+                    "A saved and reloaded roster must retain the death archive and post-withdrawal contents");
+
+            UUID reactivationRequest = UUID.randomUUID();
+            roster.reserve(owner, reactivationRequest, workerId);
+            reactivated = roster.deploy(owner, reactivationRequest, level, destination(helper));
+            helper.assertTrue(reactivated.getUUID().equals(workerId) && reactivated.isAlive()
+                            && !reactivated.isDeadOrDying() && reactivated.getHealth() == reactivated.getMaxHealth()
+                            && reactivated.getRemainingFireTicks() == 0
+                            && reactivated.saveWithoutId(new CompoundTag()).getShort("DeathTime") == 0
+                            && !roster.view(owner, workerId).retired()
+                            && roster.profile(owner).settings().get("allowbreak").equals("false")
+                            && roster.overrides(owner, workerId).get("allowbreak").equals("true"),
+                    "Reactivation must restore the same identity, settings, full health and clear death/fire state");
+            helper.assertTrue(matchesInventory(reactivated, expectedInventory)
+                            && matchesEquipment(reactivated, expectedEquipment)
+                            && reactivated.miningStatus().state() == MiningSession.State.PAUSED
+                            && reactivated.miningStatus().runId().equals(runId)
+                            && !reactivated.runtime().getMineProcess().isActive(),
+                    "Reactivation must restore all remaining contents and leave unfinished mining paused");
+
+            // The old removed object must not retire or overwrite the newer live incarnation.
+            roster.removed(worker, Entity.RemovalReason.KILLED);
+            helper.assertTrue(!roster.view(owner, workerId).retired()
+                            && matchesInventory(reactivated, expectedInventory),
+                    "A late callback from the dead incarnation must not alter the reactivated worker");
         } finally {
-            requests.forEach(request -> roster.cancelReservation(owner, request));
             releaseFixtureTickets(worker);
             WorkerGameTestSupport.discardWorker(worker);
+            WorkerGameTestSupport.discardWorker(reactivated);
         }
         helper.succeed();
     }
 
     @GameTest(template = "provider_smoke", batch = "worker_m5_roster_recovery", timeoutTicks = 120)
-    public static void healthyUnloadedWorkerIsRetainedAndDeadReloadCannotReadoptIdentity(GameTestHelper helper) {
+    public static void healthyUnloadedWorkerIsRetainedAndDeadReloadBecomesArchive(GameTestHelper helper) {
         WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
         ServerLevel level = helper.getLevel();
         UUID owner = UUID.randomUUID();
@@ -399,6 +511,8 @@ public final class WorkerRosterGameTest {
         try {
             worker.claim(owner);
             UUID workerId = worker.getUUID();
+            ItemStack preserved = marked(Items.EMERALD, 4, "legacy-dead-item");
+            worker.setItem(WorkerEntity.INVENTORY_SIZE - 1, preserved);
             worker.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
             helper.assertTrue(worker.isRemoved()
                             && roster.list(owner, false).stream().anyMatch(view -> view.worker().equals(workerId)),
@@ -424,14 +538,20 @@ public final class WorkerRosterGameTest {
             }
             helper.assertTrue(deadReload.getHealth() <= 0.0F,
                     "The loaded reattachment fixture must retain its non-positive health");
-            helper.assertTrue(roster.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
-                    "Rejecting a dead reattachment must remove the stale active roster entry");
+            helper.assertTrue(deadReload.isRemoved() && deadReload.runtime() == null
+                            && roster.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId))
+                            && roster.list(owner, true).stream().anyMatch(view -> view.worker().equals(workerId))
+                            && ItemStack.matches(roster.archivedInventory(owner, workerId)
+                            .get(WorkerEntity.INVENTORY_SIZE - 1), preserved),
+                    "A dead reattachment must be archived with its available inventory and removed from the world");
 
             CompoundTag afterReject = roster.save(new CompoundTag(), level.getServer().registryAccess());
             WorkerRoster reloadedAfterReject = WorkerRoster.load(level.getServer(), afterReject);
-            helper.assertTrue(reloadedAfterReject.list(owner, false).stream()
-                            .noneMatch(view -> view.worker().equals(workerId)),
-                    "A dead reattachment must not reappear in a subsequent saved roster");
+            helper.assertTrue(reloadedAfterReject.list(owner, true).stream()
+                            .anyMatch(view -> view.worker().equals(workerId))
+                            && ItemStack.matches(reloadedAfterReject.archivedInventory(owner, workerId)
+                            .get(WorkerEntity.INVENTORY_SIZE - 1), preserved),
+                    "A saved and reloaded roster must retain the recovered dead archive");
         } finally {
             releaseFixtureTickets(worker);
             WorkerGameTestSupport.discardWorker(worker);
@@ -443,13 +563,16 @@ public final class WorkerRosterGameTest {
     }
 
     @GameTest(template = "provider_smoke", batch = "worker_m5_roster_recovery", timeoutTicks = 100)
-    public static void legacyDeadEntityHealthIsIgnoredWhenLoadingActualRosterSave(GameTestHelper helper) {
+    public static void legacyDeadEntityHealthBecomesArchiveWhenLoadingActualRosterSave(GameTestHelper helper) {
         WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
         UUID owner = UUID.randomUUID();
         WorkerEntity worker = WorkerGameTestSupport.spawnWorker(helper);
         try {
             worker.claim(owner);
             UUID workerId = worker.getUUID();
+            ItemStack preserved = marked(Items.DIAMOND, 5, "legacy-saved-item");
+            worker.setItem(WorkerEntity.INVENTORY_SIZE - 1, preserved);
+            worker.startMining(IRON_ORE, 3);
             worker.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
             CompoundTag actualSave = roster.save(new CompoundTag(), helper.getLevel().getServer().registryAccess());
             ListTag workers = actualSave.getList("Workers", Tag.TAG_COMPOUND);
@@ -467,8 +590,13 @@ public final class WorkerRosterGameTest {
             helper.assertTrue(changed, "The actual roster save must contain the healthy offline worker fixture");
 
             WorkerRoster loaded = WorkerRoster.load(helper.getLevel().getServer(), actualSave);
-            helper.assertTrue(loaded.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
-                    "A legacy stuck non-retired entity with non-positive saved health must be ignored on load");
+            helper.assertTrue(loaded.list(owner, true).stream().anyMatch(view -> view.worker().equals(workerId))
+                            && ItemStack.matches(loaded.archivedInventory(owner, workerId)
+                            .get(WorkerEntity.INVENTORY_SIZE - 1), preserved)
+                            && rosterEntity(loaded, owner, workerId, helper.getLevel())
+                            .getCompound("AutomatoneWorker").getCompound("Job").getString("State")
+                            .equals(MiningSession.State.PAUSED.name()),
+                    "A legacy non-positive saved entity must load as an archive with items and paused job state");
         } finally {
             releaseFixtureTickets(worker);
             WorkerGameTestSupport.discardWorker(worker);
@@ -494,6 +622,12 @@ public final class WorkerRosterGameTest {
         };
         try {
             worker.claim(owner);
+            ItemStack retained = marked(Items.EMERALD, 5, "cancelled-death-inventory");
+            retained.set(DataComponents.CUSTOM_DATA, customMarker("cancelled-death-data"));
+            ItemStack retainedOffHand = marked(Items.SHIELD, 1, "cancelled-death-offhand");
+            retainedOffHand.set(DataComponents.CUSTOM_DATA, customMarker("cancelled-offhand-data"));
+            worker.setItem(WorkerEntity.INVENTORY_SIZE - 1, retained);
+            worker.setItemSlot(EquipmentSlot.OFFHAND, retainedOffHand);
             worker.startMining(IRON_ORE, 1);
             ChunkPos center = worker.chunkPosition();
             helper.assertTrue(WorkerChunkLoadingGameTest.tickets(helper.getLevel(),
@@ -505,7 +639,9 @@ public final class WorkerRosterGameTest {
             NeoForge.EVENT_BUS.addListener(listener);
             worker.setHealth(0.0F);
             worker.die(worker.damageSources().genericKill());
-            helper.assertTrue(cancelled.get() && worker.getHealth() == 1.0F && worker.isAlive(),
+            helper.assertTrue(cancelled.get() && worker.getHealth() == 1.0F && worker.isAlive()
+                            && ItemStack.matches(worker.getItem(WorkerEntity.INVENTORY_SIZE - 1), retained)
+                            && ItemStack.matches(worker.getItemBySlot(EquipmentSlot.OFFHAND), retainedOffHand),
                     "A cancelled LivingDeathEvent must restore this worker's health and stop death commit");
             helper.assertTrue(roster.list(owner, false).stream().anyMatch(view -> view.worker().equals(workerId))
                             && roster.active(owner, workerId).equals(worker),
@@ -591,6 +727,81 @@ public final class WorkerRosterGameTest {
             }
         }
         return true;
+    }
+
+    private static ItemStack marked(net.minecraft.world.item.Item item, int count, String name) {
+        ItemStack stack = new ItemStack(item, count);
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+        return stack;
+    }
+
+    private static CustomData customMarker(String marker) {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("marker", marker);
+        return CustomData.of(tag);
+    }
+
+    private static List<ItemStack> copyInventory(WorkerEntity worker) {
+        List<ItemStack> result = new ArrayList<>();
+        for (int slot = 0; slot < worker.getContainerSize(); slot++) {
+            result.add(worker.getItem(slot).copy());
+        }
+        return result;
+    }
+
+    private static boolean matchesInventory(List<ItemStack> actual, List<ItemStack> expected) {
+        if (actual.size() != expected.size()) {
+            return false;
+        }
+        for (int slot = 0; slot < expected.size(); slot++) {
+            if (!ItemStack.matches(actual.get(slot), expected.get(slot))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean matchesInventory(WorkerEntity actual, List<ItemStack> expected) {
+        if (actual.getContainerSize() != expected.size()) {
+            return false;
+        }
+        for (int slot = 0; slot < expected.size(); slot++) {
+            if (!ItemStack.matches(actual.getItem(slot), expected.get(slot))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean matchesEquipment(WorkerEntity worker, List<ItemStack> expected) {
+        return ItemStack.matches(worker.getItemBySlot(EquipmentSlot.MAINHAND), expected.get(0))
+                && ItemStack.matches(worker.getItemBySlot(EquipmentSlot.OFFHAND), expected.get(1))
+                && ItemStack.matches(worker.getItemBySlot(EquipmentSlot.HEAD), expected.get(2))
+                && ItemStack.matches(worker.getItemBySlot(EquipmentSlot.CHEST), expected.get(3))
+                && ItemStack.matches(worker.getItemBySlot(EquipmentSlot.LEGS), expected.get(4))
+                && ItemStack.matches(worker.getItemBySlot(EquipmentSlot.FEET), expected.get(5));
+    }
+
+    private static CompoundTag rosterEntity(WorkerRoster roster, UUID owner, UUID worker, ServerLevel level) {
+        CompoundTag saved = roster.save(new CompoundTag(), level.getServer().registryAccess());
+        for (Tag value : saved.getList("Workers", Tag.TAG_COMPOUND)) {
+            CompoundTag entry = (CompoundTag) value;
+            if (entry.getUUID("Worker").equals(worker) && entry.getUUID("Owner").equals(owner)) {
+                return entry.getCompound("Entity");
+            }
+        }
+        throw new AssertionError("Roster save did not contain worker archive " + worker);
+    }
+
+    private static void clearNearbyItems(ServerLevel level, WorkerEntity worker) {
+        for (ItemEntity item : nearbyItems(level, worker)) {
+            item.remove(Entity.RemovalReason.DISCARDED);
+        }
+    }
+
+    private static List<ItemEntity> nearbyItems(ServerLevel level, WorkerEntity worker) {
+        return level.getEntities(EntityTypeTest.forClass(ItemEntity.class),
+                new AABB(worker.blockPosition()).inflate(4.0D), ignored -> true);
     }
 
     private static void expectFailure(GameTestHelper helper, Runnable action, String expectedCode, String message) {

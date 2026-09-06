@@ -163,6 +163,38 @@ public final class WorkerMenuGameTest {
         helper.succeed();
     }
 
+    @GameTest(template = "provider_smoke", batch = "worker_m5_menu_inventory", timeoutTicks = 100)
+    public static void deathRebindsOpenInventoryToWithdrawalOnlyArchive(GameTestHelper helper) {
+        Fixture fixture = new Fixture(helper);
+        try {
+            ServerPlayer owner = fixture.player();
+            WorkerEntity worker = fixture.spawnOwned(owner, helper.getLevel(), helper.absolutePos(new BlockPos(0, 1, 0)));
+            worker.setItem(35, new ItemStack(Items.DIAMOND, 9));
+            WorkerMenu.open(owner, worker.getUUID(), false, 0);
+            WorkerMenu active = requireMenu(owner);
+            worker.setHealth(0.0F);
+            worker.die(worker.damageSources().genericKill());
+            helper.assertTrue(active.quickMoveStack(owner, 35).isEmpty(),
+                    "The obsolete live binding must not withdraw after death");
+            active.broadcastChanges();
+            WorkerMenu archive = requireMenu(owner);
+            helper.assertTrue(archive.retired() && archive.containerId != active.containerId
+                            && archive.worker().equals(worker.getUUID()) && archive.stillValid(owner),
+                    "An open worker menu must rebind to the preserved death archive");
+            ItemStack moved = archive.quickMoveStack(owner, 35);
+            helper.assertTrue(moved.is(Items.DIAMOND) && moved.getCount() == 9
+                            && archive.getSlot(35).getItem().isEmpty()
+                            && owner.getInventory().items.stream().filter(stack -> stack.is(Items.DIAMOND))
+                            .mapToInt(ItemStack::getCount).sum() == 9,
+                    "The archived storage stack must move exactly once into the owner's inventory");
+            helper.assertTrue(!archive.getSlot(35).mayPlace(new ItemStack(Items.DIRT)),
+                    "The death archive must remain withdrawal-only");
+        } finally {
+            fixture.close();
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "provider_smoke", batch = "worker_m5_menu_inventory", timeoutTicks = 160)
     public static void activeAndArchivedSlotsConserveItemsAndRejectArchiveWrites(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);
