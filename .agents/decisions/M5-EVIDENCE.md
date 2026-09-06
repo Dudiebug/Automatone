@@ -6,7 +6,7 @@ equipment. Baseline: accepted M4; existing human workflow/document edits preserv
 
 ## Current status
 
-M5.1-M5.6 COMPLETE for automated task criteria. Human M5.4/M5.6 visual checks PENDING. M5.7 IN_PROGRESS; M5.8 independent gate PENDING. Milestone acceptance PENDING.
+M5.1-M5.7 COMPLETE for automated task criteria. Human visual/client checks PENDING. M5.8 independent gate IN_PROGRESS. Milestone acceptance PENDING.
 Skills: Graphify structural query, Ponytail native/reuse-first implementation,
 Old Coder failure model under the repository proportional verification policy.
 Product spec approved; Astra owns detailed test contracts. No extra dependency,
@@ -339,3 +339,13 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   Resource/translation references and diff whitespace checks PASS. No full profile
   was run before the independent gate. M5.7 scope confirmed; M5.8 is next.
 - Human checklist: docs/M5_MANUAL_ACCEPTANCE.md. No GPU client launched in this task.
+
+## M5.8 — Independent milestone gate (IN_PROGRESS)
+
+- Freeze the feature candidate in a separate clean detached worktree, preserving
+  concurrent human workflow edits and untracked GUI reference art in the main tree.
+- A fresh independent verifier supplies the configured default,
+  architecture_sensitive and runtime_minecraft profile union once, plus approved
+  scope and behavioral evidence review. No identical preliminary gate was run.
+- Human GPU checks remain PENDING even if every automated sensor passes. Final
+  acceptance requires their results; no exception or waiver is inferred.

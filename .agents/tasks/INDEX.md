@@ -7,6 +7,10 @@ they do not add product work.
 
 ## Current authority
 
+The approved `docs/M5_GUI_CONTROLLER.md` replaces the historical M5 inventory
+with M5.1-M5.8 task files and rebases conflicting M6 assumptions. The human has
+authorized implementation through that plan. M4 is ACCEPTED; see STATE.yaml.
+
 Use .agents/STATE.yaml for current status; the planning caveats below are historical.
 The approved 2026-09-06 addition docs/M4_JOBS_AND_CHUNK_LOADING.md adds M4.5
 after M4.4 and supersedes no-loading/no-auto-resume assumptions in this index.

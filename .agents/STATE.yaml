@@ -2,10 +2,18 @@ schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
 accepted_baseline: 14762d261c107f7020930aa73d905e47359f3d04
-active_task: null
-active_gate: null
+active_task: M5.8
+active_gate: M5
 
 milestones:
+  M5:
+    state: IN_PROGRESS
+    baseline: c8b68bee
+    last_verdict: PENDING
+    last_evidence: .agents/decisions/M5-EVIDENCE.md
+    implementation_plan: docs/M5_GUI_CONTROLLER.md
+    execution_authorization: Human requested implementation of the approved UI/controller plan; new workers start empty.
+    blocker: null
   M4:
     state: ACCEPTED
     candidate: 14762d261c107f7020930aa73d905e47359f3d04
@@ -196,35 +204,54 @@ tasks:
     blocker: null
     last_evidence: .agents/decisions/M4-EVIDENCE.md
   M5.1:
-    state: PLANNED
-    baseline: null
-    candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    state: COMPLETE
+    baseline: c8b68bee
+    candidate: b7df1d4f
+    last_verdict: PASS
+    last_evidence: .agents/decisions/M5-EVIDENCE.md
+    blocker: null
   M5.2:
-    state: PLANNED
-    baseline: null
-    candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    state: COMPLETE
+    baseline: b7df1d4f
+    candidate: 47d11c4
+    last_verdict: PASS
+    last_evidence: .agents/decisions/M5-EVIDENCE.md
+    blocker: null
   M5.3:
-    state: PLANNED
-    baseline: null
-    candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    state: COMPLETE
+    baseline: 47d11c4
+    candidate: 53844792
+    last_verdict: PASS
+    blocker: null
   M5.4:
-    state: PLANNED
-    baseline: null
-    candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    state: COMPLETE
+    baseline: 53844792
+    candidate: 5fba453d
+    last_verdict: PASS
+    deferred: "Human owns in-game checks; inventory/hand visual observation PENDING for final M5 checklist. This session has no GPU."
+    blocker: null
   M5.5:
-    state: PLANNED
-    baseline: null
-    candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    state: COMPLETE
+    baseline: 5fba453d
+    candidate: 2c582fc4
+    last_verdict: PASS
+    blocker: null
+  M5.6:
+    state: COMPLETE
+    baseline: 2c582fc4
+    candidate: af58aa71
+    last_verdict: PASS
+    deferred: Human visual/function checks PENDING under explicit GPU testing split.
+  M5.7:
+    state: COMPLETE
+    baseline: af58aa71
+    candidate: fb4d2439
+    last_verdict: PASS
+    last_evidence: .agents/decisions/M5-EVIDENCE.md
+    deferred: Human toast and sound checks PENDING under explicit GPU testing split.
+  M5.8:
+    state: IMPLEMENTING
+    last_verdict: PENDING
   M6.1:
     state: PLANNED
     baseline: null

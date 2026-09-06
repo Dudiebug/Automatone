@@ -582,6 +582,12 @@ on removal, transfer and orphan recovery. M5 handles cross-dimension user contro
 
 # Milestone 5 — Controller item, GUI, and server-authoritative networking
 
+**Superseded 2026-09-06:** the human-approved `docs/M5_GUI_CONTROLLER.md`
+replaces the M5 product/tasks below and conflicting M6 binding/single-target
+assumptions. It authorizes holder-owned rosters, isolated personal settings,
+multi-target jobs, pause/resume, RTP, retirement/reactivation and notifications.
+New workers start with empty inventory. The text below is historical.
+
 ## Goal
 
 A player can bind one controller to one worker, open one GUI, select a block and amount, Start, Stop, and see authoritative target/progress/status/error.
