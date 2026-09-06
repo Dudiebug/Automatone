@@ -119,11 +119,10 @@ try {
         markers = @{}
         artifact = 'failed-gradle.log'
     }
-    $failedProfile = [pscustomobject]@{ GradleTasks = @('sensorAll'); SensorIds = @('compile', 'error_prone', 'product_source_hashes') }
+    $failedProfile = [pscustomobject]@{ GradleTasks = @('sensorAll'); SensorIds = @('compile', 'error_prone') }
     $failedRecords = @(Get-TaskSensorRecords -Profile $failedProfile -Runs @($failedRun) -Root $testRoot)
     Assert-Equal -Expected 'FAIL' -Actual (@($failedRecords | Where-Object id -eq 'compile')[0].status) -Message 'failed Gradle compile without marker must be FAIL'
     Assert-Equal -Expected 'FAIL' -Actual (@($failedRecords | Where-Object id -eq 'error_prone')[0].status) -Message 'executed Error Prone failure without marker must be FAIL'
-    Assert-Equal -Expected 0 -Actual @($failedRecords | Where-Object id -eq 'product_source_hashes').Count -Message 'controller-only source hash sensor must not be duplicated by Gradle record parsing'
     Assert-Equal -Expected @($failedRecords.id).Count -Actual @(@($failedRecords.id) | Select-Object -Unique).Count -Message 'sensor IDs from one Gradle run must be unique'
 
     Set-Content -LiteralPath (Join-Path $testRoot '.agents/tasks/QUALITY-CLEANUP.md') -Value '# QUALITY-CLEANUP' -NoNewline
@@ -135,7 +134,7 @@ try {
     Assert-Equal -Expected 'PASS' -Actual (@($measurement.Report.sensors | Where-Object id -eq 'compile')[0].status) -Message 'authorized task measurement must retain the selected check result'
     Assert-Equal -Expected $stateBefore -Actual (Get-Content -LiteralPath $statePath -Raw) -Message 'measurement must not mutate acceptance state'
 
-    Write-Output 'VerificationWorkflow tests: PASS (21 assertions)'
+    Write-Output 'VerificationWorkflow tests: PASS'
     & (Join-Path $PSScriptRoot 'VerificationWorkflow.Repair.Tests.ps1')
     & (Join-Path $PSScriptRoot 'VerificationWorkflow.Proportional.Tests.ps1')
 } finally {

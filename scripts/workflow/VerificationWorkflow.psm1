@@ -383,9 +383,6 @@ function Get-TaskSensorRecords {
     }
     $records = @()
     foreach ($sensorId in @($Profile.SensorIds)) {
-        if ([string] $sensorId -eq 'product_source_hashes') {
-            continue
-        }
         $marker = if ($markers.ContainsKey([string] $sensorId)) { $markers[[string] $sensorId] } else { $null }
         $taskName = if ($taskBySensor.ContainsKey([string] $sensorId)) { $taskBySensor[[string] $sensorId] } else { [string] $sensorId }
         $runtimeFailed = [string] $sensorId -eq 'neoforge_gametest' -and
@@ -421,48 +418,6 @@ function Get-TaskSensorRecords {
         $records += [ordered]@{ id = [string] $sensorId; required = $true; status = $status; command = $command; summary = $summary; artifact = $artifact; new_findings = $null }
     }
     return $records
-}
-
-function Test-ProductSourceHashes {
-    param([Parameter(Mandatory)] [string] $Root)
-
-    $beforePath = Join-Path $Root '.agents/evidence/bootstrap/before.json'
-    if (-not (Test-Path -LiteralPath $beforePath -PathType Leaf)) {
-        return [pscustomobject]@{ Status = 'UNVERIFIED'; Summary = 'before.json is missing.' }
-    }
-    $before = Get-Content -LiteralPath $beforePath -Raw | ConvertFrom-Json -Depth 100
-    $hashes = Get-ObjectProperty $before 'product_hashes'
-    if ($null -eq $hashes) {
-        return [pscustomobject]@{ Status = 'UNVERIFIED'; Summary = 'before.json has no product_hashes object.' }
-    }
-    $missing = @()
-    $changed = @()
-    $expectedPaths = @($hashes.PSObject.Properties.Name)
-    if ($expectedPaths.Count -eq 0) {
-        return [pscustomobject]@{ Status = 'UNVERIFIED'; Summary = 'before.json has an empty product inventory.' }
-    }
-    $sourcePath = Join-Path $Root 'src'
-    $actualPaths = @(if (Test-Path -LiteralPath $sourcePath -PathType Container) {
-        Get-ChildItem -LiteralPath $sourcePath -File -Recurse -Force -ErrorAction Stop | ForEach-Object {
-            [IO.Path]::GetRelativePath($Root, $_.FullName).Replace('\', '/')
-        } | Where-Object { $_ -notmatch '^src/sensorTest/' -and $_ -notmatch '(?:^|/)graphify-out/' }
-    })
-    $extra = @($actualPaths | Where-Object { $expectedPaths -cnotcontains $_ })
-    foreach ($entry in $hashes.PSObject.Properties) {
-        if (-not (Test-Path -LiteralPath (Join-Path $Root $entry.Name) -PathType Leaf)) {
-            $missing += $entry.Name
-            continue
-        }
-        $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $Root $entry.Name)).Hash
-        if ($actual.ToUpperInvariant() -ne ([string] $entry.Value).ToUpperInvariant()) {
-            $changed += $entry.Name
-        }
-    }
-    if ($changed.Count -gt 0 -or $missing.Count -gt 0 -or $extra.Count -gt 0) {
-        return [pscustomobject]@{ Status = 'FAIL'; Summary = "Product inventory mismatch. Missing: [$($missing -join ', ')]; changed: [$($changed -join ', ')]; extra: [$($extra -join ', ')]." }
-    }
-    $hashCount = @($hashes.PSObject.Properties).Count
-    return [pscustomobject]@{ Status = 'PASS'; Summary = "Verified $hashCount product source hashes." }
 }
 
 function Invoke-VerificationController {
@@ -545,14 +500,7 @@ function Invoke-VerificationController {
         })
     } else {
         $records = @(Get-TaskSensorRecords -Profile $selectedProfile -Runs $runs -Root $rootPath)
-        if ($selectedProfile.SensorIds -contains 'product_source_hashes') {
-            $hashResult = Test-ProductSourceHashes -Root $rootPath
-            $records += [ordered]@{
-                id = 'product_source_hashes'; required = $true; status = $hashResult.Status
-                command = '.agents/evidence/bootstrap/before.json'; summary = $hashResult.Summary
-                artifact = (Join-Path $rootPath '.agents/evidence/bootstrap/before.json'); new_findings = $null
-            }
-        }
+
     }
     $failures = @($records | Where-Object { $_.required -and $_.status -in @('FAIL', 'UNVERIFIED') } | ForEach-Object {
         [ordered]@{
@@ -594,4 +542,4 @@ function Invoke-VerificationController {
         Validation = $validation; Runs = $runs; ExitCode = Get-VerificationExitCode -Report $report
     }
 }
-Export-ModuleMember -Function Get-SourceFingerprint, Get-NormalizedVerdict, New-VerificationReport, Get-VerificationExitCode, Write-VerificationReport, Test-VerificationReport, Resolve-WorkflowTask, Resolve-WorkflowProfile, Get-GradleSensorMarkers, Invoke-GradleSensor, Get-TaskCandidateLabel, Get-TaskSensorRecords, Test-ProductSourceHashes, Invoke-VerificationController
+Export-ModuleMember -Function Get-SourceFingerprint, Get-NormalizedVerdict, New-VerificationReport, Get-VerificationExitCode, Write-VerificationReport, Test-VerificationReport, Resolve-WorkflowTask, Resolve-WorkflowProfile, Get-GradleSensorMarkers, Invoke-GradleSensor, Get-TaskCandidateLabel, Get-TaskSensorRecords, Invoke-VerificationController

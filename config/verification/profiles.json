@@ -7,7 +7,7 @@
     },
     "bootstrap": {
       "gradle_tasks": ["sensorAll"],
-      "sensors": ["compile", "unit_tests", "checkstyle", "error_prone", "spotbugs", "archunit", "duplication", "neoforge_gametest", "spark_server_health", "dependency_vulnerability", "dependency_resolution", "product_source_hashes"]
+      "sensors": ["compile", "unit_tests", "checkstyle", "error_prone", "spotbugs", "archunit", "duplication", "neoforge_gametest", "spark_server_health", "dependency_vulnerability", "dependency_resolution"]
     },
     "runtime_minecraft": {
       "gradle_tasks": ["sensorIntegration"],

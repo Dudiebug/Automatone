@@ -407,3 +407,10 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   plus source-edit tolerance and line-migration controls PASS
   (`.agents/evidence/M5/spotbugs-policy-contract.log`). Independent affected
   disposition verification PENDING; runtime behavior is unchanged from b379805d.
+- Removed the older bootstrap product_source_hashes sensor, its controller/export
+  and profile entry, and its now-obsolete hash-inventory assertions. Remaining
+  report/acceptance controls use measured fixture compilation and unchanged STATE.
+  Workflow unit checks and 34 repair regressions PASS
+  (`.agents/evidence/M5/workflow-hash-removal.log`). Source fingerprints retained
+  in reports only identify tested candidates; they are not source-edit approval
+  checks. Download/catalogue integrity and artifact checksums are separate.

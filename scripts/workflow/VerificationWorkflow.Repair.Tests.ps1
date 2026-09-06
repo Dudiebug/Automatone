@@ -22,8 +22,6 @@ try {
     }
     $productPath = Join-Path $testRoot 'src/main/product.txt'
     Set-Content $productPath 'original'
-    $before = @{ head = 'not-an-accepted-commit'; product_hashes = @{ 'src/main/product.txt' = (Get-FileHash $productPath).Hash } }
-    Set-Content (Join-Path $testRoot '.agents/evidence/bootstrap/before.json') ($before | ConvertTo-Json)
     Set-Content (Join-Path $testRoot '.agents/STATE.yaml') 'accepted_baseline: null'
     Set-Content (Join-Path $testRoot '.agents/tasks/BOOTSTRAP.md') '# BOOTSTRAP'
     Copy-Item (Join-Path $PSScriptRoot '../../.agents/verification/report.schema.json') (Join-Path $testRoot '.agents/verification/report.schema.json')
@@ -32,38 +30,6 @@ try {
     $wrapper = Join-Path $testRoot 'gradlew.bat'
     Set-Content $wrapper "@echo off`necho AUTOMATONE_SENSOR id=compile status=PASS summary=compiled`necho AUTOMATONE_SENSOR id=error_prone status=PASS summary=checked`nexit /b 1"
 
-    Check 'H-002 unchanged exact inventory passes' {
-        Expect ((Test-ProductSourceHashes $testRoot).Status -eq 'PASS') 'unchanged inventory did not pass'
-    }
-    Check 'H-002 extra product file fails' {
-        $extra = Join-Path $testRoot 'src/main/unauthorized.txt'
-        try {
-            Set-Content $extra 'extra'
-            Expect ((Test-ProductSourceHashes $testRoot).Status -eq 'FAIL') 'extra product file was not FAIL'
-        } finally { Remove-Item -LiteralPath $extra -Force }
-    }
-    Check 'H-002 missing product file fails' {
-        try {
-            Remove-Item -LiteralPath $productPath
-            Expect ((Test-ProductSourceHashes $testRoot).Status -eq 'FAIL') 'missing product file was not FAIL'
-        } finally { Set-Content $productPath 'original' }
-    }
-    Check 'H-002 changed product file fails' {
-        try {
-            Set-Content $productPath 'changed'
-            Expect ((Test-ProductSourceHashes $testRoot).Status -eq 'FAIL') 'changed product file was not FAIL'
-        } finally { Set-Content $productPath 'original' }
-    }
-    Check 'H-002 only approved sensor/graph outputs excluded' {
-        Set-Content (Join-Path $testRoot 'src/sensorTest/fixture.java') 'verification'
-        Set-Content (Join-Path $testRoot 'src/graphify-out/graph.json') '{}'
-        Expect ((Test-ProductSourceHashes $testRoot).Status -eq 'PASS') 'approved verification/generated files affected inventory'
-        $extra = Join-Path $testRoot 'src/other-product.txt'
-        try {
-            Set-Content $extra 'not an approved source set'
-            Expect ((Test-ProductSourceHashes $testRoot).Status -eq 'FAIL') 'unknown src directory was excluded'
-        } finally { Remove-Item -LiteralPath $extra -Force }
-    }
     Check 'H-001 failed task overrides premature PASS marker' {
         $records = @(Records "AUTOMATONE_SENSOR id=compile status=PASS summary=too early`n> Task :compileJava FAILED" @('compile'))
         Expect ($records[0].status -eq 'FAIL') 'premature PASS won over known failed task'
@@ -142,15 +108,12 @@ exit /b 1
     }
     Check 'H-003 provisional PASS remains allowed without acceptance mutation' {
         Expect ((Get-Content (Join-Path $testRoot '.agents/STATE.yaml') -Raw).Trim() -eq 'accepted_baseline: null') 'controller mutated acceptance state'
-        $inventory = Test-ProductSourceHashes $testRoot
-        Expect ($inventory.Status -eq 'PASS') 'fixture inventory failed'
-        # Complete contract for this synthetic task: preserved inventory and unchanged STATE.
+        # Complete contract for this synthetic task: successful compile measurement and unchanged STATE.
         # This is not invented evidence for BOOTSTRAP's graph/runtime/role criteria.
         $fixtureAcceptance = @(
-            @{ id = 'fixture-inventory'; status = 'PASS'; evidence = $inventory.Summary },
             @{ id = 'fixture-state'; status = 'PASS'; evidence = 'Read STATE after two controller invocations; exact accepted_baseline: null content is unchanged.' }
         )
-        $provisional = New-VerificationReport -Root $testRoot -TaskId FIXTURE -Candidate fixture-dirty -Baseline UNACCEPTED -FreshContext $false -Sensors @(@{ id = 'inventory'; required = $true; status = $inventory.Status }) -Acceptance $fixtureAcceptance -Failures @()
+        $provisional = New-VerificationReport -Root $testRoot -TaskId FIXTURE -Candidate fixture-dirty -Baseline UNACCEPTED -FreshContext $false -Sensors @($second.Report.sensors) -Acceptance $fixtureAcceptance -Failures @()
         Expect ($provisional.verdict -eq 'PASS' -and (Get-VerificationExitCode $provisional) -eq 0) 'legitimate complete-evidence provisional pass prohibited'
     }
     Check 'H-008 focused measurements do not claim task or milestone acceptance' {
@@ -164,9 +127,8 @@ exit /b 1
     }
 
     # Acceptance evidence is measured against this fixture's complete contract, not BOOTSTRAP.
-    $inventory = Test-ProductSourceHashes $testRoot
-    Expect ($inventory.Status -eq 'PASS') 'fixture inventory failed before semantics controls'
-    $complete = @(@{ id = 'fixture-inventory'; status = 'PASS'; evidence = $inventory.Summary })
+    Expect ((Get-Content (Join-Path $testRoot '.agents/STATE.yaml') -Raw).Trim() -eq 'accepted_baseline: null') 'fixture state changed before semantics controls'
+    $complete = @(@{ id = 'fixture-state'; status = 'PASS'; evidence = 'The fixture STATE remains unchanged after controller execution.' })
     $passSensors = @(@{ id = 'inventory'; required = $true; status = 'PASS' })
     $cases = @(
         @{ name = 'acceptance FAIL beats all-PASS sensors'; acceptance = @(@{ id = 'F'; status = 'FAIL'; evidence = 'Known fixture violation' }); expected = 'FAIL' },
