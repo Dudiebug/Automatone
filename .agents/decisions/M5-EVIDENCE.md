@@ -268,3 +268,36 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   isolation and single-use batch confirmation. Fixture cleanup closes menus and
   removes the real test players even when absent from PlayerList. Diff check PASS.
   M5.5 COMPLETE; human visual checks and independent milestone profile remain PENDING.
+
+## M5.6 — Native client screens (automated COMPLETE; human checks PENDING)
+
+- Added a client-only registered AbstractContainerScreen using the concept's square
+  charcoal/iron frame, copper corners and green selection accents. Native Slot
+  geometry/hit-testing remains fixed inside a centered 176px inventory canvas.
+  The roster uses up to five columns and paged wheel scrolling at compact scales;
+  registered blocks search translated names/IDs with namespace filtering, selected
+  chips, quantity/unlimited, and native item tooltips. Includes active/archive
+  inventory, tool selection, job/batch actions, name/location, settings inheritance,
+  deployment/relocation/reactivation/retirement and unsaved-edit dialogs.
+- Settings panel provides typed controls, native parsing/range feedback, search,
+  categories, override/reset/reset-all and unavailable reasons. 248 descriptions
+  were extracted from the pinned native Settings.java Javadocs. Client drafts retain
+  their loaded revision; explicit Reload resolves stale edits. Accepted responses
+  alone reset the baseline. Requests freeze editing until acknowledged. Normal
+  untouched job drafts follow fresh server status without hiding current progress.
+- Pinned API mapping confirms Dist.CLIENT registration, native slots and key/scroll
+  signatures. Slot.isActive is presentation only; existing server guards remain.
+  Added a client snapshot counter to avoid deep-copying large unchanged settings NBT
+  every screen tick. This is presentation bookkeeping, not an authority revision.
+- Focused compile/processResources and common/server boundary sensor PASS:
+  .agents/evidence/M5-screens-boundary.log. Final affected compile PASS after draft
+  refresh correction: .agents/evidence/M5-screens-final-compile.log. Initial panel
+  definite-assignment failure repaired and four new compiler warnings removed;
+  no suppression. Static UI translation keys resolve, both JSON resources parse,
+  and git diff --check PASS. Prior boundary evidence remains applicable (subsequent
+  edits stayed in client presentation and did not change dependencies).
+- Controller confirms approved scope: no Permissions page, no equipment grants,
+  no consumer mining/scanning engine. Human owns actual GPU client testing by
+  explicit instruction. Real GUI scales, keyboard/tooltips, modded search, slots,
+  dialogs and visual quality remain PENDING in the final human checklist; these
+  have NOT been measured or claimed PASS. Independent milestone sensors PENDING.

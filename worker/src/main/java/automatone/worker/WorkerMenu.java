@@ -36,6 +36,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
     private long boundRevision;
     private long sequence;
     private long clientSequence;
+    private long snapshotVersion;
     private int snapshotTick = -20;
     private CompoundTag clientData = new CompoundTag();
     private CompoundTag response = new CompoundTag();
@@ -320,6 +321,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
     public void receive(WorkerNetwork.Snapshot snapshot) {
         if (roster == null && snapshot.menuId() == containerId && snapshot.session().equals(session)) {
             clientData = snapshot.data().copy();
+            snapshotVersion++;
             sequence = snapshot.sequence();
             clientSequence = Math.max(clientSequence, sequence);
         }
@@ -330,6 +332,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
     public boolean retired() { return retired; }
     public int page() { return page; }
     public long sequence() { return sequence; }
+    public long snapshotVersion() { return snapshotVersion; }
     public void showInventory(boolean visible) { inventoryVisible = visible; }
     Player player() { return player; }
     UUID owner() { return owner; }
