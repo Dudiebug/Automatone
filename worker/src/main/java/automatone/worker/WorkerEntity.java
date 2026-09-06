@@ -57,6 +57,7 @@ public class WorkerEntity extends Mob implements Container {
 
     @Override
     public void aiStep() {
+        updateSwingTime();
         if (!level().isClientSide()) {
             ((WorkerEntityController) context.playerController()).validateBreakingTarget();
             getNavigation().stop();

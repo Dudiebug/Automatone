@@ -142,7 +142,7 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
                             && (!currentBest.isPresent() || (!currentBest.get().positions().contains(ctx.playerFeet()) && !currentBest.get().positions().contains(expectedSegmentStart))) // if
                     ) {
                         // when it was *just* started, currentBest will be empty so we need to also check calcFrom since that's always present
-                        inProgress.cancel(); // cancellation doesn't dispatch any events
+                        cancelPendingPath(); // cancellation doesn't dispatch any events
                     }
                 }
             }
@@ -329,7 +329,7 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
 
     public void softCancelIfSafe() {
         synchronized (pathPlanLock) {
-            getInProgress().ifPresent(AbstractNodeCostSearch::cancel); // only cancel ours
+            cancelPendingPath(); // only cancel ours
             if (!isSafeToCancel()) {
                 return;
             }
@@ -344,12 +344,23 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
     public void secretInternalSegmentCancel() {
         queuePathEvent(PathEvent.CANCELED);
         synchronized (pathPlanLock) {
-            getInProgress().ifPresent(AbstractNodeCostSearch::cancel);
-            if (current != null) {
-                current = null;
-                next = null;
+            boolean hadPath = current != null || next != null || inProgress != null;
+            cancelPendingPath();
+            current = null;
+            next = null;
+            if (hadPath) {
                 baritone.getInputOverrideHandler().clearAllKeys();
                 baritone.getInputOverrideHandler().getBlockBreakHelper().stopBreakingBlock();
+            }
+        }
+    }
+
+    /** Called under pathPlanLock, the same lock used to publish completed searches. */
+    private void cancelPendingPath() {
+        synchronized (pathCalcLock) {
+            if (inProgress != null) {
+                inProgress.cancel();
+                inProgress = null;
             }
         }
     }
@@ -358,9 +369,6 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
     public void forceCancel() { // exposed on public api because :sob:
         cancelEverything();
         secretInternalSegmentCancel();
-        synchronized (pathCalcLock) {
-            inProgress = null;
-        }
     }
 
     public CalculationContext secretInternalGetCalculationContext() {
@@ -506,6 +514,10 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
 
             PathCalculationResult calcResult = pathfinder.calculate(primaryTimeout, failureTimeout);
             synchronized (pathPlanLock) {
+                // A cancelled search may finish after cancellation or a replacement search.
+                if (!Objects.equals(inProgress, pathfinder)) {
+                    return;
+                }
                 Optional<PathExecutor> executor = calcResult.getPath().map(p -> new PathExecutor(PathingBehavior.this, p));
                 if (current == null) {
                     if (executor.isPresent()) {

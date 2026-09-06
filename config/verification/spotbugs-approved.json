@@ -248,49 +248,49 @@
       "id": 36,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "918a6523c741622404c553cfd9726367f50e6db7261cfa0a64a57622e1b37633",
+      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
     },
     {
       "id": 37,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "918a6523c741622404c553cfd9726367f50e6db7261cfa0a64a57622e1b37633",
+      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
     },
     {
       "id": 38,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "918a6523c741622404c553cfd9726367f50e6db7261cfa0a64a57622e1b37633",
+      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
     },
     {
       "id": 39,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "918a6523c741622404c553cfd9726367f50e6db7261cfa0a64a57622e1b37633",
+      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
     },
     {
       "id": 40,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "918a6523c741622404c553cfd9726367f50e6db7261cfa0a64a57622e1b37633",
+      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
       "contract": "IPathingBehavior API contract: the interface returns the current/next native path executor and its default remaining-tick query reads that executor. A detached object would report stale path state.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
     },
     {
       "id": 41,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "918a6523c741622404c553cfd9726367f50e6db7261cfa0a64a57622e1b37633",
+      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
       "contract": "IPathingBehavior API contract: the interface returns the current/next native path executor and its default remaining-tick query reads that executor. A detached object would report stale path state.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
     },
     {
       "id": 42,

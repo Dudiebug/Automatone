@@ -579,7 +579,9 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
 
     @Override
     public void mine(int quantity, BlockOptionalMetaLookup filter) {
+        boolean wasActive;
         synchronized (scanStateLock) {
+            wasActive = this.filter != null;
             scanGeneration++;
             pendingScan = null;
             scanInFlight = false;
@@ -590,6 +592,14 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             this.branchPoint = null;
             this.branchPointRunaway = null;
             this.anticipatedDrops = new HashMap<>();
+        }
+        // A preempted miner must not erase the new owner's path or held inputs.
+        if (wasActive && baritone != null && baritone.getPathingControlManager().mostRecentInControl()
+                .map(owner -> Objects.equals(owner, this)).orElse(true)) {
+            baritone.getPathingBehavior().secretInternalSegmentCancel();
+            baritone.getPathingBehavior().secretInternalSetGoal(null);
+            baritone.getInputOverrideHandler().clearAllKeys();
+            baritone.getInputOverrideHandler().getBlockBreakHelper().stopBreakingBlock();
         }
     }
 

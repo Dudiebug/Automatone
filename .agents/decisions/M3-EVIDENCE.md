@@ -1,6 +1,6 @@
 # M3 evidence
 
-Status: IN_PROGRESS. M3.1 and M3.2 COMPLETE; M3.3 is next.
+Status: IN_PROGRESS. M3.1 and M3.2 COMPLETE; M3.3 COMPLETE; M3.4 is next.
 
 ## Authority and starting point
 
@@ -140,3 +140,108 @@ No M4 work, dependency upgrades, suppressed findings or waived checks are planne
   hooks, crack/sound effects and isolated renderer meet this task's criteria.
   No native algorithm, dependency, threshold or suppression was added. The
   required actual client observation and full milestone profiles remain PENDING.
+
+## M3.3 development
+
+- Baseline: completed M3.2 candidate 3e0e253d. Read M3.3 and its native
+  callers; scoped Graphify query confirms MineProcess / BlockBreakHelper /
+  PathingBehavior / InputOverrideHandler ownership. No consumer cancellation
+  engine is needed.
+- Source disproved the assumption that existing guards also protect path
+  publication: scan generations are guarded, but PathingBehavior publishes
+  asynchronous results unconditionally. The path search also clears a prior
+  cancellation at calculate entry. Repairing this native cancellation race is
+  within M3.3; existing scan guards and regression evidence are retained.
+- BlockBreakHelper skips reset when wasHitting is false and ignores release
+  during inter-block delay. MineProcess clears scan intent only. Native
+  clearAllKeys is used during ordinary mining ticks, so it must not become an
+  unconditional break reset. Tests and native repairs are in progress.
+- Implemented the independent path-publication guard while the author prepares
+  the mine-cancellation RED. PathingBehavior invalidates the pending search
+  under its existing locks and rejects a completed result whose search is no
+  longer current. Late work cannot install an executor or clear a newer search.
+  The search algorithm is unchanged. Segment cancellation clears inputs only
+  when it had path state; idle calls must preserve the existing manual native
+  input contract. MineProcess and BlockBreakHelper remain unchanged for the
+  first cancellation RED; this is a partial repair, not a pristine baseline.
+- The first native cancellation attempt failed a transient swing-state
+  precondition, before cancellation. The author replaced that
+  observation with a test worker that counts native swing calls and delegates
+  to vanilla to isolate cancellation. This measures invocation, not rendered
+  animation. Subsequent source review found a real animation omission below.
+- Meaningful RED: native input reached the controller, accrued incomplete
+  progress/stage and invoked MAIN_HAND swing, then MineProcess.cancel failed
+  to clear controller state. All other 26 worker GameTests passed. Raw:
+  `logs/m3-3-native-cancel-red-final.log` (with the partial path guard above).
+- Repaired BlockBreakHelper to explicitly reset even with a false previous-hit
+  flag and to handle release/missing ray before its delay. MineProcess resets
+  now release the prior active miner's path/goal/inputs/controller, while
+  preserving another current process owner's state. Scan locking/generations
+  and ordinary clearAllKeys behavior remain unchanged.
+- Frozen cancellation GREEN: all 27 required worker GameTests passed in
+  `logs/m3-3-native-cancel-green.log`, including immediate idle/input reset
+  and an intact unfinished target after 20 server ticks. Remaining M3.3
+  release/restart/path-race cases and focused scan regressions are pending.
+- Parent investigation of the initial swing failure found that base Mob does
+  not call LivingEntity.updateSwingTime. Monster.aiStep calls it explicitly;
+  the worker did not. Thus native swing invocation alone cannot establish
+  animation progress. The earlier timing explanation is not accepted as a
+  sufficient diagnosis. Add the missing vanilla swing-state tick and retain
+  an animation-progression regression; actual client observation stays pending.
+- Swing progression RED: `logs/m3-3-worker-swing-red.log` ran 30 tests,
+  failing only the bounded vanilla swing-state assertion. Added the vanilla
+  updateSwingTime call to WorkerEntity.aiStep on both sides. GREEN:
+  `logs/m3-3-native-cancellation-suite.log`, all 30 required tests passed.
+  This includes release, lost ray, explicit helper stop without prior hitting,
+  restart and repeated cancel, in addition to swing progression.
+- PASS: existing root MineProcessLifecycleTest (2) and
+  MineProcessSessionGenerationRegressionTest (3), zero failures/errors/skips;
+  `logs/m3-3-mineprocess-lifecycle-session-tests.log`. No scan regression was
+  replaced or weakened. The deterministic pending-path race test is pending.
+
+### Existing pathing warning revalidation
+
+A separate bounded read-only Luna review revalidated only previously approved
+SpotBugs IDs 36-41 after the necessary PathingBehavior source change. This is
+not the reserved independent Terra milestone gate. Reviewer: luna_old_coder;
+Windows host; fresh context; no code/tests/analyzer run or milestone acceptance.
+
+- Current canonical UTF-8/LF SHA-256:
+  `92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b`.
+- IDs 36/37/38/39 remain server-tick-owned calcFailedLastTick,
+  pauseRequestedLastTick, cancelRequested and pausedThisTick. Their relevant
+  writes/callers and finding line identities are unchanged.
+- IDs 40/41 retain the required live getCurrent/getNext handle contracts.
+- The reviewer checked the unchanged tick caller chain and consistent
+  pathPlanLock-before-pathCalcLock ordering. Early cancelled search work may
+  still finish computing, but the new guard rejects its publication.
+- Controller verified the exact reviewed source hash and integrated only the
+  six approval source hashes/evidence links. Eligibility identities, contracts,
+  reviewer identity, thresholds and all other approvals are unchanged. Raw
+  analyzer confirmation remains PENDING at the single milestone gate.
+
+### M3.3 completion
+
+- New root race regression exercises the production async completion closure
+  with a real AStarPathFinder, blocks publication until calculation finishes,
+  cancels it and installs a replacement, then verifies late completion preserves
+  that replacement. This directly detects the prior unconditional clear. It
+  does not assert the result type; successful stale-path rejection is supported
+  by the shared guard's source flow, not claimed as a separate runtime result.
+  No path-race RED was rerun after the guard was implemented.
+- Root fixture development first encountered NeoForge split-package resolution;
+  moving the test to the existing baritone.gametest package fixed that harness
+  issue. A 1ms fixture calculation limit was increased to 1000ms. No production
+  timeout or algorithm changed. Final root run: all 26 required GameTests passed
+  in 1.858s. Raw server output copied without rerun to
+  `logs/m3-3-root-pathing-cancellation-race-server-20260905-192209.log`.
+- Root :compileGameTestJava passed without Java diagnostics. Its original
+  captured stdout was archived without rerun as
+  `logs/m3-3-root-pathing-cancellation-race-compile-captured-20260905-192151.log`.
+- Controller confirms M3.3 COMPLETE. The 30-worker server result and five focused
+  root unit results remain applicable (no subsequent production changes).
+  M3.1 retarget/removal evidence and M3.2 ownership-boundary evidence are reused;
+  source review confirms the added worker swing tick adds no client dependency
+  or native engine. Full profiles and end-to-end mining/visual proof stay PENDING.
+
+Graphify refresh after M3.3: PASS (4,932 nodes, 13,501 edges, 271 communities); advisory community labels changed. No full sensor profile run before the independent milestone gate.

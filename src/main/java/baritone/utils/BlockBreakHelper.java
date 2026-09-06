@@ -41,46 +41,44 @@ public final class BlockBreakHelper {
 
     public void stopBreakingBlock() {
         // The player controller will never be null, but the player can be
-        if (ctx.player() != null && wasHitting) {
+        if (ctx.player() != null) {
             ctx.playerController().setHittingBlock(false);
             ctx.playerController().resetBlockRemoving();
-            wasHitting = false;
         }
+        wasHitting = false;
+        breakDelayTimer = 0;
     }
 
     public void tick(boolean isLeftClick) {
+        HitResult trace = isLeftClick ? ctx.objectMouseOver() : null;
+        if (!(trace instanceof BlockHitResult blockTrace) || trace.getType() != HitResult.Type.BLOCK) {
+            stopBreakingBlock();
+            return;
+        }
         if (breakDelayTimer > 0) {
             breakDelayTimer--;
             return;
         }
-        HitResult trace = ctx.objectMouseOver();
-        boolean isBlockTrace = trace != null && trace.getType() == HitResult.Type.BLOCK;
 
-        if (isLeftClick && isBlockTrace) {
-            ctx.playerController().setHittingBlock(wasHitting);
-            if (ctx.playerController().hasBrokenBlock()) {
-                ctx.playerController().syncHeldItem();
-                ctx.playerController().clickBlock(((BlockHitResult) trace).getBlockPos(), ((BlockHitResult) trace).getDirection());
-                ctx.player().swing(InteractionHand.MAIN_HAND);
-            } else {
-                if (ctx.playerController().onPlayerDamageBlock(((BlockHitResult) trace).getBlockPos(), ((BlockHitResult) trace).getDirection())) {
-                    ctx.player().swing(InteractionHand.MAIN_HAND);
-                }
-                if (ctx.playerController().hasBrokenBlock()) { // block broken this tick
-                    // break delay timer only applies for multi-tick block breaks like vanilla
-                    breakDelayTimer = BaritoneAPI.getSettings().blockBreakSpeed.value - BASE_BREAK_DELAY;
-                    // must reset controller's destroy delay to prevent the client from delaying itself unnecessarily
-                    ctx.playerController().resetDestroyDelay();
-                }
-            }
-            // if true, we're breaking a block. if false, we broke the block this tick
-            wasHitting = !ctx.playerController().hasBrokenBlock();
-            // this value will be reset by the MC client handling mouse keys
-            // since we're not spoofing the click keybind to the client, the client will stop the break if isDestroyingBlock is true
-            // we store and restore this value on the next tick to determine if we're breaking a block
-            ctx.playerController().setHittingBlock(false);
+        ctx.playerController().setHittingBlock(wasHitting);
+        if (ctx.playerController().hasBrokenBlock()) {
+            ctx.playerController().syncHeldItem();
+            ctx.playerController().clickBlock(blockTrace.getBlockPos(), blockTrace.getDirection());
+            ctx.player().swing(InteractionHand.MAIN_HAND);
         } else {
-            wasHitting = false;
+            if (ctx.playerController().onPlayerDamageBlock(blockTrace.getBlockPos(), blockTrace.getDirection())) {
+                ctx.player().swing(InteractionHand.MAIN_HAND);
+            }
+            if (ctx.playerController().hasBrokenBlock()) { // block broken this tick
+                // break delay timer only applies for multi-tick block breaks like vanilla
+                breakDelayTimer = BaritoneAPI.getSettings().blockBreakSpeed.value - BASE_BREAK_DELAY;
+                // must reset controller's destroy delay to prevent the client from delaying itself unnecessarily
+                ctx.playerController().resetDestroyDelay();
+            }
         }
+        // if true, we're breaking a block. if false, we broke the block this tick
+        wasHitting = !ctx.playerController().hasBrokenBlock();
+        // This per-tick flag clear is distinct from an explicit interaction abort.
+        ctx.playerController().setHittingBlock(false);
     }
 }
