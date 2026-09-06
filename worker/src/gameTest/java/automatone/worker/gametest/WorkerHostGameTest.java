@@ -8,6 +8,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -37,8 +38,8 @@ public final class WorkerHostGameTest {
                     "Worker must not register wandering, combat, or product goals");
             helper.assertTrue(worker.getTarget() == null,
                     "Worker must not acquire a combat or following target");
-            helper.assertFalse(worker.canPickUpLoot(),
-                    "Worker must not collect loot outside its host inventory");
+            helper.assertTrue(worker.canPickUpLoot(),
+                    "Worker must collect nearby drops into its host inventory");
         } finally {
             WorkerGameTestSupport.discardWorker(worker);
         }
@@ -108,6 +109,46 @@ public final class WorkerHostGameTest {
         }
 
         helper.assertTrue(worker.isRemoved(), "Inventory host worker must be removable after the check");
+        helper.succeed();
+    }
+
+    @GameTest(template = "provider_smoke", batch = "worker_host", timeoutTicks = 100)
+    public static void pickupRespectsDelayCapacityAndHeldTool(GameTestHelper helper) {
+        WorkerEntity worker = WorkerGameTestSupport.spawnWorker(helper);
+        ItemEntity drop = new ItemEntity(helper.getLevel(), worker.getX(), worker.getY(), worker.getZ(),
+                new ItemStack(Items.RAW_IRON, 5));
+        try {
+            worker.setItem(0, new ItemStack(Items.IRON_PICKAXE));
+            for (int slot = 1; slot < worker.getContainerSize(); slot++) {
+                worker.setItem(slot, new ItemStack(Items.COBBLESTONE, 64));
+            }
+            worker.setItem(1, new ItemStack(Items.RAW_IRON, 62));
+            drop.setPickUpDelay(10);
+            helper.getLevel().addFreshEntity(drop);
+            worker.aiStep();
+            helper.assertTrue(drop.getItem().getCount() == 5 && worker.getItem(1).getCount() == 62,
+                    "Pickup delay must keep the complete dropped stack in the world");
+
+            drop.setNoPickUpDelay();
+            worker.aiStep();
+            helper.assertTrue(worker.getItem(1).getCount() == 64
+                            && !drop.isRemoved() && drop.getItem().getCount() == 3,
+                    "Only the two items that fit may leave the dropped stack");
+            worker.aiStep();
+            helper.assertTrue(!drop.isRemoved() && drop.getItem().getCount() == 3,
+                    "A full inventory must leave the remainder on the ground");
+
+            worker.setItem(2, ItemStack.EMPTY);
+            worker.aiStep();
+            helper.assertTrue(drop.isRemoved() && worker.getItem(2).is(Items.RAW_IRON)
+                            && worker.getItem(2).getCount() == 3,
+                    "Freeing inventory space must allow the remaining real items to be collected");
+            helper.assertTrue(worker.getMainHandItem().is(Items.IRON_PICKAXE),
+                    "Picking up ore must preserve the selected mining tool");
+        } finally {
+            drop.discard();
+            WorkerGameTestSupport.discardWorker(worker);
+        }
         helper.succeed();
     }
 

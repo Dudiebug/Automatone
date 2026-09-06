@@ -473,3 +473,16 @@ is now 1.0 (normal speed), with matching chat. Independent readonly Terra review
 found no source blocker. Native timeout/ownership and analysis thresholds remain
 unchanged. Release `m3-preview-mining-fix-20260906` awaits human in-game retest;
 prior milestone acceptance remains incomplete.
+
+## Pickup preview repair
+
+Human requested item pickup. Worker had explicitly disabled Mob looting, and
+vanilla equipment pickup does not insert ore into the host inventory. Enabled
+vanilla nearby pickup and redirected accepted stacks through SimpleContainer,
+preserving leftovers and pickup animation. No extra scanner/pathing or storage
+automation. Updated the old no-pickup host assertion for the new human request.
+One compact pickup check covers delay, partial/full inventory and held-tool
+preservation. `:worker:runGameTestServer` PASS, 34/34, including the previously
+unrun slow-demo completion and cost regressions; raw `logs/m3-pickup-gametest.log`.
+`:jar :worker:jar` PASS. No broad static rerun or graph refresh for this local fix.
+Manual visual acceptance and later persistence work remain pending.

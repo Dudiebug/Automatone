@@ -12,6 +12,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.control.JumpControl;
 import net.minecraft.world.entity.ai.control.LookControl;
 import net.minecraft.world.entity.ai.control.MoveControl;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -30,7 +31,7 @@ public class WorkerEntity extends Mob implements Container {
     public WorkerEntity(EntityType<? extends WorkerEntity> type, Level level) {
         super(type, level);
         setPersistenceRequired();
-        setCanPickUpLoot(false);
+        setCanPickUpLoot(true);
         // Native server input owns this worker; vanilla controls must not replace it.
         moveControl = new MoveControl(this) {
             @Override
@@ -73,6 +74,26 @@ public class WorkerEntity extends Mob implements Container {
 
     public IBaritone runtime() {
         return runtime;
+    }
+
+    @Override
+    public boolean wantsToPickUp(ItemStack stack) {
+        return inventory.canAddItem(stack);
+    }
+
+    @Override
+    protected void pickUpItem(ItemEntity itemEntity) {
+        ItemStack remainder = inventory.addItem(itemEntity.getItem());
+        int collected = itemEntity.getItem().getCount() - remainder.getCount();
+        if (collected > 0) {
+            onItemPickup(itemEntity);
+            take(itemEntity, collected);
+            if (remainder.isEmpty()) {
+                itemEntity.discard();
+            } else {
+                itemEntity.setItem(remainder);
+            }
+        }
     }
 
     /** Repeated attachment of a loaded worker preserves its context and runtime. */
