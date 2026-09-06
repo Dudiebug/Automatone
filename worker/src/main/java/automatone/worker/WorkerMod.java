@@ -27,6 +27,9 @@ public final class WorkerMod {
         event.put(WORKER.get(), Mob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0)
                 .add(Attributes.MOVEMENT_SPEED, 0.1)
+                .add(Attributes.MINING_EFFICIENCY)
+                .add(Attributes.BLOCK_BREAK_SPEED)
+                .add(Attributes.SUBMERGED_MINING_SPEED)
                 .add(Attributes.STEP_HEIGHT, 0.6).build());
     }
 }

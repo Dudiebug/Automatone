@@ -1,0 +1,14 @@
+The Stevenator (edited)
+Selected by the human for Automatone's worker on 2026-09-06.
+
+Skin page: https://www.minecraftskins.com/skin/23749988/the-stevenator--edited-/
+PNG: https://www.minecraftskins.com/uploads/skins/2025/12/28/the-stevenator--edited--23749988.png?v971
+SHA-256: 235bd36828f65ab15bec4a75023f338ce95950f693709aa1bea6a5394a3b476f
+Uploader/editor: DaRRc
+Original skin credited by the editor to ThatEmoDude:
+https://www.minecraftskins.com/skin/12126473/the-stevenator/
+
+Classic 4-pixel arms. The downloaded PNG is bundled unchanged, including its
+outer skin layer. No runtime download or account/profile lookup is performed.
+The skin is a third-party asset; the project's Java source license does not
+relicense this asset.
