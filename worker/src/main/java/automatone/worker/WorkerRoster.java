@@ -455,7 +455,7 @@ public final class WorkerRoster extends SavedData {
     public ItemStack withdraw(UUID owner, UUID id, long revision, int slot, int amount) {
         Entry entry = archived(owner, id);
         checkRevision(entry.revision, revision);
-        Objects.checkIndex(slot, 9);
+        Objects.checkIndex(slot, WorkerEntity.INVENTORY_SIZE);
         if (amount < 1 || amount > 64) {
             throw new IllegalArgumentException("INVALID_AMOUNT");
         }
@@ -475,7 +475,7 @@ public final class WorkerRoster extends SavedData {
                 if (!entry.retired) {
                     throw new IllegalStateException("WORKER_NOT_RETIRED");
                 }
-                NonNullList<ItemStack> items = NonNullList.withSize(9, ItemStack.EMPTY);
+                NonNullList<ItemStack> items = NonNullList.withSize(WorkerEntity.INVENTORY_SIZE, ItemStack.EMPTY);
                 for (int slot = 0; slot < items.size(); slot++) {
                     items.set(slot, container.getItem(slot));
                 }
@@ -503,7 +503,7 @@ public final class WorkerRoster extends SavedData {
     }
 
     private NonNullList<ItemStack> readInventory(Entry entry) {
-        NonNullList<ItemStack> inventory = NonNullList.withSize(9, ItemStack.EMPTY);
+        NonNullList<ItemStack> inventory = NonNullList.withSize(WorkerEntity.INVENTORY_SIZE, ItemStack.EMPTY);
         ContainerHelper.loadAllItems(entry.entity.getCompound("AutomatoneWorker").getCompound("Inventory"),
                 inventory, server.registryAccess());
         return inventory;

@@ -43,7 +43,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     static String translate(String key, Object... args) {
         return Component.translatable("gui.automatone_worker." + key, args).getString();
     }
-    private enum Page { ROSTER, JOB, INVENTORY, SETTINGS, OVERRIDES, PERSONAL, RECIPIENTS, REQUESTS, INBOX }
+    private enum Page { ROSTER, JOB, INVENTORY, CLEANUP, SETTINGS, OVERRIDES, PERSONAL, RECIPIENTS, REQUESTS, INBOX }
     private record Caption(String text, int x, int y, int color, int maxWidth) { }
     private record BlockCell(Block block, Button button, boolean selected) { }
     private record Dialog(String title, List<String> lines, Runnable confirm) { }
@@ -54,6 +54,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private final List<Caption> captions = new ArrayList<>();
     private final List<BlockCell> blockCells = new ArrayList<>();
     private final Set<String> targets = new LinkedHashSet<>();
+    private final Set<String> discardBlocks = new LinkedHashSet<>();
     private final Set<UUID> recipients = new LinkedHashSet<>();
     private final List<Block> blocks;
     private final List<String> mods;
@@ -72,6 +73,12 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private String message = "";
     private boolean unlimited;
     private boolean savedUnlimited;
+    private boolean cleanupEnabled;
+    private String keep = "64";
+    private CompoundTag savedCleanup = new CompoundTag();
+    private long cleanupRevision;
+    private boolean compactInventory;
+    private boolean playerInventory;
     private boolean selectedOnly;
     private boolean initialized;
     private boolean rebuild;
@@ -110,9 +117,10 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         fy = (height - imageHeight) / 2;
         fw = imageWidth;
         fh = imageHeight;
-        // Native slot coordinates stay fixed; center their 176px canvas inside our frame.
-        leftPos = fx + (fw - 176) / 2;
+        compactInventory = fw < 384;
+        leftPos = fx + (fw - (compactInventory ? 176 : 372)) / 2;
         topPos = fy + 26;
+        menu.inventoryLayout(compactInventory, playerInventory);
         build();
     }
 
@@ -151,6 +159,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             case ROSTER, RECIPIENTS -> buildRoster();
             case JOB -> buildJob();
             case INVENTORY -> buildInventory();
+            case CLEANUP -> buildCleanup();
             case SETTINGS -> buildSettings(false);
             case OVERRIDES -> buildSettingsPanel(false);
             case PERSONAL -> buildSettings(true);
@@ -229,59 +238,13 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     }
 
     private void buildJob() {
+        buildBlockPicker(targets);
         int x = fx + 10;
-        int y = fy + 60;
         int area = fw - 20;
-        int filterWidth = Math.max(85, area / 4);
-        edit(translate("search_blocks"), search, x, y, area - filterWidth - 4, 256, value -> { search = value; offset = 0; rebuild = true; });
-        button(mod.isEmpty() ? translate("all_mods") : mod, x + area - filterWidth, y, filterWidth, () -> {
-            int next = mods.indexOf(mod) + 1;
-            mod = next >= mods.size() ? "" : mods.get(next);
-            offset = 0; rebuild = true;
-        }).setTooltip(Tooltip.create(Component.literal(translate("filter_by_registry_namespace_search_also_accepts_mod_block_ids"))));
-        button((selectedOnly ? "✓ " : "") + translate("selected_count", targets.size()), x, y + 23, 102,
-                () -> { selectedOnly = !selectedOnly; offset = 0; rebuild = true; });
-        List<String> chips = targets.stream().toList();
-        int chipX = x + 106;
-        for (String id : chips) {
-            int chipWidth = Math.min(110, font.width(shortId(id)) + 22);
-            if (chipX + chipWidth > x + area) { break; }
-            button(shortId(id) + " ×", chipX, y + 23, chipWidth, () -> { targets.remove(id); rebuild = true; });
-            chipX += chipWidth + 2;
-        }
-        List<Block> found = blocks.stream().filter(block -> {
-            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
-            return (mod.isEmpty() || id.getNamespace().equals(mod)) && (!selectedOnly || targets.contains(id.toString()))
-                    && (id.toString().contains(search.toLowerCase(Locale.ROOT))
-                    || block.getName().getString().toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT)));
-        }).toList();
-        int columns = Math.max(2, area / 95);
-        int cellWidth = area / columns;
-        int visibleRows = Math.max(1, (fh - 180) / 36);
-        offset = Math.min(offset, Math.max(0, (found.size() - 1) / columns - visibleRows + 1));
-        for (int index = offset * columns; index < Math.min(found.size(), (offset + visibleRows) * columns); index++) {
-            Block block = found.get(index);
-            String id = BuiltInRegistries.BLOCK.getKey(block).toString();
-            boolean selected = targets.contains(id);
-            Button cell = addRenderableWidget(Button.builder(Component.empty(), ignored -> {
-                        if (!targets.remove(id)) {
-                            if (targets.size() < 128) { targets.add(id); }
-                            else { message = translate("select_at_most_128_target_blocks"); }
-                        }
-                        rebuild = true;
-                    }).createNarration(ignored -> Component.literal(block.getName().getString() + ", " + id
-                            + ", " + translate(selected ? "selected" : "not_selected")))
-                    .bounds(x + index % columns * cellWidth, y + 46 + (index / columns - offset) * 36, cellWidth - 3, 34).build());
-            cell.setTooltip(Tooltip.create(Component.literal(block.getName().getString() + "\n" + id)));
-            blockCells.add(new BlockCell(block, cell, selected));
-        }
-        if (found.isEmpty()) { label(translate("no_matching_blocks"), x + 4, y + 54, MUTED, area - 8); }
         int bottom = fy + fh - 70;
         edit(translate("quantity"), quantity, x, bottom, 68, 7, value -> quantity = value);
         button((unlimited ? "✓ " : "") + translate("unlimited"), x + 72, bottom, 80, () -> { unlimited = !unlimited; rebuild = true; });
         button(translate("reload"), x + 156, bottom, 54, () -> guardDiscard(() -> { loadJob(); rebuild = true; }));
-        button("↑", x + area - 44, bottom, 20, () -> { offset = Math.max(0, offset - 1); rebuild = true; });
-        button("↓", x + area - 22, bottom, 20, () -> { offset++; rebuild = true; });
         boolean batch = !recipients.isEmpty() || menu.worker() == null;
         if (batch) {
             button(translate("recipients_count", recipients.size()), x, bottom + 24, 96, () -> { page = Page.RECIPIENTS; rebuild = true; });
@@ -302,19 +265,131 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         }
     }
 
+    private void buildBlockPicker(Set<String> selection) {
+        int x = fx + 10;
+        int y = fy + 60;
+        int area = fw - 20;
+        int filterWidth = Math.max(85, area / 4);
+        edit(translate("search_blocks"), search, x, y, area - filterWidth - 4, 256, value -> { search = value; offset = 0; rebuild = true; });
+        button(mod.isEmpty() ? translate("all_mods") : mod, x + area - filterWidth, y, filterWidth, () -> {
+            int next = mods.indexOf(mod) + 1;
+            mod = next >= mods.size() ? "" : mods.get(next);
+            offset = 0; rebuild = true;
+        }).setTooltip(Tooltip.create(Component.literal(translate("filter_by_registry_namespace_search_also_accepts_mod_block_ids"))));
+        button((selectedOnly ? "✓ " : "") + translate("selected_count", selection.size()), x, y + 23, 102,
+                () -> { selectedOnly = !selectedOnly; offset = 0; rebuild = true; });
+        List<String> chips = selection.stream().toList();
+        int chipX = x + 106;
+        for (String id : chips) {
+            int chipWidth = Math.min(110, font.width(shortId(id)) + 22);
+            if (chipX + chipWidth > x + area) { break; }
+            button(shortId(id) + " ×", chipX, y + 23, chipWidth, () -> { selection.remove(id); rebuild = true; });
+            chipX += chipWidth + 2;
+        }
+        List<Block> found = blocks.stream().filter(block -> {
+            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
+            return (page != Page.CLEANUP || !new ItemStack(block).isEmpty())
+                    && (mod.isEmpty() || id.getNamespace().equals(mod)) && (!selectedOnly || selection.contains(id.toString()))
+                    && (id.toString().contains(search.toLowerCase(Locale.ROOT))
+                    || block.getName().getString().toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT)));
+        }).toList();
+        int columns = Math.max(2, area / 95);
+        int cellWidth = area / columns;
+        int visibleRows = Math.max(1, (fh - 180) / 36);
+        offset = Math.min(offset, Math.max(0, (found.size() - 1) / columns - visibleRows + 1));
+        for (int index = offset * columns; index < Math.min(found.size(), (offset + visibleRows) * columns); index++) {
+            Block block = found.get(index);
+            String id = BuiltInRegistries.BLOCK.getKey(block).toString();
+            boolean selected = selection.contains(id);
+            Button cell = addRenderableWidget(Button.builder(Component.empty(), ignored -> {
+                        if (!selection.remove(id)) {
+                            if (selection.size() < 128) { selection.add(id); }
+                            else { message = translate("select_at_most_128_target_blocks"); }
+                        }
+                        rebuild = true;
+                    }).createNarration(ignored -> Component.literal(block.getName().getString() + ", " + id
+                            + ", " + translate(selected ? "selected" : "not_selected")))
+                    .bounds(x + index % columns * cellWidth, y + 46 + (index / columns - offset) * 36, cellWidth - 3, 34).build());
+            cell.setTooltip(Tooltip.create(Component.literal(block.getName().getString() + "\n" + id)));
+            blockCells.add(new BlockCell(block, cell, selected));
+        }
+        if (found.isEmpty()) { label(translate("no_matching_blocks"), x + 4, y + 54, MUTED, area - 8); }
+        int bottom = fy + fh - 70;
+        button("↑", x + area - 44, bottom, 20, () -> { offset = Math.max(0, offset - 1); rebuild = true; });
+        button("↓", x + area - 22, bottom, 20, () -> { offset++; rebuild = true; });
+    }
+
     private void buildInventory() {
-        label(menu.retired() ? translate("archived_inventory") : translate("worker_inventory"), leftPos + 8, topPos + 32, TEXT, 220);
-        if (!menu.retired()) {
+        menu.inventoryLayout(compactInventory, playerInventory);
+        int workerX = leftPos + (compactInventory ? 8 : 194);
+        String workerLabel = menu.retired() ? translate("archived_inventory") : translate("worker_inventory");
+        if (compactInventory) {
+            button(translate("your_inventory"), leftPos + 8, topPos + 24, 80,
+                    () -> { playerInventory = true; rebuild = true; });
+            button(workerLabel, leftPos + 90, topPos + 24, 80,
+                    () -> { playerInventory = false; rebuild = true; });
+        } else {
+            label(translate("your_inventory"), leftPos + 8, topPos + 32, MUTED, 162);
+            label(workerLabel, workerX, topPos + 32, TEXT, 162);
+        }
+        if (!menu.retired() && (!compactInventory || !playerInventory)) {
             for (int index = 0; index < 9; index++) {
                 int slot = index;
-                Button selector = actionButton(Integer.toString(index + 1), leftPos + 8 + index * 18, topPos + 63, 16, () -> {
+                Button selector = actionButton(Integer.toString(index + 1), workerX + index * 18, topPos + 126, 16, () -> {
                     CompoundTag intent = revision(); intent.putInt("Slot", slot); send(WorkerNetwork.Action.SELECT_TOOL, intent);
                 });
                 selector.setTooltip(Tooltip.create(Component.literal(translate("select_tool_slot", index + 1))));
             }
         }
-        if (menu.retired()) { label(translate("your_inventory"), leftPos + 8, topPos + 70, MUTED, 162); }
+        actionButton(translate("collect_all"), fx + fw - 110, fy + fh - 45, 100,
+                () -> send(WorkerNetwork.Action.COLLECT_ALL, revision()));
+        if (!menu.retired()) { button(translate("automatic_cleanup"), fx + 10, fy + fh - 45, 132, () -> navigate(Page.CLEANUP)); }
         if (menu.retired()) { actionButton(translate("reactivate"), fx + 10, fy + fh - 45, 96, () -> chooseDimension(WorkerNetwork.Action.REACTIVATE)); }
+    }
+
+    private void buildCleanup() {
+        buildBlockPicker(discardBlocks);
+        int x = fx + 10;
+        int bottom = fy + fh - 70;
+        button(translate("cleanup_enabled", translate(cleanupEnabled ? "on" : "off")), x, bottom, 118,
+                () -> { cleanupEnabled = !cleanupEnabled; rebuild = true; })
+                .setTooltip(Tooltip.create(Component.literal(translate("cleanup_help"))));
+        edit(translate("keep_each"), keep, x + 122, bottom, 60, 4, value -> keep = value);
+        button(translate("reload"), x, bottom + 24, 64, () -> guardDiscard(() -> { loadCleanup(); rebuild = true; }));
+        button(translate("inventory"), x + 68, bottom + 24, 76, () -> navigate(Page.INVENTORY));
+        actionButton(translate("apply"), fx + fw - 86, bottom + 24, 76, () -> {
+            int retained;
+            try { retained = Integer.parseInt(keep); }
+            catch (NumberFormatException invalid) { message = translate("invalid_keep"); return; }
+            if (retained < 0 || retained > 4096) { message = translate("invalid_keep"); return; }
+            CompoundTag intent = cleanupDraft();
+            intent.putLong("Revision", cleanupRevision);
+            send(WorkerNetwork.Action.INVENTORY_MANAGEMENT, intent);
+        });
+    }
+
+    private CompoundTag cleanupDraft() {
+        CompoundTag tag = new CompoundTag();
+        tag.putBoolean("Enabled", cleanupEnabled);
+        tag.putInt("Keep", Integer.parseInt(keep));
+        ListTag list = new ListTag(); discardBlocks.forEach(id -> list.add(StringTag.valueOf(id)));
+        tag.put("Blocks", list);
+        return tag;
+    }
+
+    private void loadCleanup() {
+        savedCleanup = data.getCompound("InventoryManagement").copy();
+        cleanupEnabled = savedCleanup.getBoolean("Enabled");
+        keep = Integer.toString(savedCleanup.getInt("Keep"));
+        discardBlocks.clear();
+        savedCleanup.getList("Blocks", Tag.TAG_STRING).forEach(id -> discardBlocks.add(id.getAsString()));
+        cleanupRevision = data.getCompound("Selected").getLong("Revision");
+    }
+
+    private boolean cleanupDirty() {
+        if (savedCleanup.isEmpty()) { return false; }
+        try { return !cleanupDraft().equals(savedCleanup); }
+        catch (NumberFormatException invalid) { return true; }
     }
 
     private void buildSettings(boolean personal) {
@@ -385,7 +460,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         dimension = "minecraft:overworld";
         confirm(action == WorkerNetwork.Action.DEPLOY ? translate("add_worker") : action == WorkerNetwork.Action.REACTIVATE ? translate("reactivate_worker") : translate("relocate_worker"),
                 List.of(translate("find_a_safe_random_destination_inside_the_world_border"), action == WorkerNetwork.Action.DEPLOY
-                        ? translate("new_workers_have_nine_empty_slots_bring_your_own_equipment") : translate("unfinished_jobs_stay_paused_remaining_inventory_is_retained"),
+                        ? translate("new_workers_have_36_empty_slots_bring_your_own_equipment") : translate("unfinished_jobs_stay_paused_remaining_inventory_is_retained"),
                         translate("preparation_can_be_cancelled_from_requests")), () -> {
                     CompoundTag intent = action == WorkerNetwork.Action.DEPLOY ? new CompoundTag() : revision();
                     intent.putUUID("Request", UUID.randomUUID()); intent.putString("Dimension", dimension);
@@ -444,7 +519,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     }
 
     private boolean dirty() {
-        return jobDirty()
+        return jobDirty() || cleanupDirty()
                 || (settings != null && settings.dirty()) || (!name.equals(data.getCompound("Selected").getString("Name")) && menu.worker() != null);
     }
 
@@ -517,7 +592,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (dialog != null) { dialogOffset = Math.max(0, dialogOffset + (vertical < 0 ? 1 : -1)); rebuild = true; return true; }
         if (settings != null && (page == Page.OVERRIDES || page == Page.PERSONAL) && settings.mouseScrolled(vertical)) { return true; }
-        if (page == Page.ROSTER || page == Page.RECIPIENTS || page == Page.JOB || page == Page.REQUESTS) {
+        if (page == Page.ROSTER || page == Page.RECIPIENTS || page == Page.JOB || page == Page.CLEANUP || page == Page.REQUESTS) {
             offset = Math.max(0, offset + (vertical < 0 ? 1 : -1)); rebuild = true; return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
@@ -593,7 +668,8 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                     confirm(translate("batch_results"), outcomes, () -> { });
                     saveDraft(); message = translate("batch_finished_review_each_result");
                 } else {
-                    message = translate("applied");
+                    message = sentAction == WorkerNetwork.Action.COLLECT_ALL ? translate("collected_count", response.getInt("Collected")) : translate("applied");
+                    if (sentAction == WorkerNetwork.Action.INVENTORY_MANAGEMENT) { loadCleanup(); }
                     if (sentAction == WorkerNetwork.Action.START || sentAction == WorkerNetwork.Action.CONFIGURE_JOB) { saveDraft(); }
                     if (sentAction == WorkerNetwork.Action.RENAME) { name = data.getCompound("Selected").getString("Name"); }
                     if (settings != null && (sentAction == WorkerNetwork.Action.PERSONAL_SETTINGS || sentAction == WorkerNetwork.Action.WORKER_SETTINGS)) {
@@ -618,6 +694,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private void loadJob() {
         loadJobDraft();
         name = data.getCompound("Selected").getString("Name");
+        loadCleanup();
     }
 
     private void loadJobDraft() {

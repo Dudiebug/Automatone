@@ -167,6 +167,7 @@ public final class WorkerRestartProbe {
             WorkerEntity worker = WorkerNativeMineProcessGameTest.spawnWorker(level, chamber.workerPosition());
             worker.setItem(1, new ItemStack(Items.DIAMOND, 7));
             worker.setItem(3, new ItemStack(Items.IRON_PICKAXE));
+            worker.setItem(WorkerEntity.INVENTORY_SIZE - 1, new ItemStack(Items.EMERALD, 13));
             worker.setSelectedSlot(3);
             if (owned) {
                 worker.claim(OWNER);
@@ -263,8 +264,10 @@ public final class WorkerRestartProbe {
             require(finite.selectedSlot() == Integer.parseInt(manifest.getProperty("finite.selected")),
                     "selected inventory slot was not restored");
             require(finite.getItem(1).is(Items.DIAMOND) && finite.getItem(1).getCount() == 7
-                            && finite.getItem(3).is(Items.IRON_PICKAXE),
-                    "nine-slot inventory was not restored");
+                            && finite.getItem(3).is(Items.IRON_PICKAXE)
+                            && finite.getItem(WorkerEntity.INVENTORY_SIZE - 1).is(Items.EMERALD)
+                            && finite.getItem(WorkerEntity.INVENTORY_SIZE - 1).getCount() == 13,
+                    "36-slot inventory was not restored");
         }
 
         private void verifyTerminal(WorkerEntity worker, MiningSession.State expected) {

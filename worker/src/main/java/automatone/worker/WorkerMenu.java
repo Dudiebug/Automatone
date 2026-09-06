@@ -42,6 +42,8 @@ public final class WorkerMenu extends AbstractContainerMenu {
     private CompoundTag clientData = new CompoundTag();
     private CompoundTag response = new CompoundTag();
     private boolean inventoryVisible;
+    private boolean compactInventory;
+    private boolean showPlayerInventory;
 
     /** Client constructor: no entity lookup and no server-owned inventory references. */
     public WorkerMenu(int id, Inventory playerInventory, RegistryFriendlyByteBuf buffer) {
@@ -61,38 +63,59 @@ public final class WorkerMenu extends AbstractContainerMenu {
         this.boundRevision = revision;
         this.roster = roster;
         this.actions = roster == null ? null : new WorkerActions(this);
-        this.inventory = roster == null || worker == null ? new SimpleContainer(9)
+        this.inventory = roster == null || worker == null ? new SimpleContainer(WorkerEntity.INVENTORY_SIZE)
                 : retired ? roster.archivedContainer(owner, worker) : roster.active(owner, worker).inventory();
-        for (int index = 0; index < 9; index++) {
-            addSlot(new Slot(inventory, index, 8 + index * 18, 44) {
-                @Override
-                public boolean mayPlace(ItemStack stack) { return !WorkerMenu.this.retired && canUseWorkerInventory(); }
-                @Override
-                public boolean mayPickup(Player holder) { return holder.equals(player) && canUseWorkerInventory(); }
-                @Override
-                public void onTake(Player holder, ItemStack stack) {
-                    super.onTake(holder, stack);
-                    refreshRevision();
-                }
-                @Override
-                public boolean isActive() { return worker != null && inventoryVisible; }
-            });
+        for (int index = 0; index < WorkerEntity.INVENTORY_SIZE; index++) {
+            addSlot(workerSlot(index));
         }
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(playerSlot(playerInventory, col + row * 9 + 9, 8 + col * 18, 84 + row * 18));
+                addSlot(playerSlot(playerInventory, col + row * 9 + 9, 8 + col * 18, 48 + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            addSlot(playerSlot(playerInventory, col, 8 + col * 18, 142));
+            addSlot(playerSlot(playerInventory, col, 8 + col * 18, 106));
         }
+    }
+
+    private Slot workerSlot(int index) {
+        int x = (compactInventory ? 8 : 194) + (index % 9) * 18;
+        int y = index < 9 ? 106 : 48 + (index / 9 - 1) * 18;
+        return new Slot(inventory, index, x, y) {
+            @Override
+            public boolean mayPlace(ItemStack stack) { return !retired && canUseWorkerInventory(); }
+            @Override
+            public boolean mayPickup(Player holder) { return holder.equals(player) && canUseWorkerInventory(); }
+            @Override
+            public void onTake(Player holder, ItemStack stack) {
+                super.onTake(holder, stack);
+                refreshRevision();
+            }
+            @Override
+            public boolean isActive() {
+                return worker != null && inventoryVisible && (!compactInventory || !showPlayerInventory);
+            }
+        };
     }
 
     private Slot playerSlot(Inventory playerInventory, int index, int x, int y) {
         return new Slot(playerInventory, index, x, y) {
             @Override
-            public boolean isActive() { return inventoryVisible; }
+            public boolean isActive() { return inventoryVisible && (!compactInventory || showPlayerInventory); }
         };
+    }
+
+    /** Client layout changes preserve all native slot ids and authoritative container bindings. */
+    public void inventoryLayout(boolean compact, boolean playerOnly) {
+        if (roster != null) { return; }
+        showPlayerInventory = playerOnly;
+        if (compactInventory == compact) { return; }
+        compactInventory = compact;
+        for (int index = 0; index < WorkerEntity.INVENTORY_SIZE; index++) {
+            Slot replacement = workerSlot(index);
+            replacement.index = index;
+            slots.set(index, replacement);
+        }
     }
 
     /** Validated callers always open a new menu id when selecting another worker. */
@@ -168,7 +191,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
         if (roster != null && (!stillValid(holder) || (worker != null && !canUseWorkerInventory()))) { return; }
         if ((slot < -1 && slot != -999) || slot >= slots.size() || !validButton(type, button)) { return; }
         if (slot < 0 && type != ClickType.PICKUP && type != ClickType.QUICK_MOVE && type != ClickType.QUICK_CRAFT) { return; }
-        if (slot >= 0 && slot < 9 && (worker == null || type == ClickType.CLONE)) { return; }
+        if (slot >= 0 && slot < WorkerEntity.INVENTORY_SIZE && (worker == null || type == ClickType.CLONE)) { return; }
         List<ItemStack> before = contents();
         super.clicked(slot, button, type, holder);
         if (roster != null && worker != null && !retired && !ItemStack.listMatches(before, contents())) {
@@ -189,12 +212,14 @@ public final class WorkerMenu extends AbstractContainerMenu {
     @Override
     public ItemStack quickMoveStack(Player holder, int index) {
         if (index < 0 || index >= slots.size() || worker == null || !canUseWorkerInventory()
-                || !holder.equals(player) || (index >= 9 && retired)) { return ItemStack.EMPTY; }
+                || !holder.equals(player) || (index >= WorkerEntity.INVENTORY_SIZE && retired)) { return ItemStack.EMPTY; }
         Slot slot = slots.get(index);
         if (!slot.hasItem() || !slot.mayPickup(holder)) { return ItemStack.EMPTY; }
         ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
-        if (!moveItemStackTo(stack, index < 9 ? 9 : 0, index < 9 ? slots.size() : 9, index < 9)) { return ItemStack.EMPTY; }
+        boolean fromWorker = index < WorkerEntity.INVENTORY_SIZE;
+        if (!moveItemStackTo(stack, fromWorker ? WorkerEntity.INVENTORY_SIZE : 0,
+                fromWorker ? slots.size() : WorkerEntity.INVENTORY_SIZE, fromWorker)) { return ItemStack.EMPTY; }
         if (stack.isEmpty()) { slot.setByPlayer(ItemStack.EMPTY); }
         else { slot.setChanged(); }
         slot.onTake(holder, stack);
@@ -203,9 +228,23 @@ public final class WorkerMenu extends AbstractContainerMenu {
     }
 
     private List<ItemStack> contents() {
-        List<ItemStack> result = new ArrayList<>(9);
-        for (int index = 0; index < 9; index++) { result.add(inventory.getItem(index).copy()); }
+        List<ItemStack> result = new ArrayList<>(WorkerEntity.INVENTORY_SIZE);
+        for (int index = 0; index < WorkerEntity.INVENTORY_SIZE; index++) { result.add(inventory.getItem(index).copy()); }
         return result;
+    }
+
+    /** Move only what fits; native stack merging leaves every remainder in the source slot. */
+    int collectAll() {
+        if (!canUseWorkerInventory()) { throw new IllegalStateException("WORKER_UNAVAILABLE"); }
+        int collected = 0;
+        for (int index = 0; index < WorkerEntity.INVENTORY_SIZE; index++) {
+            int before = inventory.getItem(index).getCount();
+            quickMoveStack(player, index);
+            collected += before - inventory.getItem(index).getCount();
+        }
+        if (collected > 0 && !retired) { roster.changed(roster.active(owner, worker)); }
+        refreshRevision();
+        return collected;
     }
 
     public void handle(Player holder, WorkerNetwork.Intent intent) {
@@ -284,6 +323,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
             data.put("Overrides", WorkerSettings.save(roster.overrides(owner, worker)));
             data.putBoolean("Pending", relocation().pending(worker));
             data.putInt("SelectedSlot", retired ? -1 : roster.active(owner, worker).selectedSlot());
+            if (!retired) { data.put("InventoryManagement", roster.active(owner, worker).inventoryManagementSettings()); }
         }
         ListTag pending = new ListTag();
         for (WorkerRelocation.Status status : relocation().requests(owner)) {

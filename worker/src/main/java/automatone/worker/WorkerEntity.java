@@ -29,6 +29,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.LevelResource;
+import net.neoforged.neoforge.event.level.BlockDropsEvent;
 
 import java.util.List;
 import java.util.Objects;
@@ -37,7 +38,10 @@ import java.util.UUID;
 
 /** Server worker with explicit, transient ownership of one native runtime. */
 public class WorkerEntity extends Mob implements Container {
-    private final SimpleContainer inventory = new SimpleContainer(9);
+    public static final int HOTBAR_SIZE = 9;
+    public static final int INVENTORY_SIZE = 36;
+    private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE);
+    private WorkerInventoryManagement inventoryManagement = new WorkerInventoryManagement();
     private final MiningSession miningSession = new MiningSession();
     private final WorkerChunkLoading chunkLoading = new WorkerChunkLoading();
     private final WorkerContext context = new WorkerContext(this);
@@ -161,7 +165,7 @@ public class WorkerEntity extends Mob implements Container {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         CompoundTag saved = new CompoundTag();
-        saved.putInt("Version", 2);
+        saved.putInt("Version", 3);
         NonNullList<ItemStack> items = NonNullList.withSize(getContainerSize(), ItemStack.EMPTY);
         for (int slot = 0; slot < items.size(); slot++) {
             items.set(slot, getItem(slot));
@@ -169,6 +173,7 @@ public class WorkerEntity extends Mob implements Container {
         CompoundTag storedInventory = new CompoundTag();
         ContainerHelper.saveAllItems(storedInventory, items, registryAccess());
         saved.put("Inventory", storedInventory);
+        saved.put("InventoryManagement", inventoryManagement.save());
         saved.putInt("SelectedSlot", selectedSlot);
         if (owner != null) {
             saved.putUUID("Owner", owner);
@@ -195,11 +200,13 @@ public class WorkerEntity extends Mob implements Container {
         super.readAdditionalSaveData(tag);
         pendingResume = false;
         owner = null;
+        inventoryManagement = new WorkerInventoryManagement();
         miningSession.restore(new MiningSession.Snapshot("", 0, 0, MiningSession.State.IDLE, ""));
         if (!tag.contains("AutomatoneWorker")) {
             return;
         }
         CompoundTag saved = tag.getCompound("AutomatoneWorker");
+        inventoryManagement = WorkerInventoryManagement.load(saved.getCompound("InventoryManagement"));
         if (saved.contains("Inventory", Tag.TAG_COMPOUND)) {
             NonNullList<ItemStack> items = NonNullList.withSize(getContainerSize(), ItemStack.EMPTY);
             ContainerHelper.loadAllItems(saved.getCompound("Inventory"), items, registryAccess());
@@ -207,13 +214,13 @@ public class WorkerEntity extends Mob implements Container {
                 setItem(slot, items.get(slot));
             }
         }
-        selectedSlot = Math.clamp(saved.getInt("SelectedSlot"), 0, getContainerSize() - 1);
+        selectedSlot = Math.clamp(saved.getInt("SelectedSlot"), 0, HOTBAR_SIZE - 1);
         if (saved.hasUUID("Owner")) {
             owner = saved.getUUID("Owner");
         }
         try {
             CompoundTag job = saved.getCompound("Job");
-            if (!saved.contains("Version", Tag.TAG_INT) || (saved.getInt("Version") != 1 && saved.getInt("Version") != 2)
+            if (!saved.contains("Version", Tag.TAG_INT) || saved.getInt("Version") < 1 || saved.getInt("Version") > 3
                     || !job.contains("Target", Tag.TAG_STRING) || !job.contains("Requested", Tag.TAG_INT)
                     || !job.contains("Completed", Tag.TAG_LONG) || !job.contains("State", Tag.TAG_STRING)
                     || !job.contains("Error", Tag.TAG_STRING)) {
@@ -388,22 +395,41 @@ public class WorkerEntity extends Mob implements Container {
 
     @Override
     public boolean wantsToPickUp(ItemStack stack) {
-        return inventory.canAddItem(stack);
+        return inventoryManagement.pickupLimit(this, stack) > 0
+                && (inventory.canAddItem(stack) || inventoryManagement.canMakeSpace(this));
     }
 
     @Override
     protected void pickUpItem(ItemEntity itemEntity) {
-        ItemStack remainder = inventory.addItem(itemEntity.getItem());
-        int collected = itemEntity.getItem().getCount() - remainder.getCount();
+        ItemStack source = itemEntity.getItem();
+        int limit = inventoryManagement.pickupLimit(this, source);
+        if (limit == 0) { return; }
+        if (!inventory.canAddItem(source)) { inventoryManagement.makeSpace(this, source); }
+        ItemStack remainder = inventory.addItem(source.copyWithCount(limit));
+        int collected = limit - remainder.getCount();
         if (collected > 0) {
             onItemPickup(itemEntity);
             take(itemEntity, collected);
-            if (remainder.isEmpty()) {
+            source.shrink(collected);
+            if (source.isEmpty()) {
                 itemEntity.discard();
             } else {
-                itemEntity.setItem(remainder);
+                itemEntity.setItem(source);
             }
         }
+    }
+
+    public CompoundTag inventoryManagementSettings() { return inventoryManagement.settings(); }
+
+    boolean hasInventorySpace(ItemStack stack) { return inventory.canAddItem(stack); }
+
+    public void applyInventoryManagement(boolean enabled, int keep, List<ResourceLocation> blocks) {
+        requireServerThread();
+        inventoryManagement.configure(enabled, keep, blocks);
+    }
+
+    static void onBlockDrops(BlockDropsEvent event) {
+        if (event.getBreaker() instanceof WorkerEntity worker) { worker.inventoryManagement.recordDrops(worker, event); }
     }
 
     /** Repeated attachment of a loaded worker preserves its context and runtime. */
@@ -530,7 +556,7 @@ public class WorkerEntity extends Mob implements Container {
     }
 
     public void setSelectedSlot(int slot) {
-        Objects.checkIndex(slot, inventory.getContainerSize());
+        Objects.checkIndex(slot, HOTBAR_SIZE);
         selectedSlot = slot;
     }
 

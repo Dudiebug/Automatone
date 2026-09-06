@@ -53,8 +53,10 @@ public final class WorkerHostGameTest {
         WorkerEntity worker = WorkerGameTestSupport.spawnWorker(helper);
         try {
             Container inventory = worker.inventory();
-            helper.assertTrue(inventory.getContainerSize() == 9,
-                    "Worker host inventory must expose nine slots");
+            helper.assertTrue(inventory.getContainerSize() == WorkerEntity.INVENTORY_SIZE
+                            && WorkerEntity.INVENTORY_SIZE == 36
+                            && WorkerEntity.HOTBAR_SIZE == 9,
+                    "Worker host inventory must expose 36 slots with a nine-slot hotbar");
             helper.assertTrue(worker.selectedSlot() == 0,
                     "Worker selected slot must start at zero");
             helper.assertFalse(inventory.canPlaceItem(0, new ItemStack(Items.COBBLESTONE)),
@@ -73,7 +75,7 @@ public final class WorkerHostGameTest {
             helper.assertTrue(worker.selectedSlot() == 8 && worker.getMainHandItem() == slotEight,
                     "Selected slot eight must replace the worker main hand");
             assertInvalidSelectionDoesNotMutate(helper, worker, -1, slotEight);
-            assertInvalidSelectionDoesNotMutate(helper, worker, 9, slotEight);
+            assertInvalidSelectionDoesNotMutate(helper, worker, WorkerEntity.HOTBAR_SIZE, slotEight);
 
             ItemStack replacement = new ItemStack(Items.GOLD_NUGGET, 2);
             inventory.setItem(8, replacement);

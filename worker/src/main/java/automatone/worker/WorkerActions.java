@@ -116,6 +116,26 @@ final class WorkerActions {
                 worker.setSelectedSlot(slot);
                 roster.changed(worker);
             }
+            case COLLECT_ALL -> {
+                keys(data, "Revision");
+                selected(data, menu.retired());
+                result.putInt("Collected", menu.collectAll());
+            }
+            case INVENTORY_MANAGEMENT -> {
+                keys(data, "Revision", "Enabled", "Keep", "Blocks");
+                selected(data, false);
+                require(data, "Blocks", Tag.TAG_LIST);
+                ListTag blocks = (ListTag) data.get("Blocks");
+                if (blocks.size() > 128 || (!blocks.isEmpty() && blocks.getElementType() != Tag.TAG_STRING)
+                        || blocks.stream().anyMatch(value -> value.getAsString().length() > 256)) {
+                    throw new IllegalArgumentException("INVALID_BLOCK");
+                }
+                List<ResourceLocation> ids = blocks.stream()
+                        .map(value -> ResourceLocation.parse(value.getAsString())).toList();
+                WorkerEntity worker = roster.active(owner, menu.worker());
+                worker.applyInventoryManagement(bool(data, "Enabled"), integer(data, "Keep", 0, 4096), ids);
+                roster.changed(worker);
+            }
             case RENAME -> {
                 keys(data, "Revision", "Name");
                 selected(data, menu.retired());

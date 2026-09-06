@@ -167,6 +167,7 @@ public final class WorkerRosterGameTest {
             UUID workerId = worker.getUUID();
             worker.setItem(0, new ItemStack(Items.IRON_INGOT, 3));
             worker.setItem(2, new ItemStack(Items.DIRT, 7));
+            worker.setItem(WorkerEntity.INVENTORY_SIZE - 1, new ItemStack(Items.EMERALD, 11));
             worker.setSelectedSlot(2);
             worker.startMining(IRON_ORE, 3);
             UUID runId = worker.miningStatus().runId();
@@ -190,8 +191,10 @@ public final class WorkerRosterGameTest {
                     "Retirement must release the worker's center and working-ring tickets");
             helper.assertTrue(roster.list(owner, true).size() == 1
                             && roster.archivedInventory(owner, workerId).get(0).getCount() == 3
-                            && roster.archivedInventory(owner, workerId).get(2).getCount() == 7,
-                    "Retirement must archive identity, paused job and all nine inventory slots");
+                            && roster.archivedInventory(owner, workerId).get(2).getCount() == 7
+                            && roster.archivedInventory(owner, workerId).get(WorkerEntity.INVENTORY_SIZE - 1).is(Items.EMERALD)
+                            && roster.archivedInventory(owner, workerId).get(WorkerEntity.INVENTORY_SIZE - 1).getCount() == 11,
+                    "Retirement must archive identity, paused job and all 36 inventory slots");
 
             List<ItemStack> archived = roster.archivedInventory(owner, workerId);
             archived.get(0).setCount(0);
@@ -210,7 +213,9 @@ public final class WorkerRosterGameTest {
             CompoundTag saved = roster.save(new CompoundTag(), helper.getLevel().getServer().registryAccess());
             WorkerRoster loaded = WorkerRoster.load(helper.getLevel().getServer(), saved);
             helper.assertTrue(loaded.archivedInventory(owner, workerId).get(0).getCount() == 1
-                            && loaded.archivedInventory(owner, workerId).get(2).getCount() == 7,
+                            && loaded.archivedInventory(owner, workerId).get(2).getCount() == 7
+                            && loaded.archivedInventory(owner, workerId).get(WorkerEntity.INVENTORY_SIZE - 1).is(Items.EMERALD)
+                            && loaded.archivedInventory(owner, workerId).get(WorkerEntity.INVENTORY_SIZE - 1).getCount() == 11,
                     "Saved and reloaded archives must retain the post-withdrawal inventory");
 
             UUID reactivateRequest = UUID.randomUUID();
@@ -227,8 +232,10 @@ public final class WorkerRosterGameTest {
                             && runId.equals(restored.runId())
                             && reactivated.getItem(0).is(Items.IRON_INGOT) && reactivated.getItem(0).getCount() == 1
                             && reactivated.getItem(2).is(Items.DIRT) && reactivated.getItem(2).getCount() == 7
+                            && reactivated.getItem(WorkerEntity.INVENTORY_SIZE - 1).is(Items.EMERALD)
+                            && reactivated.getItem(WorkerEntity.INVENTORY_SIZE - 1).getCount() == 11
                             && reactivated.selectedSlot() == 2
-                            && isEmptyExcept(reactivated, 0, 2),
+                            && isEmptyExcept(reactivated, 0, 2, WorkerEntity.INVENTORY_SIZE - 1),
                     "Reactivation must restore the same identity, remaining inventory, selection and paused job without tools");
             helper.assertTrue(!reactivated.runtime().getMineProcess().isActive(),
                     "A reactivated paused job must not start native mining automatically");

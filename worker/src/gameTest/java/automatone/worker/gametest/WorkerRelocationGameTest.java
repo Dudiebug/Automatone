@@ -76,7 +76,7 @@ public final class WorkerRelocationGameTest {
                                     && WorkerRelocation.isSafe(level, current[0].blockPosition()),
                             "Deployment must commit the reserved worker at a safe in-border destination");
                     helper.assertTrue(isEmpty(current[0]) && current[0].getMainHandItem().isEmpty(),
-                            "A new worker must expose nine empty inventory slots and no starter equipment");
+                            "A new worker must expose 36 empty inventory slots and no starter equipment");
                     helper.assertTrue(preparationTickets(level, request) == 0,
                             "A completed deployment must release its preparation ticket");
                     helper.assertTrue(service.deploy(owner, request, Level.OVERWORLD, null).equals(status),
@@ -107,6 +107,7 @@ public final class WorkerRelocationGameTest {
                     }
 
                     current[0].setItem(0, new ItemStack(Items.DIRT, 4));
+                    current[0].setItem(WorkerEntity.INVENTORY_SIZE - 1, new ItemStack(Items.EMERALD, 6));
                     UUID workerId = current[0].getUUID();
                     long revision = roster.view(owner, workerId).revision();
                     roster.retire(owner, workerId, revision);
@@ -129,7 +130,9 @@ public final class WorkerRelocationGameTest {
                             helper.assertTrue(current[0].getUUID().equals(workerId)
                                             && current[0].getItem(0).is(Items.DIRT)
                                             && current[0].getItem(0).getCount() == 4
-                                            && isEmptyExcept(current[0], 0),
+                                            && current[0].getItem(WorkerEntity.INVENTORY_SIZE - 1).is(Items.EMERALD)
+                                            && current[0].getItem(WorkerEntity.INVENTORY_SIZE - 1).getCount() == 6
+                                            && isEmptyExcept(current[0], 0, WorkerEntity.INVENTORY_SIZE - 1),
                                     "Reactivation must restore the same identity and remaining inventory without grants");
                             helper.assertTrue(preparationTickets(level, reactivationRequest) == 0,
                                     "A completed reactivation must release its preparation ticket");
@@ -162,6 +165,7 @@ public final class WorkerRelocationGameTest {
             worker = directWorker(roster, owner, level, initialFeet(helper));
             fixture.track(worker);
             worker.setItem(2, new ItemStack(Items.COBBLESTONE, 5));
+            worker.setItem(WorkerEntity.INVENTORY_SIZE - 1, new ItemStack(Items.EMERALD, 6));
             worker.setSelectedSlot(2);
             worker.startMining(IRON_ORE, 4);
             MiningSession.Snapshot running = worker.miningStatus();
@@ -205,6 +209,8 @@ public final class WorkerRelocationGameTest {
                             && worker.miningStatus().runId().equals(running.runId())
                             && worker.getItem(2).is(Items.COBBLESTONE)
                             && worker.getItem(2).getCount() == 5
+                            && worker.getItem(WorkerEntity.INVENTORY_SIZE - 1).is(Items.EMERALD)
+                            && worker.getItem(WorkerEntity.INVENTORY_SIZE - 1).getCount() == 6
                             && worker.selectedSlot() == 2,
                     "Cancelled relocation must leave the original paused worker, position, inventory and run intact");
             finish(helper, fixture, null);
@@ -231,6 +237,7 @@ public final class WorkerRelocationGameTest {
             WorkerEntity worker = directWorker(roster, owner, level, initialFeet(helper));
             fixture.track(worker);
             worker.setItem(3, new ItemStack(Items.REDSTONE, 9));
+            worker.setItem(WorkerEntity.INVENTORY_SIZE - 1, new ItemStack(Items.EMERALD, 6));
             worker.setSelectedSlot(3);
             worker.startMining(IRON_ORE, 2);
             UUID workerId = worker.getUUID();
@@ -262,6 +269,8 @@ public final class WorkerRelocationGameTest {
                                     && moved.miningStatus().completed() == 0
                                     && moved.getItem(3).is(Items.REDSTONE)
                                     && moved.getItem(3).getCount() == 9
+                                    && moved.getItem(WorkerEntity.INVENTORY_SIZE - 1).is(Items.EMERALD)
+                                    && moved.getItem(WorkerEntity.INVENTORY_SIZE - 1).getCount() == 6
                                     && moved.selectedSlot() == 3,
                             "Cross-dimension relocation must preserve paused job state, progress and inventory");
                     helper.assertTrue(WorkerChunkLoadingGameTest.tickets(sourceLevel, CENTER, workerId).isEmpty()

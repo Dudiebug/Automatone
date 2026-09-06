@@ -2,7 +2,7 @@ schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
 accepted_baseline: 14762d261c107f7020930aa73d905e47359f3d04
-active_task: M5.8
+active_task: M5.9
 active_gate: M5
 
 milestones:
@@ -256,6 +256,13 @@ tasks:
     last_evidence: .agents/decisions/M5-EVIDENCE.md
     blocker: null
     deferred: Independent automated profile PASS; human GPU acceptance PENDING. Product source unchanged from b379805d.
+  M5.9:
+    state: COMPLETE
+    baseline: 557bbd01
+    last_verdict: PASS
+    last_evidence: .agents/decisions/M5-INVENTORY-EVIDENCE.md
+    blocker: null
+    execution_authorization: "Human requested full 36-slot inventories, side-by-side UI, Collect all and configurable block-list cleanup."
   M6.1:
     state: PLANNED
     baseline: null

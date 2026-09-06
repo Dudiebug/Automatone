@@ -44,7 +44,7 @@
   "gui.automatone_worker.reactivate_worker": "Reactivate worker",
   "gui.automatone_worker.relocate_worker": "Relocate worker",
   "gui.automatone_worker.find_a_safe_random_destination_inside_the_world_border": "Find a safe random destination inside the world border.",
-  "gui.automatone_worker.new_workers_have_nine_empty_slots_bring_your_own_equipment": "New workers have nine empty slots. Bring your own equipment.",
+  "gui.automatone_worker.new_workers_have_36_empty_slots_bring_your_own_equipment": "New workers have 36 empty slots. Bring your own equipment.",
   "gui.automatone_worker.unfinished_jobs_stay_paused_remaining_inventory_is_retained": "Unfinished jobs stay paused; remaining inventory is retained.",
   "gui.automatone_worker.preparation_can_be_cancelled_from_requests": "Preparation can be cancelled from Requests.",
   "gui.automatone_worker.confirm": "Confirm",
@@ -133,5 +133,12 @@
   "notification.automatone_worker.unread": "%s unread completions in your inbox",
   "notification.automatone_worker.completed": "%s: %s blocks",
   "notification.automatone_worker.inbox": "Automatone inbox",
-  "notification.automatone_worker.title": "Worker job completed"
+  "notification.automatone_worker.title": "Worker job completed",
+  "gui.automatone_worker.collect_all": "Collect all",
+  "gui.automatone_worker.collected_count": "Collected %s items; anything that did not fit stays with the worker.",
+  "gui.automatone_worker.automatic_cleanup": "Automatic cleanup",
+  "gui.automatone_worker.cleanup_enabled": "Cleanup: %s",
+  "gui.automatone_worker.cleanup_help": "Select unwanted blocks above. Keep this many of each; skip further pickups and drop excess stacks when room is needed. Tools, custom stacks and current job outputs are protected. Cleanup pauses while this worker menu is open.",
+  "gui.automatone_worker.keep_each": "Keep per listed block (0–4096)",
+  "gui.automatone_worker.invalid_keep": "Enter a retained count from 0 to 4096."
 }

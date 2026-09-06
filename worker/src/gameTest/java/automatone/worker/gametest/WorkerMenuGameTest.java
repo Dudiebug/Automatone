@@ -14,6 +14,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.ByteArrayTag;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
@@ -180,7 +181,7 @@ public final class WorkerMenuGameTest {
                             && worker.getItem(0).isEmpty() && itemCount(worker, player, active, Items.IRON_INGOT) == 7,
                     "Quick-moving an active worker stack must conserve every item and empty its source slot");
 
-            ItemStack returned = active.quickMoveStack(player, 9);
+            ItemStack returned = active.quickMoveStack(player, WorkerEntity.INVENTORY_SIZE);
             helper.assertTrue(returned.is(Items.IRON_INGOT) && returned.getCount() == 7
                             && worker.getItem(0).is(Items.IRON_INGOT) && worker.getItem(0).getCount() == 7,
                     "Quick-moving a merged player stack back must conserve the merged count");
@@ -217,7 +218,7 @@ public final class WorkerMenuGameTest {
                     "Archived quick-move must withdraw and merge stacks while conserving the count");
 
             player.getInventory().setItem(10, new ItemStack(Items.DIRT, 2));
-            ItemStack archiveInsert = archive.quickMoveStack(player, 10);
+            ItemStack archiveInsert = archive.quickMoveStack(player, WorkerEntity.INVENTORY_SIZE + 1);
             helper.assertTrue(archiveInsert.isEmpty() && player.getInventory().getItem(10).is(Items.DIRT)
                             && player.getInventory().getItem(10).getCount() == 2
                             && roster.archivedInventory(player.getUUID(), worker.getUUID()).get(2).is(Items.DIRT)
@@ -378,6 +379,94 @@ public final class WorkerMenuGameTest {
         helper.succeed();
     }
 
+    @GameTest(template = "provider_smoke", batch = "worker_m5_menu_inventory_policy", timeoutTicks = 180)
+    public static void inventoryManagementPayloadValidatesAndPreservesJobState(GameTestHelper helper) {
+        Fixture fixture = new Fixture(helper);
+        try {
+            ServerPlayer owner = fixture.player();
+            WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
+            WorkerEntity worker = fixture.spawnOwned(owner, helper.getLevel(), helper.absolutePos(new BlockPos(0, 1, 0)));
+            worker.startMining(IRON_ORE, 4);
+            worker.pauseMining();
+            MiningSession.Snapshot before = worker.miningStatus();
+            helper.assertTrue(before.state() == MiningSession.State.PAUSED && before.runId() != null,
+                    "Policy validation needs a paused job with retained progress and run identity");
+            WorkerMenu.open(owner, worker.getUUID(), false, 0);
+            WorkerMenu menu = requireMenu(owner);
+            menu.showInventory(true);
+
+            long revision = roster.view(owner.getUUID(), worker.getUUID()).revision();
+            send(owner, menu, 1, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
+                    inventoryManagementData(revision, true, 32, "minecraft:dirt", "minecraft:cobblestone"));
+            CompoundTag success = response(menu);
+            CompoundTag settings = worker.inventoryManagementSettings();
+            helper.assertTrue(success.getString("Kind").equals("Success")
+                            && settings.getBoolean("Enabled") && settings.getInt("Keep") == 32
+                            && settings.getList("Blocks", net.minecraft.nbt.Tag.TAG_STRING).size() == 2
+                            && settings.getList("Blocks", net.minecraft.nbt.Tag.TAG_STRING).getString(0).equals("minecraft:dirt")
+                            && settings.getList("Blocks", net.minecraft.nbt.Tag.TAG_STRING).getString(1).equals("minecraft:cobblestone")
+                            && worker.miningStatus().equals(before),
+                    "A valid policy edit must return success, expose the exact public policy and preserve the paused job");
+
+            ServerPlayer stranger = fixture.player();
+            CompoundTag unchanged = worker.inventoryManagementSettings();
+            send(stranger, menu, 2, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
+                    inventoryManagementData(revision, false, 0, "minecraft:dirt"));
+            helper.assertTrue(worker.inventoryManagementSettings().equals(unchanged)
+                            && worker.miningStatus().equals(before),
+                    "A wrong-owner policy intent must not mutate policy or job state");
+
+            long currentRevision = roster.view(owner.getUUID(), worker.getUUID()).revision();
+            CompoundTag stale = inventoryManagementData(currentRevision - 1, false, 0, "minecraft:dirt");
+            send(owner, menu, 2, WorkerNetwork.Action.INVENTORY_MANAGEMENT, stale);
+            assertError(helper, menu, "STALE_REVISION");
+            helper.assertTrue(worker.inventoryManagementSettings().equals(unchanged)
+                            && worker.miningStatus().equals(before),
+                    "A stale policy revision must leave policy and job state unchanged");
+
+            ListTag wrongIntList = new ListTag();
+            wrongIntList.add(net.minecraft.nbt.IntTag.valueOf(1));
+            send(owner, menu, 3, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
+                    inventoryManagementData(currentRevision, false, 0, wrongIntList));
+            assertError(helper, menu, "INVALID_BLOCK");
+
+            ListTag wrongCompoundList = new ListTag();
+            wrongCompoundList.add(new CompoundTag());
+            send(owner, menu, 4, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
+                    inventoryManagementData(currentRevision, false, 0, wrongCompoundList));
+            assertError(helper, menu, "INVALID_BLOCK");
+
+            send(owner, menu, 5, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
+                    inventoryManagementData(currentRevision, false, -1, "minecraft:dirt"));
+            assertError(helper, menu, "INVALID_KEEP");
+
+            send(owner, menu, 6, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
+                    inventoryManagementData(currentRevision, false, 0, "minecraft:not_a_block"));
+            assertError(helper, menu, "INVALID_BLOCK");
+
+            send(owner, menu, 7, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
+                    inventoryManagementData(currentRevision, false, 0, "minecraft:dirt", "minecraft:dirt"));
+            assertError(helper, menu, "INVALID_INVENTORY_POLICY");
+            helper.assertTrue(worker.inventoryManagementSettings().equals(unchanged)
+                            && worker.miningStatus().equals(before),
+                    "Every rejected policy payload must preserve the last accepted policy and job");
+
+            UUID request = UUID.randomUUID();
+            WorkerRelocation relocation = WorkerRelocation.get(helper.getLevel().getServer());
+            relocation.relocate(owner.getUUID(), request, worker.getUUID(), currentRevision, Level.OVERWORLD);
+            fixture.trackPending(owner.getUUID(), request);
+            long pendingRevision = roster.view(owner.getUUID(), worker.getUUID()).revision();
+            send(owner, menu, 8, WorkerNetwork.Action.INVENTORY_MANAGEMENT,
+                    inventoryManagementData(pendingRevision, false, 0, "minecraft:dirt"));
+            assertError(helper, menu, "WORKER_PENDING");
+            helper.assertTrue(worker.inventoryManagementSettings().equals(unchanged),
+                    "A pending relocation must reject policy changes without mutation");
+        } finally {
+            fixture.close();
+        }
+        helper.succeed();
+    }
+
     @GameTest(template = "provider_smoke", batch = "worker_m5_menu_codec", timeoutTicks = 120)
     public static void intentCodecRoundTripsAndEnforcesTrueNbtQuota(GameTestHelper helper) {
         UUID session = UUID.randomUUID();
@@ -460,6 +549,8 @@ public final class WorkerMenuGameTest {
             long pendingRevision = roster.view(owner.getUUID(), worker.getUUID()).revision();
             send(owner, menu, 1, WorkerNetwork.Action.RESUME, revisionData(pendingRevision));
             assertError(helper, menu, "WORKER_PENDING");
+            send(owner, menu, 2, WorkerNetwork.Action.COLLECT_ALL, revisionData(pendingRevision));
+            assertError(helper, menu, "WORKER_PENDING");
             ItemStack blocked = menu.quickMoveStack(owner, 0);
             helper.assertTrue(blocked.isEmpty() && worker.getItem(0).is(Items.IRON_INGOT)
                             && worker.getItem(0).getCount() == 4
@@ -476,7 +567,7 @@ public final class WorkerMenuGameTest {
                             && withdrawn.getCount() == 4 && worker.getItem(0).isEmpty(),
                     "The same menu must withdraw the worker stack after cancellation");
             long resumedRevision = roster.view(owner.getUUID(), worker.getUUID()).revision();
-            send(owner, menu, 2, WorkerNetwork.Action.RESUME, revisionData(resumedRevision));
+            send(owner, menu, 3, WorkerNetwork.Action.RESUME, revisionData(resumedRevision));
             helper.assertTrue(response(menu).getString("Kind").equals("Success")
                             && worker.miningStatus().state() == MiningSession.State.RUNNING,
                     "The same menu must resume the paused job after cancellation");
@@ -609,6 +700,23 @@ public final class WorkerMenuGameTest {
     private static CompoundTag revisionData(long revision) {
         CompoundTag data = new CompoundTag();
         data.putLong("Revision", revision);
+        return data;
+    }
+
+    private static CompoundTag inventoryManagementData(long revision, boolean enabled, int keep, String... blocks) {
+        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+        for (String block : blocks) {
+            list.add(StringTag.valueOf(block));
+        }
+        return inventoryManagementData(revision, enabled, keep, list);
+    }
+
+    private static CompoundTag inventoryManagementData(long revision, boolean enabled, int keep,
+                                                        net.minecraft.nbt.ListTag blocks) {
+        CompoundTag data = revisionData(revision);
+        data.putByte("Enabled", (byte) (enabled ? 1 : 0));
+        data.putInt("Keep", keep);
+        data.put("Blocks", blocks);
         return data;
     }
 

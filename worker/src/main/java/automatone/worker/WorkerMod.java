@@ -10,10 +10,12 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.inventory.MenuType;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
+import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -44,6 +46,7 @@ public final class WorkerMod {
         NeoForge.EVENT_BUS.addListener(WorkerNotifications::login);
         NeoForge.EVENT_BUS.addListener(WorkerNotifications::logout);
         NeoForge.EVENT_BUS.addListener(WorkerNotifications::stop);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, BlockDropsEvent.class, WorkerEntity::onBlockDrops);
     }
 
     private static void creativeItems(BuildCreativeModeTabContentsEvent event) {
