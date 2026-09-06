@@ -6,7 +6,7 @@ equipment. Baseline: accepted M4; existing human workflow/document edits preserv
 
 ## Current status
 
-M5.1-M5.7 COMPLETE for automated task criteria. Human visual/client checks PENDING. M5.8 independent gate IN_PROGRESS. Milestone acceptance PENDING.
+M5.1-M5.7 COMPLETE for automated task criteria. Human visual/client checks PENDING. M5.8 awaits the historical SpotBugs source-line decision. Milestone acceptance PENDING.
 Skills: Graphify structural query, Ponytail native/reuse-first implementation,
 Old Coder failure model under the repository proportional verification policy.
 Product spec approved; Astra owns detailed test contracts. No extra dependency,
@@ -374,3 +374,22 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   exact recorded line migrations is pending; concrete proposal retained at
   `.agents/evidence/M5/spotbugs-line-migration-proposal.md`. Remaining affected
   independent checks PENDING. Task and milestone remain IN_PROGRESS/PENDING.
+- Same independent verifier's affected recheck on clean `b379805d`: root GameTests
+  28/28 PASS, fresh-world worker GameTests 77/77 PASS, root/worker unit tests,
+  architecture/sensor tests and applicable Checkstyle PASS. Scope and diff hygiene
+  PASS. No second full profile or identical preliminary gate. Machine result
+  `affected-recheck-b379805d.json` is correctly INCOMPLETE while the disposition
+  gate and human checks remain unresolved; raw log copied into this checkout's
+  `.agents/evidence/M5/` with the unchanged initial independent FAIL report.
+- Controller directly revalidated only 22 native and two worker approval hashes
+  with exact unchanged full warning identities, including original line bounds.
+  Existing getter/context/array/path-state contracts remain unchanged; M5 settings
+  routing does not change the state exposure or thread ownership behind those
+  warnings. Exact XML identity equality was asserted before each hash update.
+  Original reviewers/contracts/eligibility remain intact; this paragraph records
+  controller revalidation, not a new reviewer approval. Ten shifted native
+  identities remain untouched pending the human decision. No validator change.
+- Rebuilt both production JARs; archive inspection confirms client screen/sprite/
+  mixin resources and no GameTest fixture classes. Test bundle:
+  `dist/automatone-M5-b379805d-test.zip`, with both mods, checksums, install notes
+  and the manual checklist. It is explicitly an unaccepted test candidate.

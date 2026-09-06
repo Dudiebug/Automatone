@@ -8,65 +8,65 @@
       "id": 1,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
+      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 2,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
+      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 3,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
+      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 4,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
+      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 5,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
+      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 6,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
+      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 7,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
+      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native runtime ownership contract: Baritone exposes the actual supplied worker context and live process/selection objects so host commands and pathing control the running runtime. Provider/process lifecycle evidence exercises identity; detached copies would change behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 8,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "181091871b8db177bb46435fa337f0eba2c4bc8ac79397d71ec55fe95bac6018",
+      "sourceSha256": "0cf185c93f8526d078a2c8ce52f1d8b20714fefb14ecb4baa09a39a38c930939",
       "contract": "Native executor ownership contract: getExecutor exposes the shared executor used by pathing and scanning. Replacing it with a detached or wrapped executor would change scheduling and ownership; callers are not given an arbitrary shutdown contract.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 9,
@@ -248,49 +248,49 @@
       "id": 36,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
+      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
-      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 37,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
+      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
-      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 38,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
+      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
-      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 39,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
+      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "Server runtime tick ownership contract: these PathingBehavior flags are live control state written/read by dispatchEvents, requestPause, softCancelIfSafe and tickPath. Automatone.onServerTick routes provider.tick to runtime.tick on the server tick path; this approval makes no claim of arbitrary-thread API safety.",
-      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 40,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
+      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "IPathingBehavior API contract: the interface returns the current/next native path executor and its default remaining-tick query reads that executor. A detached object would report stale path state.",
-      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 41,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "92bdcb460214abb354c94ac0f02fdb100a6bacdad5e871a983925b8b17970e3b",
+      "sourceSha256": "d9d7ba5fd53c6dffa5516812f025c57770a0106323d61746457f9b8d41067d9f",
       "contract": "IPathingBehavior API contract: the interface returns the current/next native path executor and its default remaining-tick query reads that executor. A detached object would report stale path state.",
-      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-pathing-warning-revalidation"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 42,
@@ -368,57 +368,57 @@
       "id": 54,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "c9e4116da6ac948370714fdc22ceeae3b767359d7fb0490549e28091639750c2",
+      "sourceSha256": "4f9d6973f7ddb48a94445c6238042c6528e7fe3d7b86ed551f715ce78a36e0c0",
       "contract": "Native pathing compatibility contract: the protected coefficient table is consumed by AStarPathFinder and AbstractNodeCostSearch for native tuning and subclass behavior; hiding or copying it would alter the established search contract.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 55,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "cc0811fcecc4e2040da681777e2998b2bcecb568cbfbc813d9a382aeaa779057",
+      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 56,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "cc0811fcecc4e2040da681777e2998b2bcecb568cbfbc813d9a382aeaa779057",
+      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 57,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "cc0811fcecc4e2040da681777e2998b2bcecb568cbfbc813d9a382aeaa779057",
+      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 58,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "cc0811fcecc4e2040da681777e2998b2bcecb568cbfbc813d9a382aeaa779057",
+      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 59,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "cc0811fcecc4e2040da681777e2998b2bcecb568cbfbc813d9a382aeaa779057",
+      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 60,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "cc0811fcecc4e2040da681777e2998b2bcecb568cbfbc813d9a382aeaa779057",
+      "sourceSha256": "912d6209c3b96e84c47dae30c6423285c43c49b82f17b71f9c3d407b1a75b6bc",
       "contract": "Native movement compatibility contract: the live valid-position set, break array, direction array and cached lists are consumed directly by PathExecutor and Movement subclasses and are reset/repopulated during movement calculation. Detached views would change native movement behavior.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 61,
@@ -432,9 +432,9 @@
       "id": 62,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "02956869b399f58f21ba27649b58b94cdc3580a773c4be711083f7ce1e33cddb",
+      "sourceSha256": "54b8e358e4a0827f040ff9cf8dc1fb2163baf3ae06e965fcb3c6832351c0d574",
       "contract": "Native movement control contract: forceSafeMode is live state set by forceSafeMode and read by safeMode during descend calculation.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M5-EVIDENCE.md#m58--independent-milestone-gate-in_progress"
     },
     {
       "id": 64,
