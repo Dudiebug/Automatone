@@ -34,6 +34,44 @@ final class WorkerActions {
         result.putString("Kind", "Success");
         switch (action) {
             case REFRESH -> keys(data);
+            case OPEN_COLLECTION -> {
+                keys(data);
+                WorkerMenu.openCollection(menu.player(), menu.retired(), menu.worker());
+            }
+            case COLLECTION_QUERY -> {
+                keys(data, "Mode", "Dimension", "Worker", "Search", "Page");
+                int mode = integer(data, "Mode", 0, 2);
+                String dimension = string(data, "Dimension", 256);
+                if (!dimension.isEmpty() && menu.server().getLevel(ResourceKey.create(Registries.DIMENSION,
+                        ResourceLocation.parse(dimension))) == null) { throw new IllegalArgumentException("INVALID_DIMENSION"); }
+                String worker = string(data, "Worker", 36);
+                menu.collection().query(mode, dimension, worker.isEmpty() ? null : UUID.fromString(worker),
+                        string(data, "Search", 128), integer(data, "Page", 0, 1_000_000));
+            }
+            case COLLECTION_SOURCE_PAGE -> {
+                keys(data, "Page");
+                menu.collection().sourcePage(integer(data, "Page", 0, 1_000_000));
+            }
+            case COLLECTION_SELECT -> {
+                keys(data, "Revision", "Variant", "Selected");
+                require(data, "Revision", Tag.TAG_LONG);
+                menu.collection().select(data.getLong("Revision"), uuid(data, "Variant"), bool(data, "Selected"));
+            }
+            case COLLECTION_SELECT_ALL, COLLECTION_CLEAR -> {
+                keys(data, "Revision");
+                require(data, "Revision", Tag.TAG_LONG);
+                menu.collection().selectAll(data.getLong("Revision"), action == WorkerNetwork.Action.COLLECTION_CLEAR);
+            }
+            case COLLECTION_TRANSFER, PREVIEW_COLLECTION_RETIRE -> {
+                keys(data, "Revision");
+                require(data, "Revision", Tag.TAG_LONG);
+                return action == WorkerNetwork.Action.COLLECTION_TRANSFER ? menu.collection().collect(data.getLong("Revision"))
+                        : menu.collection().previewRetirement(data.getLong("Revision"));
+            }
+            case COLLECTION_RETIRE -> {
+                keys(data, "Confirmation");
+                return menu.collection().collectAndRetire(uuid(data, "Confirmation"));
+            }
             case NOTIFICATION_PAGE -> {
                 keys(data, "Page");
                 menu.notificationPage(integer(data, "Page", 0, 19));

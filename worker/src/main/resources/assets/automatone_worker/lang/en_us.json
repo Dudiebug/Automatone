@@ -141,5 +141,22 @@
   "gui.automatone_worker.pickup_rules": "Pickup rules",
   "gui.automatone_worker.cobblestone_reserve": "Keep 64 cobblestone; ignore selected blocks",
   "gui.automatone_worker.use_global_rules": "Use global rules",
-  "gui.automatone_worker.inherited_rules": "Using global rules"
+  "gui.automatone_worker.inherited_rules": "Using global rules",
+  "gui.automatone_worker.collection": "Collection",
+  "gui.automatone_worker.all_workers": "All workers",
+  "gui.automatone_worker.all_dimensions": "All dimensions",
+  "gui.automatone_worker.unavailable": "Unavailable",
+  "gui.automatone_worker.search_items": "Search items or IDs",
+  "gui.automatone_worker.search": "Search",
+  "gui.automatone_worker.collection_selected": "%s types · %s items",
+  "gui.automatone_worker.collection_sources": "%s workers in scope · %s unavailable",
+  "gui.automatone_worker.no_collectible_items": "No collectible items match these filters.",
+  "gui.automatone_worker.retire_after_collection": "Retire workers after collection",
+  "gui.automatone_worker.transfer_selected": "Transfer selected",
+  "gui.automatone_worker.collection_reserve_help": "Active tools, equipment and 64 ordinary cobblestone stay with each worker. Retirement archives every remainder.",
+  "gui.automatone_worker.collection_retire_warning": "Transfer the selected items, then stop mining and retire ALL active workers listed below, including workers with no selected items:",
+  "gui.automatone_worker.collection_retire_remainder": "Items that do not fit, tools and remaining supplies will stay in the retired archives.",
+  "gui.automatone_worker.confirm_collection_retirement": "Collect and retire these workers?",
+  "gui.automatone_worker.collection_result": "Collected %s · %s remaining at source · %s workers retired",
+  "gui.automatone_worker.collection_more_sources": "%s more workers; use the worker filter to inspect their contents."
 }

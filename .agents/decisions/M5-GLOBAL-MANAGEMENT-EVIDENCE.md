@@ -70,3 +70,25 @@ detailed tests are controller-defined under the approved workflow.
 - Controller confirms M5.11 completion. Disproved assumption: setting Mob sneak
   input alone supplies native crouching state. Independent profile, actual
   restart, final GUI acceptance and packaging remain PENDING for M5.14.
+
+## M5.12 — COMPLETE
+
+Implemented server-owned global collection with exact item/component variants,
+all-dimension active/archive scopes, bounded icon/source pages, persistent
+selection, filtered Select all and native player-inventory fitting. Active tools,
+equipment and 64 ordinary cobblestone stay protected. Archive equipment is
+withdrawable without duplicating the main-hand alias. Unloaded active records
+are explicitly unavailable. Collection retirement uses a scoped server preview
+and validates live contents/revisions before transfer and retirement; overflow
+remains archived. Individual menus open a fresh global collection session.
+
+PASS: `:worker:runGameTestServer` with collection, inventory and menu namespaces,
+all 30 tests, including five new collection scenarios. Raw output:
+`.agents/evidence/M5/global-collection-runtime.log`. Initial test compilation
+found a mutable lambda capture; corrected before runtime. Astra reviewed and
+corrected fixture API/count assertions and demonstrated exact-component checks;
+source-page overflow was aligned with valid server page clamping. No product
+contract was disproven. Production compilation passed as part of this run.
+Controller confirms focused task completion and architecture/scope conformity.
+Full independent profile, restart, GUI acceptance and packaging remain PENDING
+for M5.14; this does not accept the extension milestone.

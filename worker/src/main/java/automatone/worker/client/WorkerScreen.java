@@ -43,9 +43,10 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     static String translate(String key, Object... args) {
         return Component.translatable("gui.automatone_worker." + key, args).getString();
     }
-    private enum Page { ROSTER, JOB, INVENTORY, CLEANUP, SETTINGS, OVERRIDES, PERSONAL, RECIPIENTS, REQUESTS, INBOX }
+    private enum Page { ROSTER, JOB, INVENTORY, COLLECTION, CLEANUP, SETTINGS, OVERRIDES, PERSONAL, RECIPIENTS, REQUESTS, INBOX }
     private record Caption(String text, int x, int y, int color, int maxWidth) { }
     private record BlockCell(Block block, Button button, boolean selected) { }
+    private record ItemCell(ItemStack stack, Button button, boolean selected, long count) { }
     private record Dialog(String title, List<String> lines, Runnable confirm) { }
 
     private static final int TEXT = 0xFFE4E8DF;
@@ -53,6 +54,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private static final int GREEN = 0xFF8AAE4E;
     private final List<Caption> captions = new ArrayList<>();
     private final List<BlockCell> blockCells = new ArrayList<>();
+    private final List<ItemCell> itemCells = new ArrayList<>();
     private final Set<String> targets = new LinkedHashSet<>();
     private final Set<String> discardBlocks = new LinkedHashSet<>();
     private final Set<UUID> recipients = new LinkedHashSet<>();
@@ -92,10 +94,19 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private long settingsRevision;
     private long jobRevision;
     private WorkerNetwork.Action sentAction;
+    private int collectionMode;
+    private String collectionDimension = "";
+    private String collectionWorker = "";
+    private String collectionSearch = "";
+    private boolean retireAfterCollection;
+    private boolean choosingCollectionWorker;
+    private boolean personalPickupRules;
+    private boolean collectionMenuInitialized;
 
     public WorkerScreen(WorkerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         page = menu.worker() == null ? Page.ROSTER : Page.JOB;
+        personalPickupRules = menu.worker() == null;
         if (menu.retired() && menu.worker() != null) { page = Page.INVENTORY; }
         blocks = BuiltInRegistries.BLOCK.stream().filter(block -> !block.defaultBlockState().isAir())
                 .sorted(Comparator.comparing(block -> BuiltInRegistries.BLOCK.getKey(block).toString())).toList();
@@ -130,6 +141,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         clearWidgets();
         captions.clear();
         blockCells.clear();
+        itemCells.clear();
         menu.showInventory(dialog == null && page == Page.INVENTORY);
         if (dialog != null) { buildDialog(); return; }
         if (fw > 420) { label("AUTOMATONE", fx + 32, fy + 9, GREEN, fw - 304); }
@@ -144,20 +156,22 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         }
         int x = fx + 10;
         int y = fy + 34;
-        if (menu.worker() != null && page != Page.PERSONAL && page != Page.REQUESTS && page != Page.INBOX) {
+        if (menu.worker() != null && page != Page.PERSONAL && page != Page.REQUESTS && page != Page.INBOX && page != Page.COLLECTION
+                && !(page == Page.CLEANUP && personalPickupRules)) {
             label(name, x, y + 5, TEXT, Math.max(65, fw - 210));
             button(translate("job"), fx + fw - 190, y, 54, () -> navigate(Page.JOB));
             button(translate("inventory"), fx + fw - 134, y, 72, () -> navigate(Page.INVENTORY));
             button(translate("settings"), fx + fw - 60, y, 50, () -> navigate(Page.SETTINGS));
         } else {
-            label(page == Page.PERSONAL ? translate("personal_configuration") : page == Page.REQUESTS ? translate("deployment_relocation")
+            label(page == Page.CLEANUP ? translate("pickup_rules") : page == Page.COLLECTION ? translate("collection") : page == Page.PERSONAL ? translate("personal_configuration") : page == Page.REQUESTS ? translate("deployment_relocation")
                     : page == Page.INBOX ? translate("notifications") : menu.retired() ? translate("retired_workers") : translate("your_workers"),
-                    x, y + 5, TEXT, page == Page.INBOX ? fw - 182 : fw - 20);
+                    x, y + 5, TEXT, page == Page.INBOX ? fw - 182 : page == Page.PERSONAL ? fw - 210 : fw - 20);
         }
         switch (page) {
             case ROSTER, RECIPIENTS -> buildRoster();
             case JOB -> buildJob();
             case INVENTORY -> buildInventory();
+            case COLLECTION -> buildCollection();
             case CLEANUP -> buildCleanup();
             case SETTINGS -> buildSettings(false);
             case OVERRIDES -> buildSettingsPanel(false);
@@ -226,8 +240,9 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             button(menu.retired() ? translate("active_workers") : translate("retired_workers"), fx + 10, bottom, 94, () -> navigateRoster(!menu.retired()));
             if (!menu.retired()) {
                 button(translate("batch_job"), fx + 106, bottom, 70, () -> navigate(Page.RECIPIENTS));
-                button(translate("pickup_rules"), fx + 180, bottom, 88, () -> navigate(Page.CLEANUP));
+                button(translate("collection"), fx + 180, bottom, 88, this::openCollection);
             }
+            if (menu.retired()) { button(translate("collection"), fx + 106, bottom, 88, this::openCollection); }
             if (menu.retired() && data.getInt("Count") > 10) {
                 button("<", fx + fw - 54, bottom, 20, () -> openRoster(true, Math.max(0, menu.page() - 1)));
                 button(">", fx + fw - 32, bottom, 20, () -> openRoster(true, menu.page() + 1));
@@ -237,6 +252,131 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             button("↑", fx + fw - 52, fy + fh - 70, 20, () -> { offset = Math.max(0, offset - 1); rebuild = true; });
             button("↓", fx + fw - 30, fy + fh - 70, 20, () -> { offset++; rebuild = true; });
         }
+    }
+
+    private void openCollection() {
+        guardDiscard(() -> {
+            if (menu.worker() != null) { send(WorkerNetwork.Action.OPEN_COLLECTION, new CompoundTag()); return; }
+            collectionMode = menu.retired() ? 1 : 0;
+            collectionWorker = menu.worker() == null ? "" : menu.worker().toString();
+            page = Page.COLLECTION;
+            offset = 0;
+            queryCollection(0);
+        });
+    }
+
+    private void queryCollection(int nextPage) {
+        CompoundTag intent = new CompoundTag();
+        intent.putInt("Mode", collectionMode);
+        intent.putString("Dimension", collectionDimension);
+        intent.putString("Worker", collectionWorker);
+        intent.putString("Search", collectionSearch);
+        intent.putInt("Page", Math.max(0, nextPage));
+        offset = 0;
+        send(WorkerNetwork.Action.COLLECTION_QUERY, intent);
+    }
+
+    private CompoundTag collectionRevision() {
+        CompoundTag intent = new CompoundTag();
+        intent.putLong("Revision", data.getCompound("Collection").getLong("Revision"));
+        return intent;
+    }
+
+    private void buildCollection() {
+        CompoundTag collection = data.getCompound("Collection");
+        if (choosingCollectionWorker) { buildCollectionWorkers(collection); return; }
+        int x = fx + 10;
+        int area = fw - 20;
+        int third = (area - 4) / 3;
+        button(translate(collectionMode == 0 ? "active_workers" : collectionMode == 1 ? "retired_workers" : "all_workers"),
+                x, fy + 60, third, () -> { collectionMode = (collectionMode + 1) % 3; collectionWorker = ""; queryCollection(0); });
+        button(collectionDimension.isEmpty() ? translate("all_dimensions") : shortDimension(collectionDimension),
+                x + third + 2, fy + 60, third, () -> {
+                    List<String> dimensions = collection.getList("Dimensions", Tag.TAG_STRING).stream().map(Tag::getAsString).toList();
+                    int next = dimensions.indexOf(collectionDimension) + 1;
+                    collectionDimension = next >= dimensions.size() ? "" : dimensions.get(next);
+                    queryCollection(0);
+                });
+        List<CompoundTag> sources = collection.getList("Sources", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast).toList();
+        String workerName = sources.stream().filter(row -> row.getUUID("Worker").toString().equals(collectionWorker))
+                .map(row -> row.getString("Name")).findFirst().orElse(translate("all_workers"));
+        button(workerName, x + 2 * (third + 2), fy + 60, area - 2 * (third + 2), () -> {
+            choosingCollectionWorker = true; offset = 0; rebuild = true;
+        }).setTooltip(Tooltip.create(Component.literal(translate("collection_sources", collection.getInt("SourceCount"), collection.getInt("Unavailable"))
+                + sources.stream().map(row -> "\n" + row.getString("Name") + " · " + shortDimension(row.getString("Dimension"))
+                        + (row.getBoolean("Available") ? "" : " · " + translate("unavailable"))).reduce("", String::concat))));
+        edit(translate("search_items"), collectionSearch, x, fy + 84, area - 62, 128, value -> { collectionSearch = value; rebuild = true; });
+        button(translate("search"), x + area - 60, fy + 84, 60, () -> queryCollection(0));
+        button(translate("select_all"), x, fy + 108, 70, () -> send(WorkerNetwork.Action.COLLECTION_SELECT_ALL, collectionRevision()))
+                .active = collectionSearch.toLowerCase(Locale.ROOT).strip().equals(collection.getString("Search"));
+        button(translate("clear"), x + 72, fy + 108, 44, () -> send(WorkerNetwork.Action.COLLECTION_CLEAR, collectionRevision()));
+        label(translate("collection_selected", collection.getInt("Selected"), collection.getLong("SelectedAmount")),
+                x + 120, fy + 114, MUTED, area - 120);
+        ListTag items = collection.getList("Items", Tag.TAG_COMPOUND);
+        int columns = Math.max(1, area / 34);
+        int visibleRows = Math.max(1, (fh - 206) / 32);
+        offset = Math.min(offset, Math.max(0, (items.size() - 1) / columns - visibleRows + 1));
+        for (int index = offset * columns; index < Math.min(items.size(), (offset + visibleRows) * columns); index++) {
+            CompoundTag row = items.getCompound(index);
+            ItemStack stack = ItemStack.parseOptional(minecraft.level.registryAccess(), row.getCompound("Stack"));
+            Button cell = button("", x + index % columns * 34, fy + 132 + (index / columns - offset) * 32, 32, 30, () -> {
+                CompoundTag intent = collectionRevision();
+                intent.putUUID("Variant", row.getUUID("Variant"));
+                intent.putBoolean("Selected", !row.getBoolean("Selected"));
+                send(WorkerNetwork.Action.COLLECTION_SELECT, intent);
+            });
+            List<String> tooltip = new ArrayList<>(getTooltipFromItem(minecraft, stack).stream().map(Component::getString).toList());
+            tooltip.add(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+            for (Tag source : row.getList("Sources", Tag.TAG_COMPOUND)) {
+                CompoundTag amount = (CompoundTag) source;
+                tooltip.add(amount.getString("Name") + ": " + amount.getInt("Count"));
+            }
+            int additional = row.getInt("SourceCount") - row.getList("Sources", Tag.TAG_COMPOUND).size();
+            if (additional > 0) { tooltip.add(translate("collection_more_sources", additional)); }
+            cell.setTooltip(Tooltip.create(Component.literal(String.join("\n", tooltip))));
+            itemCells.add(new ItemCell(stack, cell, row.getBoolean("Selected"), row.getLong("Count")));
+        }
+        if (items.isEmpty()) { label(translate("no_collectible_items"), x + 4, fy + 142, MUTED, area - 8); }
+        int bottom = fy + fh - 70;
+        button((retireAfterCollection ? "✓ " : "") + translate("retire_after_collection"), x, bottom, area - 48,
+                () -> { retireAfterCollection = !retireAfterCollection; rebuild = true; })
+                .setTooltip(Tooltip.create(Component.literal(translate("collection_reserve_help"))));
+        button("↑", x + area - 44, bottom, 20, () -> { offset = Math.max(0, offset - 1); rebuild = true; });
+        button("↓", x + area - 22, bottom, 20, () -> { offset++; rebuild = true; });
+        button(translate("transfer_selected"), x, bottom + 24, Math.min(148, area - 92), () ->
+                send(retireAfterCollection ? WorkerNetwork.Action.PREVIEW_COLLECTION_RETIRE : WorkerNetwork.Action.COLLECTION_TRANSFER,
+                        collectionRevision())).active = collection.getInt("Selected") > 0;
+        int current = collection.getInt("Page");
+        label((current + 1) + " / " + Math.max(1, (collection.getInt("Count") + 35) / 36), x + area - 90, bottom + 30, MUTED, 42);
+        button("<", x + area - 44, bottom + 24, 20, () -> queryCollection(current - 1)).active = current > 0;
+        button(">", x + area - 22, bottom + 24, 20, () -> queryCollection(current + 1)).active = (current + 1) * 36 < collection.getInt("Count");
+    }
+
+    private void buildCollectionWorkers(CompoundTag collection) {
+        ListTag options = collection.getList("WorkerOptions", Tag.TAG_COMPOUND);
+        button(translate("all_workers"), fx + 10, fy + 60, fw - 20, () -> {
+            collectionWorker = ""; choosingCollectionWorker = false; queryCollection(0);
+        });
+        int visible = Math.max(1, (fh - 140) / 24);
+        offset = Math.min(offset, Math.max(0, options.size() - visible));
+        for (int index = offset; index < Math.min(options.size(), offset + visible); index++) {
+            CompoundTag row = options.getCompound(index);
+            button(row.getString("Name") + " · " + shortDimension(row.getString("Dimension")), fx + 10,
+                    fy + 84 + (index - offset) * 24, fw - 20, () -> {
+                        collectionWorker = row.getUUID("Worker").toString(); choosingCollectionWorker = false; queryCollection(0);
+                    });
+        }
+        int current = collection.getInt("SourcePage");
+        button(translate("cancel"), fx + 10, fy + fh - 46, 80, () -> { choosingCollectionWorker = false; offset = 0; rebuild = true; });
+        button("↑", fx + fw - 98, fy + fh - 46, 20, () -> { offset = Math.max(0, offset - 1); rebuild = true; });
+        button("↓", fx + fw - 76, fy + fh - 46, 20, () -> { offset++; rebuild = true; });
+        button("<", fx + fw - 54, fy + fh - 46, 20, () -> collectionSourcePage(current - 1)).active = current > 0;
+        button(">", fx + fw - 32, fy + fh - 46, 20, () -> collectionSourcePage(current + 1)).active = (current + 1) * 36 < collection.getInt("WorkerOptionCount");
+    }
+
+    private void collectionSourcePage(int next) {
+        CompoundTag intent = new CompoundTag(); intent.putInt("Page", next); offset = 0;
+        send(WorkerNetwork.Action.COLLECTION_SOURCE_PAGE, intent);
     }
 
     private void buildJob() {
@@ -350,7 +490,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         }
         actionButton(translate("collect_all"), fx + fw - 110, fy + fh - 45, 100,
                 () -> send(WorkerNetwork.Action.COLLECT_ALL, revision()));
-        if (!menu.retired()) { button(translate("automatic_cleanup"), fx + 10, fy + fh - 45, 132, () -> navigate(Page.CLEANUP)); }
+        if (!menu.retired()) { button(translate("automatic_cleanup"), fx + 10, fy + fh - 45, 132, () -> navigatePickup(false)); }
         if (menu.retired()) { actionButton(translate("reactivate"), fx + 10, fy + fh - 45, 96, () -> chooseDimension(WorkerNetwork.Action.REACTIVATE)); }
     }
 
@@ -360,7 +500,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         int bottom = fy + fh - 70;
         label(translate("cobblestone_reserve"), x, bottom + 4, GREEN, fw - 70);
         button(translate("reload"), x, bottom + 24, 64, () -> guardDiscard(() -> { loadCleanup(); rebuild = true; }));
-        if (menu.worker() != null) {
+        if (!personalPickupRules) {
             button(translate(pickupOverride ? "use_global_rules" : "inherited_rules"), x + 68, bottom + 24, 110, () -> {
                 discardBlocks.clear();
                 data.getCompound("PickupRules").getList("Blocks", Tag.TAG_STRING).forEach(id -> discardBlocks.add(id.getAsString()));
@@ -371,25 +511,25 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         actionButton(translate("apply"), fx + fw - 86, bottom + 24, 76, () -> {
             CompoundTag intent = cleanupDraft();
             intent.putLong("Revision", cleanupRevision);
-            send(menu.worker() == null ? WorkerNetwork.Action.PERSONAL_PICKUP_RULES : WorkerNetwork.Action.INVENTORY_MANAGEMENT, intent);
+            send(personalPickupRules ? WorkerNetwork.Action.PERSONAL_PICKUP_RULES : WorkerNetwork.Action.INVENTORY_MANAGEMENT, intent);
         });
     }
 
     private CompoundTag cleanupDraft() {
         CompoundTag tag = new CompoundTag();
-        if (menu.worker() != null) { tag.putBoolean("Override", pickupOverride); }
+        if (!personalPickupRules) { tag.putBoolean("Override", pickupOverride); }
         ListTag list = new ListTag(); discardBlocks.forEach(id -> list.add(StringTag.valueOf(id)));
         tag.put("Blocks", list);
         return tag;
     }
 
     private void loadCleanup() {
-        savedCleanup = data.getCompound(menu.worker() == null ? "PickupRules" : "InventoryManagement").copy();
+        savedCleanup = data.getCompound(personalPickupRules ? "PickupRules" : "InventoryManagement").copy();
         savedCleanup.remove("Revision");
         pickupOverride = savedCleanup.getBoolean("Override");
         discardBlocks.clear();
         savedCleanup.getList("Blocks", Tag.TAG_STRING).forEach(id -> discardBlocks.add(id.getAsString()));
-        cleanupRevision = data.getCompound(menu.worker() == null ? "PickupRules" : "Selected").getLong("Revision");
+        cleanupRevision = data.getCompound(personalPickupRules ? "PickupRules" : "Selected").getLong("Revision");
     }
 
     private boolean cleanupDirty() {
@@ -418,7 +558,10 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private void buildSettingsPanel(boolean personal) {
         int x = fx + 10;
         int y = fy + 60;
-        if (personal) { button(translate("alert_preferences"), fx + fw - 102, fy + 34, 92, () -> navigate(Page.INBOX)); }
+        if (personal) {
+            button(translate("pickup_rules"), fx + fw - 198, fy + 34, 92, () -> navigatePickup(true));
+            button(translate("alert_preferences"), fx + fw - 102, fy + 34, 92, () -> navigate(Page.INBOX));
+        }
         if (settings == null) {
             settingsRevision = personal ? data.getLong("ProfileRevision") : data.getCompound("Selected").getLong("Revision");
             settings = new WorkerSettingsPanel(font, values(data.getCompound(personal ? "PersonalSettings" : "Overrides")),
@@ -528,6 +671,12 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                 || (settings != null && settings.dirty()) || (!name.equals(data.getCompound("Selected").getString("Name")) && menu.worker() != null);
     }
 
+    private void navigatePickup(boolean personal) {
+        guardDiscard(() -> {
+            personalPickupRules = personal; page = Page.CLEANUP; settings = null; offset = 0; loadJob(); rebuild = true;
+        });
+    }
+
     private void buildInbox() {
         button(translate("toasts", translate(data.getBoolean("ShowToasts") ? "on" : "off")), fx + fw - 168, fy + 34, 78,
                 () -> notificationPreferences(!data.getBoolean("ShowToasts"), data.getBoolean("PlaySounds")));
@@ -587,6 +736,9 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
         if (key == 256 && dialog != null) { dialog = null; dimensionAction = null; rebuild = true; return true; }
+        if (page == Page.COLLECTION && dialog == null && getFocused() instanceof EditBox && (key == 257 || key == 335)) {
+            queryCollection(0); return true;
+        }
         if (getFocused() instanceof EditBox && key != 256) {
             return getFocused().keyPressed(key, scanCode, modifiers);
         }
@@ -597,7 +749,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (dialog != null) { dialogOffset = Math.max(0, dialogOffset + (vertical < 0 ? 1 : -1)); rebuild = true; return true; }
         if (settings != null && (page == Page.OVERRIDES || page == Page.PERSONAL) && settings.mouseScrolled(vertical)) { return true; }
-        if (page == Page.ROSTER || page == Page.RECIPIENTS || page == Page.JOB || page == Page.CLEANUP || page == Page.REQUESTS) {
+        if (page == Page.ROSTER || page == Page.RECIPIENTS || page == Page.JOB || page == Page.CLEANUP || page == Page.REQUESTS || page == Page.COLLECTION) {
             offset = Math.max(0, offset + (vertical < 0 ? 1 : -1)); rebuild = true; return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
@@ -646,13 +798,33 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             boolean stateChanged = !fresh.getCompound("Selected").getCompound("Job").getString("State").equals(selectedJob().getString("State"))
                     || fresh.getBoolean("Pending") != data.getBoolean("Pending");
             data = fresh;
+            if (data.getBoolean("OpenCollection") && !collectionMenuInitialized) {
+                CompoundTag collection = data.getCompound("Collection");
+                collectionMode = collection.getInt("Mode");
+                collectionDimension = collection.getString("Dimension");
+                collectionWorker = collection.getString("Worker");
+                collectionSearch = collection.getString("Search");
+                collectionMenuInitialized = true; page = Page.COLLECTION; rebuild = true;
+            }
             if (!initialized) { initialized = true; loadJob(); rebuild = true; }
             if (waiting > 0 && menu.sequence() >= waiting) {
                 waiting = 0;
                 CompoundTag response = data.getCompound("Response");
                 String kind = response.getString("Kind");
                 if (kind.equals("Error")) { message = translate("server_error", response.getString("Error")); }
-                else if (kind.equals("Preview")) {
+                else if (kind.equals("CollectionPreview")) {
+                    List<String> lines = new ArrayList<>();
+                    lines.add(translate("collection_retire_warning"));
+                    for (Tag item : response.getList("Workers", Tag.TAG_COMPOUND)) { lines.add(((CompoundTag) item).getString("Name")); }
+                    lines.add(translate("collection_retire_remainder"));
+                    UUID token = response.getUUID("Confirmation");
+                    confirm(translate("confirm_collection_retirement"), lines, () -> {
+                        CompoundTag intent = new CompoundTag(); intent.putUUID("Confirmation", token);
+                        send(WorkerNetwork.Action.COLLECTION_RETIRE, intent);
+                    });
+                } else if (kind.equals("CollectionResult")) {
+                    message = translate("collection_result", response.getLong("Collected"), response.getLong("Remaining"), response.getInt("Retired"));
+                } else if (kind.equals("Preview")) {
                     List<String> lines = new ArrayList<>();
                     lines.add(response.getBoolean("Start") ? translate("apply_job_and_start_these_workers") : translate("apply_job_without_starting_these_workers"));
                     for (Tag item : response.getList("Recipients", Tag.TAG_COMPOUND)) {
@@ -684,7 +856,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                     }
                 }
                 rebuild = true;
-            } else if (changed && (page == Page.ROSTER || page == Page.REQUESTS || page == Page.INBOX || stateChanged) && dialog == null) { rebuild = true; }
+            } else if (changed && (page == Page.ROSTER || page == Page.REQUESTS || page == Page.INBOX || page == Page.COLLECTION || stateChanged) && dialog == null) { rebuild = true; }
             if (waiting == 0 && !jobDirty() && recipients.isEmpty() && menu.worker() != null) {
                 Set<String> previousTargets = Set.copyOf(targets);
                 String previousQuantity = quantity;
@@ -715,7 +887,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private CompoundTag selectedJob() { return data.getCompound("Selected").getCompound("Job"); }
     private CompoundTag revision() { CompoundTag tag = new CompoundTag(); tag.putLong("Revision", data.getCompound("Selected").getLong("Revision")); return tag; }
     private static CompoundTag reference(CompoundTag row) { CompoundTag ref = new CompoundTag(); ref.putUUID("Worker", row.getUUID("Worker")); ref.putLong("Revision", row.getLong("Revision")); return ref; }
-    private List<CompoundTag> rows() { return data.getList(translate("workers"), Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast).toList(); }
+    private List<CompoundTag> rows() { return data.getList("Workers", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast).toList(); }
     private static Map<String, String> values(CompoundTag tag) { Map<String, String> result = new LinkedHashMap<>(); tag.getAllKeys().forEach(key -> result.put(key, tag.getString(key))); return result; }
     private static String shortId(String id) { return id.substring(id.indexOf(':') + 1).replace('_', ' '); }
     private static String shortDimension(String id) { return id.equals("minecraft:overworld") ? translate("overworld") : id.equals("minecraft:the_nether") ? translate("nether") : shortId(id); }
@@ -779,9 +951,17 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             graphics.drawString(font, font.plainSubstrByWidth(cell.block().getName().getString(), cell.button().getWidth() - 8), x + 4, y + 22, TEXT, false);
             if (cell.selected()) { graphics.drawString(font, "✓", x + cell.button().getWidth() - 14, y + 5, GREEN, false); }
         }
+        for (ItemCell cell : itemCells) {
+            int x = cell.button().getX(); int y = cell.button().getY();
+            if (cell.selected()) { graphics.renderOutline(x, y, cell.button().getWidth(), cell.button().getHeight(), GREEN); }
+            graphics.renderItem(cell.stack(), x + 8, y + 2);
+            String count = cell.count() < 10_000 ? Long.toString(cell.count()) : (cell.count() / 1000) + "k";
+            graphics.drawString(font, count, x + 30 - font.width(count), y + 20, TEXT, true);
+        }
         if (dialog == null && settings != null && (page == Page.OVERRIDES || page == Page.PERSONAL)) { settings.render(graphics, mouseX, mouseY); }
         String status = menu.worker() == null ? translate("active_count", data.getInt("ActiveCount")) : jobSummary(selectedJob());
         if (page == Page.INBOX) { status = translate("unread_count", data.getInt("Unread")); }
+        if (page == Page.COLLECTION) { status = translate("collection_sources", data.getCompound("Collection").getInt("SourceCount"), data.getCompound("Collection").getInt("Unavailable")); }
         if (data.getBoolean("Pending")) { status = translate("preparing") + " — " + status; }
         if (waiting > 0 || !message.isEmpty()) { status += " | " + (waiting > 0 ? translate("waiting") : message); }
         graphics.drawString(font, font.plainSubstrByWidth(status, fw - 24), fx + 12, fy + fh - 15, MUTED, false);

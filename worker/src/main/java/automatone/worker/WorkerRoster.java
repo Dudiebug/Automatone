@@ -532,6 +532,38 @@ public final class WorkerRoster extends SavedData {
         return List.copyOf(readInventory(entry));
     }
 
+    /** Main hand aliases the 36-slot inventory; the other equipment slots are separate saved contents. */
+    List<ItemStack> archivedEquipment(UUID owner, UUID id) {
+        CompoundTag entity = archived(owner, id).entity;
+        List<ItemStack> items = new ArrayList<>();
+        items.add(ItemStack.parseOptional(server.registryAccess(), entity.getList("HandItems", Tag.TAG_COMPOUND).getCompound(1)));
+        ListTag armor = entity.getList("ArmorItems", Tag.TAG_COMPOUND);
+        for (int slot = 0; slot < 4; slot++) { items.add(ItemStack.parseOptional(server.registryAccess(), armor.getCompound(slot))); }
+        items.add(ItemStack.parseOptional(server.registryAccess(), entity.getCompound("body_armor_item")));
+        return items;
+    }
+
+    void removeArchivedEquipment(UUID owner, UUID id, int slot, int amount) {
+        Entry entry = archived(owner, id);
+        Objects.checkIndex(slot, 6);
+        ItemStack stack = archivedEquipment(owner, id).get(slot).copy();
+        if (amount < 1 || amount > stack.getCount()) { throw new IllegalArgumentException("INVALID_AMOUNT"); }
+        stack.shrink(amount);
+        Tag saved = stack.saveOptional(server.registryAccess());
+        if (slot == 5) {
+            entry.entity.put("body_armor_item", saved);
+        } else {
+            String key = slot == 0 ? "HandItems" : "ArmorItems";
+            ListTag list = entry.entity.getList(key, Tag.TAG_COMPOUND);
+            int index = slot == 0 ? 1 : slot - 1;
+            while (list.size() <= index) { list.add(new CompoundTag()); }
+            list.set(index, saved);
+            entry.entity.put(key, list);
+        }
+        entry.revision++;
+        setDirty();
+    }
+
     public ItemStack withdraw(UUID owner, UUID id, long revision, int slot, int amount) {
         Entry entry = archived(owner, id);
         checkRevision(entry.revision, revision);

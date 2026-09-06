@@ -13,7 +13,7 @@ import net.neoforged.bus.api.Event;
 
 import java.util.UUID;
 
-/** Bounded product intents and snapshots. Item stacks travel through Minecraft's native menu packets. */
+/** Bounded product intents and snapshots. Collection icons are descriptive; the server owns all contents. */
 public final class WorkerNetwork {
     // Covers full supported profiles, while bounding hostile NBT before schema/registry validation.
     // Registered NeoForge payloads use its negotiated native splitter for larger packets.
@@ -25,7 +25,8 @@ public final class WorkerNetwork {
         CONFIGURE_JOB, START, PAUSE, RESUME, STOP, SELECT_TOOL, RENAME, PERSONAL_SETTINGS,
         WORKER_SETTINGS, RETIRE, PREVIEW_APPLY_JOB, APPLY_JOB, NOTIFICATION_PAGE,
         READ_NOTIFICATION, READ_ALL_NOTIFICATIONS, NOTIFICATION_PREFERENCES, COLLECT_ALL, INVENTORY_MANAGEMENT,
-        PERSONAL_PICKUP_RULES
+        PERSONAL_PICKUP_RULES, COLLECTION_QUERY, COLLECTION_SELECT, COLLECTION_SELECT_ALL,
+        COLLECTION_CLEAR, COLLECTION_TRANSFER, PREVIEW_COLLECTION_RETIRE, COLLECTION_RETIRE, COLLECTION_SOURCE_PAGE, OPEN_COLLECTION
     }
 
     public record Intent(int menuId, UUID session, long sequence, Action action, CompoundTag data)

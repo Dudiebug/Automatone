@@ -32,6 +32,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
     private final int page;
     private final WorkerRoster roster;
     private final WorkerActions actions;
+    private WorkerCollection collection;
     private final Container inventory;
     private long boundRevision;
     private long sequence;
@@ -44,6 +45,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
     private boolean inventoryVisible;
     private boolean compactInventory;
     private boolean showPlayerInventory;
+    private boolean openCollection;
 
     /** Client constructor: no entity lookup and no server-owned inventory references. */
     public WorkerMenu(int id, Inventory playerInventory, RegistryFriendlyByteBuf buffer) {
@@ -165,6 +167,15 @@ public final class WorkerMenu extends AbstractContainerMenu {
         return player.getInventory().items.stream().anyMatch(stack -> stack.is(WorkerMod.CONTROLLER.get()));
     }
 
+    static void openCollection(Player holder, boolean archives, UUID selected) {
+        open(holder, null, false, 0);
+        if (holder.containerMenu instanceof WorkerMenu menu) {
+            menu.collection().query(archives ? 1 : 0, "", selected, "", 0);
+            menu.openCollection = true;
+            menu.sendSnapshot();
+        }
+    }
+
     @Override
     public boolean stillValid(Player holder) {
         if (roster == null) { return true; }
@@ -242,14 +253,27 @@ public final class WorkerMenu extends AbstractContainerMenu {
     int collectAll() {
         if (!canUseWorkerInventory()) { throw new IllegalStateException("WORKER_UNAVAILABLE"); }
         int collected = 0;
+        List<Integer> eligible = WorkerCollection.eligible(contents(), retired);
         for (int index = 0; index < WorkerEntity.INVENTORY_SIZE; index++) {
-            int before = inventory.getItem(index).getCount();
-            quickMoveStack(player, index);
-            collected += before - inventory.getItem(index).getCount();
+            int accepted = insertCollectionStack(inventory.getItem(index).copyWithCount(eligible.get(index)));
+            if (accepted > 0) { inventory.removeItem(index, accepted); }
+            collected += accepted;
         }
         if (collected > 0 && !retired) { roster.changed(roster.active(owner, worker)); }
         refreshRevision();
         return collected;
+    }
+
+    int insertCollectionStack(ItemStack stack) {
+        int before = stack.getCount();
+        if (!stack.isEmpty()) { moveItemStackTo(stack, WorkerEntity.INVENTORY_SIZE, slots.size(), false); }
+        return before - stack.getCount();
+    }
+
+    WorkerCollection collection() {
+        if (worker != null) { throw new IllegalStateException("GLOBAL_MENU_REQUIRED"); }
+        if (collection == null) { collection = new WorkerCollection(this); }
+        return collection;
     }
 
     public void handle(Player holder, WorkerNetwork.Intent intent) {
@@ -306,7 +330,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
         PacketDistributor.sendToPlayer(serverPlayer, new WorkerNetwork.Snapshot(containerId, session, sequence, snapshot()));
     }
 
-    /** Bounded page of product state; native menu synchronization alone carries inventory stacks. */
+    /** Bounded product pages; descriptive collection icons never authorize an inventory mutation. */
     public CompoundTag snapshot() {
         if (roster == null) { return clientData.copy(); }
         CompoundTag data = new CompoundTag();
@@ -345,6 +369,8 @@ public final class WorkerMenu extends AbstractContainerMenu {
         }
         data.put("Relocations", pending);
         data.put("Response", response.copy());
+        data.putBoolean("OpenCollection", openCollection);
+        if (collection != null) { data.put("Collection", collection.snapshot()); }
         List<WorkerRoster.Completion> inbox = roster.notifications(owner);
         notificationPage = Math.min(notificationPage, Math.max(0, (inbox.size() - 1) / 5));
         ListTag notifications = new ListTag();
