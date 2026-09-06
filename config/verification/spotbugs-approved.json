@@ -472,9 +472,9 @@
       "id": 68,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "02474731c6599e4dadb46dfa98f8284a1f16b6bcdcdfd6f631a398654518cd6b",
+      "sourceSha256": "216c07456120a73c59e90fd1a4cc9b98300bd357572777b4a7f15a93eb5dee1f",
       "contract": "Block state value contract: AIR is the shared registry BlockState returned for out-of-range/empty sections; registry states are immutable values and no caller-owned mutable collection is exposed.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M3-EVIDENCE.md#existing-air-warning-revalidation"
     },
     {
       "id": 69,

@@ -399,3 +399,5 @@ Human clarified at 2026-09-06 03:21 UTC that the offered manual checks mean
 IN-GAME appearance/GUI-style observations. Automated GameTests remain this
 implementation's responsibility. Continue those autonomously; hand off only
 visual/audio observation and keep M3 unaccepted until it passes.
+
+Independent affected static validation also found existing AIR approval ID 68 needed the same source revalidation. Reused Luna reviewer confirmed VALID: getFromChunk still returns immutable AIR for an all-air section (current line 163). IDs 67 and 68 are the only frozen BSI/WorldScanner entries. Updated only ID 68 hash/evidence; no eligibility or contract change. The failed static attempt remains recorded in independent-repair/root-affected-static.log.
