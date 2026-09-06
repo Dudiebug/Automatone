@@ -29,7 +29,12 @@ public abstract class PathBase implements IPath {
 
     @Override
     public PathBase cutoffAtLoadedChunks(Object bsi0) { // <-- cursed cursed cursed
-        if (!Baritone.settings().cutoffAtLoadBoundary.value) {
+        return cutoffAtLoadedChunks(bsi0, BaritoneAPI.getSettings());
+    }
+
+    @Override
+    public PathBase cutoffAtLoadedChunks(Object bsi0, baritone.api.Settings settings) { // <-- cursed cursed cursed
+        if (!settings.cutoffAtLoadBoundary.value) {
             return this;
         }
         BlockStateInterface bsi = (BlockStateInterface) bsi0;
@@ -44,14 +49,19 @@ public abstract class PathBase implements IPath {
 
     @Override
     public PathBase staticCutoff(Goal destination) {
-        int min = BaritoneAPI.getSettings().pathCutoffMinimumLength.value;
+        return staticCutoff(destination, BaritoneAPI.getSettings());
+    }
+
+    @Override
+    public PathBase staticCutoff(Goal destination, baritone.api.Settings settings) {
+        int min = settings.pathCutoffMinimumLength.value;
         if (length() < min) {
             return this;
         }
-        if (destination == null || destination.isInGoal(getDest())) {
+        if (destination == null || destination.isInGoal(settings, getDest().getX(), getDest().getY(), getDest().getZ())) {
             return this;
         }
-        double factor = BaritoneAPI.getSettings().pathCutoffFactor.value;
+        double factor = settings.pathCutoffFactor.value;
         int newLength = (int) ((length() - min) * factor) + min - 1;
         return new CutoffPath(this, newLength);
     }

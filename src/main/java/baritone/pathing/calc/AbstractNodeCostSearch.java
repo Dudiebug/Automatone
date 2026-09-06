@@ -89,7 +89,7 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
         this.startZ = startZ;
         this.goal = goal;
         this.context = context;
-        this.map = new Long2ObjectOpenHashMap<>(Baritone.settings().pathingMapDefaultSize.value, Baritone.settings().pathingMapLoadFactor.value);
+        this.map = new Long2ObjectOpenHashMap<>(context.settings.pathingMapDefaultSize.value, context.settings.pathingMapLoadFactor.value);
     }
 
     public void cancel() {
@@ -111,7 +111,7 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
                 return new PathCalculationResult(PathCalculationResult.Type.FAILURE);
             }
             int previousLength = path.length();
-            path = path.cutoffAtLoadedChunks(context.bsi);
+            path = path.cutoffAtLoadedChunks(context.bsi, context.settings);
             if (path.length() < previousLength) {
                 Helper.HELPER.logDebug("Cutting off path at edge of loaded chunks");
                 Helper.HELPER.logDebug("Length decreased by " + (previousLength - path.length()));
@@ -119,11 +119,11 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
                 Helper.HELPER.logDebug("Path ends within loaded chunks");
             }
             previousLength = path.length();
-            path = path.staticCutoff(goal);
+            path = path.staticCutoff(goal, context.settings);
             if (path.length() < previousLength) {
                 Helper.HELPER.logDebug("Static cutoff " + previousLength + " to " + path.length());
             }
-            if (goal.isInGoal(path.getDest())) {
+            if (goal.isInGoal(context.settings, path.getDest().getX(), path.getDest().getY(), path.getDest().getZ())) {
                 return new PathCalculationResult(PathCalculationResult.Type.SUCCESS_TO_GOAL, path);
             } else {
                 return new PathCalculationResult(PathCalculationResult.Type.SUCCESS_SEGMENT, path);
@@ -171,7 +171,7 @@ public abstract class AbstractNodeCostSearch implements IPathFinder, Helper {
     protected PathNode getNodeAtPosition(int x, int y, int z, long hashCode) {
         PathNode node = map.get(hashCode);
         if (node == null) {
-            node = new PathNode(x, y, z, goal);
+            node = new PathNode(x, y, z, goal, context.settings);
             map.put(hashCode, node);
         }
         return node;

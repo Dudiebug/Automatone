@@ -18,6 +18,7 @@
 package baritone.process;
 
 import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.cache.ICachedWorld;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalComposite;
@@ -82,16 +83,16 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
     public PathingCommand onTick(boolean calcFailed, boolean isSafeToCancel) {
         if (calcFailed) {
             logDirect("Failed");
-            if (Baritone.settings().notificationOnExploreFinished.value) {
+            if (baritone.getSettings().notificationOnExploreFinished.value) {
                 logNotification("Exploration failed", true);
             }
             onLostControl();
             return null;
         }
         IChunkFilter filter = calcFilter();
-        if (!Baritone.settings().disableCompletionCheck.value && filter.countRemain() == 0) {
+        if (!baritone.getSettings().disableCompletionCheck.value && filter.countRemain() == 0) {
             logDirect("Explored all chunks");
-            if (Baritone.settings().notificationOnExploreFinished.value) {
+            if (baritone.getSettings().notificationOnExploreFinished.value) {
                 logNotification("Explored all chunks", false);
             }
             onLostControl();
@@ -108,9 +109,9 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
     private Goal[] closestUncachedChunks(BlockPos center, IChunkFilter filter) {
         int chunkX = center.getX() >> 4;
         int chunkZ = center.getZ() >> 4;
-        int count = Math.min(filter.countRemain(), Baritone.settings().exploreChunkSetMinimumSize.value);
+        int count = Math.min(filter.countRemain(), baritone.getSettings().exploreChunkSetMinimumSize.value);
         List<BlockPos> centers = new ArrayList<>();
-        int renderDistance = Baritone.settings().worldExploringChunkOffset.value;
+        int renderDistance = baritone.getSettings().worldExploringChunkOffset.value;
         for (int dist = distanceCompleted; ; dist++) {
             for (int dx = -dist; dx <= dist; dx++) {
                 int zval = dist - Math.abs(dx);
@@ -148,10 +149,11 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
                 }
             }
             if (dist % 10 == 0) {
-                count = Math.min(filter.countRemain(), Baritone.settings().exploreChunkSetMinimumSize.value);
+                count = Math.min(filter.countRemain(), baritone.getSettings().exploreChunkSetMinimumSize.value);
             }
             if (centers.size() >= count) {
-                return centers.stream().map(pos -> createGoal(pos.getX(), pos.getZ())).toArray(Goal[]::new);
+                int maintainY = baritone.getSettings().exploreMaintainY.value;
+                return centers.stream().map(pos -> createGoal(pos.getX(), pos.getZ(), maintainY)).toArray(Goal[]::new);
             }
             if (centers.isEmpty()) {
                 // we have explored everything from 0 to dist inclusive
@@ -161,8 +163,8 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
         }
     }
 
-    private static Goal createGoal(int x, int z) {
-        if (Baritone.settings().exploreMaintainY.value == -1) {
+    private static Goal createGoal(int x, int z, int maintainY) {
+        if (maintainY == -1) {
             return new GoalXZ(x, z);
         }
         // don't use a goalblock because we still want isInGoal to return true if X and Z are correct
@@ -170,7 +172,12 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
         return new GoalXZ(x, z) {
             @Override
             public double heuristic(int x, int y, int z) {
-                return super.heuristic(x, y, z) + GoalYLevel.calculate(Baritone.settings().exploreMaintainY.value, y);
+                return super.heuristic(x, y, z) + GoalYLevel.calculate(maintainY, y);
+            }
+
+            @Override
+            public double heuristic(Settings settings, int x, int y, int z) {
+                return super.heuristic(settings, x, y, z) + GoalYLevel.calculate(maintainY, y);
             }
         };
     }
@@ -261,7 +268,7 @@ public final class ExploreProcess extends BaritoneProcessHelper implements IExpl
                 if (bcc.isAlreadyExplored(pos.x, pos.z) != Status.EXPLORED) {
                     // either waiting for it or dont have it at all
                     countRemain++;
-                    if (countRemain >= Baritone.settings().exploreChunkSetMinimumSize.value) {
+                    if (countRemain >= baritone.getSettings().exploreChunkSetMinimumSize.value) {
                         return countRemain;
                     }
                 }

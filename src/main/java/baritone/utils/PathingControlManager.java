@@ -145,7 +145,7 @@ public class PathingControlManager implements IPathingControlManager {
                 p.secretInternalSetGoalAndPath(command);
                 break;
             case REVALIDATE_GOAL_AND_PATH:
-                if (Baritone.settings().cancelOnGoalInvalidation.value && (command.goal == null || revalidateGoal(command.goal))) {
+                if (baritone.getSettings().cancelOnGoalInvalidation.value && (command.goal == null || revalidateGoal(command.goal))) {
                     p.softCancelIfSafe();
                 }
                 p.secretInternalSetGoalAndPath(command);
@@ -157,7 +157,7 @@ public class PathingControlManager implements IPathingControlManager {
     public boolean forceRevalidate(Goal newGoal) {
         PathExecutor current = baritone.getPathingBehavior().getCurrent();
         if (current != null) {
-            if (newGoal.isInGoal(current.getPath().getDest())) {
+            if (newGoal.isInGoal(baritone.getSettings(), current.getPath().getDest().getX(), current.getPath().getDest().getY(), current.getPath().getDest().getZ())) {
                 return false;
             }
             return !newGoal.equals(current.getPath().getGoal());
@@ -170,7 +170,8 @@ public class PathingControlManager implements IPathingControlManager {
         if (current != null) {
             Goal intended = current.getPath().getGoal();
             BlockPos end = current.getPath().getDest();
-            if (intended.isInGoal(end) && !newGoal.isInGoal(end)) {
+            if (intended.isInGoal(baritone.getSettings(), end.getX(), end.getY(), end.getZ())
+                    && !newGoal.isInGoal(baritone.getSettings(), end.getX(), end.getY(), end.getZ())) {
                 // this path used to end in the goal
                 // but the goal has changed, so there's no reason to continue...
                 return true;

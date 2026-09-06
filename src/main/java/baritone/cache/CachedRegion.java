@@ -18,6 +18,7 @@
 package baritone.cache;
 
 import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.cache.ICachedRegion;
 import baritone.api.utils.BlockUtils;
 import net.minecraft.core.BlockPos;
@@ -31,6 +32,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import java.util.function.Supplier;
 
 /**
  * @author Brady
@@ -62,6 +64,7 @@ public final class CachedRegion implements ICachedRegion {
     private final int z;
 
     private final DimensionType dimension;
+    private final Supplier<Settings> settings;
 
     /**
      * Has this region been modified since its most recent load or save
@@ -69,10 +72,15 @@ public final class CachedRegion implements ICachedRegion {
     private boolean hasUnsavedChanges;
 
     CachedRegion(int x, int z, DimensionType dimension) {
+        this(x, z, dimension, Baritone::settings);
+    }
+
+    CachedRegion(int x, int z, DimensionType dimension, Supplier<Settings> settings) {
         this.x = x;
         this.z = z;
         this.hasUnsavedChanges = false;
         this.dimension = dimension;
+        this.settings = settings;
     }
 
     @Override
@@ -309,7 +317,7 @@ public final class CachedRegion implements ICachedRegion {
     }
 
     public synchronized final void removeExpired() {
-        long expiry = Baritone.settings().cachedChunksExpirySeconds.value;
+        long expiry = settings.get().cachedChunksExpirySeconds.value;
         if (expiry < 0) {
             return;
         }

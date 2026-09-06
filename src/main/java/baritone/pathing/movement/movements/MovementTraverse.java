@@ -179,7 +179,7 @@ public class MovementTraverse extends Movement {
         BlockState pb1 = BlockStateInterface.get(ctx, positionsToBreak[1]);
         if (state.getStatus() != MovementStatus.RUNNING) {
             // if the setting is enabled
-            if (!Baritone.settings().walkWhileBreaking.value) {
+            if (!baritone.getSettings().walkWhileBreaking.value) {
                 return state;
             }
             // and if we're prepping (aka mining the block in front)
@@ -187,10 +187,10 @@ public class MovementTraverse extends Movement {
                 return state;
             }
             // and if it's fine to walk into the blocks in front
-            if (MovementHelper.avoidWalkingInto(pb0)) {
+            if (MovementHelper.avoidWalkingInto(pb0, baritone.getSettings())) {
                 return state;
             }
-            if (MovementHelper.avoidWalkingInto(pb1)) {
+            if (MovementHelper.avoidWalkingInto(pb1, baritone.getSettings())) {
                 return state;
             }
             // and we aren't already pressed up against the block
@@ -224,7 +224,7 @@ public class MovementTraverse extends Movement {
         boolean ladder = MovementHelper.isClimbable(fd);
 
         //sneak may have been set to true in the PREPPING state while mining an adjacent block, but we still want it to be true if the player is about to go on magma
-        state.setInput(Input.SNEAK, Baritone.settings().allowWalkOnMagmaBlocks.value && MovementHelper.steppingOnBlocks(ctx).stream().anyMatch(block -> ctx.world().getBlockState(block).is(Blocks.MAGMA_BLOCK)));
+        state.setInput(Input.SNEAK, baritone.getSettings().allowWalkOnMagmaBlocks.value && MovementHelper.steppingOnBlocks(ctx).stream().anyMatch(block -> ctx.world().getBlockState(block).is(Blocks.MAGMA_BLOCK)));
 
         if (pb0.getBlock() instanceof DoorBlock || pb1.getBlock() instanceof DoorBlock) {
             boolean notPassable = pb0.getBlock() instanceof DoorBlock && !MovementHelper.isDoorPassable(ctx, src, dest) || pb1.getBlock() instanceof DoorBlock && !MovementHelper.isDoorPassable(ctx, dest, src);
@@ -241,7 +241,7 @@ public class MovementTraverse extends Movement {
                     : !MovementHelper.isGatePassable(ctx, positionsToBreak[1], src) ? positionsToBreak[1]
                     : null;
             if (blocked != null) {
-                Optional<Rotation> rotation = RotationUtils.reachable(ctx, blocked);
+                Optional<Rotation> rotation = RotationUtils.reachable(ctx, blocked, baritone.getSettings());
                 if (rotation.isPresent()) {
                     return state.setTarget(new MovementState.MovementTarget(rotation.get(), true)).setInput(Input.CLICK_RIGHT, true);
                 }
@@ -263,7 +263,7 @@ public class MovementTraverse extends Movement {
             if (feet.equals(dest)) {
                 return state.setStatus(MovementStatus.SUCCESS);
             }
-            if (Baritone.settings().overshootTraverse.value && (feet.equals(dest.offset(getDirection())) || feet.equals(dest.offset(getDirection()).offset(getDirection())))) {
+            if (baritone.getSettings().overshootTraverse.value && (feet.equals(dest.offset(getDirection())) || feet.equals(dest.offset(getDirection()).offset(getDirection())))) {
                 return state.setStatus(MovementStatus.SUCCESS);
             }
             Block low = BlockStateInterface.get(ctx, src).getBlock();
@@ -276,7 +276,7 @@ public class MovementTraverse extends Movement {
             BlockPos into = dest.subtract(src).offset(dest);
             BlockState intoBelow = BlockStateInterface.get(ctx, into);
             BlockState intoAbove = BlockStateInterface.get(ctx, into.above());
-            if (wasTheBridgeBlockAlwaysThere && (!MovementHelper.isLiquid(ctx, feet) || Baritone.settings().sprintInWater.value) && (!MovementHelper.avoidWalkingInto(intoBelow) || MovementHelper.isWater(intoBelow)) && !MovementHelper.avoidWalkingInto(intoAbove)) {
+            if (wasTheBridgeBlockAlwaysThere && (!MovementHelper.isLiquid(ctx, feet) || baritone.getSettings().sprintInWater.value) && (!MovementHelper.avoidWalkingInto(intoBelow, baritone.getSettings()) || MovementHelper.isWater(intoBelow)) && !MovementHelper.avoidWalkingInto(intoAbove, baritone.getSettings())) {
                 state.setInput(Input.SPRINT, true);
             }
 
@@ -298,13 +298,13 @@ public class MovementTraverse extends Movement {
                 }
             }
             double dist1 = Math.max(Math.abs(ctx.player().position().x - (dest.getX() + 0.5D)), Math.abs(ctx.player().position().z - (dest.getZ() + 0.5D)));
-            PlaceResult p = MovementHelper.attemptToPlaceABlock(state, baritone, dest.below(), false, !Baritone.settings().assumeSafeWalk.value);
-            if ((p == PlaceResult.READY_TO_PLACE || dist1 < 0.6) && !Baritone.settings().assumeSafeWalk.value) {
+            PlaceResult p = MovementHelper.attemptToPlaceABlock(state, baritone, dest.below(), false, !baritone.getSettings().assumeSafeWalk.value);
+            if ((p == PlaceResult.READY_TO_PLACE || dist1 < 0.6) && !baritone.getSettings().assumeSafeWalk.value) {
                 state.setInput(Input.SNEAK, true);
             }
             switch (p) {
                 case READY_TO_PLACE: {
-                    if (ctx.player().isCrouching() || Baritone.settings().assumeSafeWalk.value) {
+                    if (ctx.player().isCrouching() || baritone.getSettings().assumeSafeWalk.value) {
                         state.setInput(Input.CLICK_RIGHT, true);
                     }
                     return state;

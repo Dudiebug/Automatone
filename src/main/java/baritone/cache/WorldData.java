@@ -17,12 +17,15 @@
 
 package baritone.cache;
 
+import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.cache.ICachedWorld;
 import baritone.api.cache.IWaypointCollection;
 import baritone.api.cache.IWorldData;
 import net.minecraft.world.level.dimension.DimensionType;
 
 import java.nio.file.Path;
+import java.util.function.Supplier;
 
 /**
  * Data about a world, from baritone's point of view. Includes cached chunks, waypoints, and map data.
@@ -38,8 +41,12 @@ public class WorldData implements IWorldData {
     public final DimensionType dimension;
 
     WorldData(Path directory, DimensionType dimension) {
+        this(directory, dimension, Baritone::settings);
+    }
+
+    WorldData(Path directory, DimensionType dimension, Supplier<Settings> settings) {
         this.directory = directory;
-        this.cache = new CachedWorld(directory.resolve("cache"), dimension);
+        this.cache = new CachedWorld(directory.resolve("cache"), dimension, settings);
         this.waypoints = new WaypointCollection(directory.resolve("waypoints"));
         this.dimension = dimension;
     }

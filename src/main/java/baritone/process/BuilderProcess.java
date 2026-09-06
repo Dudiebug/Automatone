@@ -18,6 +18,7 @@
 package baritone.process;
 
 import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.pathing.goals.GoalComposite;
@@ -113,50 +114,50 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         this.schematic = schematic;
         this.realSchematic = null;
         boolean buildingSelectionSchematic = schematic instanceof SelectionSchematic;
-        if (!Baritone.settings().buildSubstitutes.value.isEmpty()) {
-            this.schematic = new SubstituteSchematic(this.schematic, Baritone.settings().buildSubstitutes.value);
+        if (!baritone.getSettings().buildSubstitutes.value.isEmpty()) {
+            this.schematic = new SubstituteSchematic(this.schematic, baritone.getSettings().buildSubstitutes.value);
         }
-        if (Baritone.settings().buildSchematicMirror.value != net.minecraft.world.level.block.Mirror.NONE) {
-            this.schematic = new MirroredSchematic(this.schematic, Baritone.settings().buildSchematicMirror.value);
+        if (baritone.getSettings().buildSchematicMirror.value != net.minecraft.world.level.block.Mirror.NONE) {
+            this.schematic = new MirroredSchematic(this.schematic, baritone.getSettings().buildSchematicMirror.value);
         }
-        if (Baritone.settings().buildSchematicRotation.value != net.minecraft.world.level.block.Rotation.NONE) {
-            this.schematic = new RotatedSchematic(this.schematic, Baritone.settings().buildSchematicRotation.value);
+        if (baritone.getSettings().buildSchematicRotation.value != net.minecraft.world.level.block.Rotation.NONE) {
+            this.schematic = new RotatedSchematic(this.schematic, baritone.getSettings().buildSchematicRotation.value);
         }
         // TODO this preserves the old behavior, but maybe we should bake the setting value right here
         this.schematic = new MaskSchematic(this.schematic) {
             @Override
             public boolean partOfMask(int x, int y, int z, BlockState current) {
                 // partOfMask is only called inside the schematic so desiredState is not null
-                return !Baritone.settings().buildSkipBlocks.value.contains(this.desiredState(x, y, z, current, Collections.emptyList()).getBlock());
+                return !baritone.getSettings().buildSkipBlocks.value.contains(this.desiredState(x, y, z, current, Collections.emptyList()).getBlock());
             }
         };
         int x = origin.getX();
         int y = origin.getY();
         int z = origin.getZ();
-        if (Baritone.settings().schematicOrientationX.value) {
+        if (baritone.getSettings().schematicOrientationX.value) {
             x += schematic.widthX();
         }
-        if (Baritone.settings().schematicOrientationY.value) {
+        if (baritone.getSettings().schematicOrientationY.value) {
             y += schematic.heightY();
         }
-        if (Baritone.settings().schematicOrientationZ.value) {
+        if (baritone.getSettings().schematicOrientationZ.value) {
             z += schematic.lengthZ();
         }
         this.origin = new Vec3i(x, y, z);
         this.paused = false;
-        this.layer = Baritone.settings().startAtLayer.value;
+        this.layer = baritone.getSettings().startAtLayer.value;
         this.stopAtHeight = schematic.heightY();
-        if (Baritone.settings().buildOnlySelection.value && buildingSelectionSchematic) {  // currently redundant but safer maybe
+        if (baritone.getSettings().buildOnlySelection.value && buildingSelectionSchematic) {  // currently redundant but safer maybe
             if (baritone.getSelectionManager().getSelections().length == 0) {
                 logDirect("Poor little kitten forgot to set a selection while BuildOnlySelection is true");
                 this.stopAtHeight = 0;
-            } else if (Baritone.settings().buildInLayers.value) {
+            } else if (baritone.getSettings().buildInLayers.value) {
                 OptionalInt minim = Stream.of(baritone.getSelectionManager().getSelections()).mapToInt(sel -> sel.min().y).min();
                 OptionalInt maxim = Stream.of(baritone.getSelectionManager().getSelections()).mapToInt(sel -> sel.max().y).max();
                 if (minim.isPresent() && maxim.isPresent()) {
-                    int startAtHeight = Baritone.settings().layerOrder.value ? y + schematic.heightY() - maxim.getAsInt() : minim.getAsInt() - y;
-                    this.stopAtHeight = (Baritone.settings().layerOrder.value ? y + schematic.heightY() - minim.getAsInt() : maxim.getAsInt() - y) + 1;
-                    this.layer = Math.max(this.layer, startAtHeight / Baritone.settings().layerHeight.value);  // startAtLayer or startAtHeight, whichever is highest
+                    int startAtHeight = baritone.getSettings().layerOrder.value ? y + schematic.heightY() - maxim.getAsInt() : minim.getAsInt() - y;
+                    this.stopAtHeight = (baritone.getSettings().layerOrder.value ? y + schematic.heightY() - minim.getAsInt() : maxim.getAsInt() - y) + 1;
+                    this.layer = Math.max(this.layer, startAtHeight / baritone.getSettings().layerHeight.value);  // startAtLayer or startAtHeight, whichever is highest
                     logDebug(String.format("Schematic starts at y=%s with height %s", y, schematic.heightY()));
                     logDebug(String.format("Selection starts at y=%s and ends at y=%s", minim.getAsInt(), maxim.getAsInt()));
                     logDebug(String.format("Considering relevant height %s - %s", startAtHeight, this.stopAtHeight));
@@ -202,10 +203,10 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
 
     private ISchematic applyMapArtAndSelection(Vec3i origin, IStaticSchematic parsed) {
         ISchematic schematic = parsed;
-        if (Baritone.settings().mapArtMode.value) {
+        if (baritone.getSettings().mapArtMode.value) {
             schematic = new MapArtSchematic(parsed);
         }
-        if (Baritone.settings().buildOnlySelection.value) {
+        if (baritone.getSettings().buildOnlySelection.value) {
             schematic = new SelectionSchematic(schematic, origin, baritone.getSelectionManager().getSelections());
         }
         return schematic;
@@ -281,7 +282,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         BetterBlockPos center = ctx.playerFeet();
         BetterBlockPos pathStart = baritone.getPathingBehavior().pathStart();
         for (int dx = -5; dx <= 5; dx++) {
-            for (int dy = Baritone.settings().breakFromAbove.value ? -1 : 0; dy <= 5; dy++) {
+            for (int dy = baritone.getSettings().breakFromAbove.value ? -1 : 0; dy <= 5; dy++) {
                 for (int dz = -5; dz <= 5; dz++) {
                     int x = center.x + dx;
                     int y = center.y + dy;
@@ -296,7 +297,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                     BlockState curr = bcc.bsi.get0(x, y, z);
                     if (!(curr.getBlock() instanceof AirBlock) && !(curr.getBlock() == Blocks.WATER || curr.getBlock() == Blocks.LAVA) && !valid(curr, desired, false)) {
                         BetterBlockPos pos = new BetterBlockPos(x, y, z);
-                        Optional<Rotation> rot = RotationUtils.reachable(ctx, pos, ctx.playerController().getBlockReachDistance());
+                        Optional<Rotation> rot = RotationUtils.reachable(ctx, pos, baritone.getSettings());
                         if (rot.isPresent()) {
                             return Optional.of(new Tuple<>(pos, rot.get()));
                         }
@@ -380,7 +381,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                 double placeZ = placeAgainstPos.z + aabb.minZ * placementMultiplier.z + aabb.maxZ * (1 - placementMultiplier.z);
                 Rotation rot = RotationUtils.calcRotationFromVec3d(RayTraceUtils.inferSneakingEyePosition(ctx.player()), new Vec3(placeX, placeY, placeZ), ctx.playerRotations());
                 Rotation actualRot = baritone.getLookBehavior().getAimProcessor().peekRotation(rot);
-                HitResult result = RayTraceUtils.rayTraceTowards(ctx.player(), actualRot, ctx.playerController().getBlockReachDistance(), true);
+                HitResult result = RayTraceUtils.rayTraceTowards(ctx.player(), actualRot, baritone.getSettings().blockReachDistance.value, true);
                 if (result != null && result.getType() == HitResult.Type.BLOCK && ((BlockHitResult) result).getBlockPos().equals(placeAgainstPos) && ((BlockHitResult) result).getDirection() == against.getOpposite()) {
                     OptionalInt hotbar = hasAnyItemThatWouldPlace(toPlace, result, actualRot);
                     if (hotbar.isPresent()) {
@@ -450,7 +451,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         if (paused) {
             return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
         }
-        if (Baritone.settings().buildInLayers.value) {
+        if (baritone.getSettings().buildInLayers.value) {
             if (realSchematic == null) {
                 realSchematic = schematic;
             }
@@ -459,11 +460,11 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             int maxYInclusive;
             // layer = 0 should be nothing
             // layer = realSchematic.heightY() should be everything
-            if (Baritone.settings().layerOrder.value) { // top to bottom
+            if (baritone.getSettings().layerOrder.value) { // top to bottom
                 maxYInclusive = realSchematic.heightY() - 1;
-                minYInclusive = realSchematic.heightY() - layer * Baritone.settings().layerHeight.value;
+                minYInclusive = realSchematic.heightY() - layer * baritone.getSettings().layerHeight.value;
             } else {
-                maxYInclusive = layer * Baritone.settings().layerHeight.value - 1;
+                maxYInclusive = layer * baritone.getSettings().layerHeight.value - 1;
                 minYInclusive = 0;
             }
             schematic = new ISchematic() {
@@ -500,17 +501,17 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         }
         BuilderCalculationContext bcc = new BuilderCalculationContext();
         if (!recalc(bcc)) {
-            if (Baritone.settings().buildInLayers.value && layer * Baritone.settings().layerHeight.value < stopAtHeight) {
+            if (baritone.getSettings().buildInLayers.value && layer * baritone.getSettings().layerHeight.value < stopAtHeight) {
                 logDirect("Starting layer " + layer);
                 layer++;
                 return onTick(calcFailed, isSafeToCancel, recursions + 1);
             }
-            Vec3i repeat = Baritone.settings().buildRepeat.value;
-            int max = Baritone.settings().buildRepeatCount.value;
+            Vec3i repeat = baritone.getSettings().buildRepeat.value;
+            int max = baritone.getSettings().buildRepeatCount.value;
             numRepeats++;
             if (repeat.equals(new Vec3i(0, 0, 0)) || (max != -1 && numRepeats >= max)) {
                 logDirect("Done building");
-                if (Baritone.settings().notificationOnBuildFinished.value) {
+                if (baritone.getSettings().notificationOnBuildFinished.value) {
                     logNotification("Done building", false);
                 }
                 onLostControl();
@@ -519,13 +520,13 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             // build repeat time
             layer = 0;
             origin = new BlockPos(origin).offset(repeat);
-            if (!Baritone.settings().buildRepeatSneaky.value) {
+            if (!baritone.getSettings().buildRepeatSneaky.value) {
                 schematic.reset();
             }
             logDirect("Repeating build in vector " + repeat + ", new origin is " + origin);
             return onTick(calcFailed, isSafeToCancel, recursions + 1);
         }
-        if (Baritone.settings().distanceTrim.value) {
+        if (baritone.getSettings().distanceTrim.value) {
             trim();
         }
 
@@ -561,7 +562,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             return new PathingCommand(null, PathingCommandType.CANCEL_AND_SET_GOAL);
         }
 
-        if (Baritone.settings().allowInventory.value) {
+        if (baritone.getSettings().allowInventory.value) {
             ArrayList<Integer> usefulSlots = new ArrayList<>();
             List<BlockState> noValidHotbarOption = new ArrayList<>();
             outer:
@@ -593,7 +594,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         if (goal == null) {
             goal = assemble(bcc, approxPlaceable, true); // we're far away, so assume that we have our whole inventory to recalculate placeable properly
             if (goal == null) {
-                if (Baritone.settings().skipFailedLayers.value && Baritone.settings().buildInLayers.value && layer * Baritone.settings().layerHeight.value < realSchematic.heightY()) {
+                if (baritone.getSettings().skipFailedLayers.value && baritone.getSettings().buildInLayers.value && layer * baritone.getSettings().layerHeight.value < realSchematic.heightY()) {
                     logDirect("Skipping layer that I cannot construct! Layer #" + layer);
                     layer++;
                     return onTick(calcFailed, isSafeToCancel, recursions + 1);
@@ -631,7 +632,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
 
     private void recalcNearby(BuilderCalculationContext bcc) {
         BetterBlockPos center = ctx.playerFeet();
-        int radius = Baritone.settings().builderTickScanRadius.value;
+        int radius = baritone.getSettings().builderTickScanRadius.value;
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dy = -radius; dy <= radius; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
@@ -674,7 +675,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                         } else {
                             incorrectPositions.add(new BetterBlockPos(blockX, blockY, blockZ));
                             observedCompleted.remove(BetterBlockPos.longHash(blockX, blockY, blockZ));
-                            if (incorrectPositions.size() > Baritone.settings().incorrectSize.value) {
+                            if (incorrectPositions.size() > baritone.getSettings().incorrectSize.value) {
                                 return;
                             }
                         }
@@ -685,7 +686,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                         // and we've never seen this position be correct
                         // therefore mark as incorrect
                         incorrectPositions.add(new BetterBlockPos(blockX, blockY, blockZ));
-                        if (incorrectPositions.size() > Baritone.settings().incorrectSize.value) {
+                        if (incorrectPositions.size() > baritone.getSettings().incorrectSize.value) {
                             return;
                         }
                     }
@@ -780,8 +781,18 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         }
 
         @Override
+        public boolean isInGoal(Settings settings, int x, int y, int z) {
+            return primary.isInGoal(settings, x, y, z) || fallback.isInGoal(settings, x, y, z);
+        }
+
+        @Override
         public double heuristic(int x, int y, int z) {
             return primary.heuristic(x, y, z);
+        }
+
+        @Override
+        public double heuristic(Settings settings, int x, int y, int z) {
+            return primary.heuristic(settings, x, y, z);
         }
 
         @Override
@@ -860,7 +871,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     }
 
     private Goal breakGoal(BlockPos pos, BuilderCalculationContext bcc) {
-        if (Baritone.settings().goalBreakFromAbove.value && bcc.bsi.get0(pos.above()).getBlock() instanceof AirBlock && bcc.bsi.get0(pos.above(2)).getBlock() instanceof AirBlock) { // TODO maybe possible without the up(2) check?
+        if (baritone.getSettings().goalBreakFromAbove.value && bcc.bsi.get0(pos.above()).getBlock() instanceof AirBlock && bcc.bsi.get0(pos.above(2)).getBlock() instanceof AirBlock) { // TODO maybe possible without the up(2) check?
             return new JankyGoalComposite(new GoalBreak(pos), new GoalGetToBlock(pos.above()) {
                 @Override
                 public boolean isInGoal(int x, int y, int z) {
@@ -909,6 +920,11 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         }
 
         @Override
+        public double heuristic(Settings settings, int x, int y, int z) {
+            return this.y * 100 + super.heuristic(settings, x, y, z);
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (!super.equals(o)) {
                 return false;
@@ -952,6 +968,11 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         }
 
         @Override
+        public double heuristic(Settings settings, int x, int y, int z) {
+            return this.y * 100 + super.heuristic(settings, x, y, z);
+        }
+
+        @Override
         public int hashCode() {
             return super.hashCode() * 1910811835;
         }
@@ -973,7 +994,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         name = null;
         schematic = null;
         realSchematic = null;
-        layer = Baritone.settings().startAtLayer.value;
+        layer = baritone.getSettings().startAtLayer.value;
         numRepeats = 0;
         paused = false;
         observedCompleted = null;
@@ -986,7 +1007,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
 
     @Override
     public Optional<Integer> getMinLayer() {
-        if (Baritone.settings().buildInLayers.value) {
+        if (baritone.getSettings().buildInLayers.value) {
             return Optional.of(this.layer);
         }
         return Optional.empty();
@@ -994,7 +1015,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
 
     @Override
     public Optional<Integer> getMaxLayer() {
-        if (Baritone.settings().buildInLayers.value) {
+        if (baritone.getSettings().buildInLayers.value) {
             return Optional.of(this.stopAtHeight);
         }
         return Optional.empty();
@@ -1016,12 +1037,12 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         return result;
     }
 
-    private static boolean sameBlockstate(BlockState first, BlockState second) {
+    private boolean sameBlockstate(BlockState first, BlockState second) {
         if (first.getBlock() != second.getBlock()) {
             return false;
         }
-        boolean ignoreDirection = Baritone.settings().buildIgnoreDirection.value;
-        List<String> ignoredProps = Baritone.settings().buildIgnoreProperties.value;
+        boolean ignoreDirection = baritone.getSettings().buildIgnoreDirection.value;
+        List<String> ignoredProps = baritone.getSettings().buildIgnoreProperties.value;
         if (!ignoreDirection && ignoredProps.isEmpty()) {
             return first.equals(second); // early return if no properties are being ignored
         }
@@ -1038,7 +1059,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         return true;
     }
 
-    private static boolean containsBlockState(Collection<BlockState> states, BlockState state) {
+    private boolean containsBlockState(Collection<BlockState> states, BlockState state) {
         for (BlockState testee : states) {
             if (sameBlockstate(testee, state)) {
                 return true;
@@ -1047,26 +1068,26 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         return false;
     }
 
-    private static boolean valid(BlockState current, BlockState desired, boolean itemVerify) {
+    private boolean valid(BlockState current, BlockState desired, boolean itemVerify) {
         if (desired == null) {
             return true;
         }
-        if (current.getBlock() instanceof LiquidBlock && Baritone.settings().okIfWater.value) {
+        if (current.getBlock() instanceof LiquidBlock && baritone.getSettings().okIfWater.value) {
             return true;
         }
         if (current.getBlock() instanceof AirBlock && desired.getBlock() instanceof AirBlock) {
             return true;
         }
-        if (current.getBlock() instanceof AirBlock && Baritone.settings().okIfAir.value.contains(desired.getBlock())) {
+        if (current.getBlock() instanceof AirBlock && baritone.getSettings().okIfAir.value.contains(desired.getBlock())) {
             return true;
         }
-        if (desired.getBlock() instanceof AirBlock && Baritone.settings().buildIgnoreBlocks.value.contains(current.getBlock())) {
+        if (desired.getBlock() instanceof AirBlock && baritone.getSettings().buildIgnoreBlocks.value.contains(current.getBlock())) {
             return true;
         }
-        if (!(current.getBlock() instanceof AirBlock) && Baritone.settings().buildIgnoreExisting.value && !itemVerify) {
+        if (!(current.getBlock() instanceof AirBlock) && baritone.getSettings().buildIgnoreExisting.value && !itemVerify) {
             return true;
         }
-        if (Baritone.settings().buildValidSubstitutes.value.getOrDefault(desired.getBlock(), Collections.emptyList()).contains(current.getBlock()) && !itemVerify) {
+        if (baritone.getSettings().buildValidSubstitutes.value.getOrDefault(desired.getBlock(), Collections.emptyList()).contains(current.getBlock()) && !itemVerify) {
             return true;
         }
         if (current.equals(desired)) {
@@ -1114,7 +1135,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                 if (sch.getBlock() instanceof AirBlock) {
                     // we want this to be air, but they're asking if they can place here
                     // this won't be a schematic block, this will be a throwaway
-                    return placeBlockCost * Baritone.settings().placeIncorrectBlockPenaltyMultiplier.value; // we're going to have to break it eventually
+                    return placeBlockCost * settings.placeIncorrectBlockPenaltyMultiplier.value; // we're going to have to break it eventually
                 }
                 if (placeable.contains(sch)) {
                     return 0; // thats right we gonna make it FREE to place a block where it should go in a structure
@@ -1127,7 +1148,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                 }
                 // we want it to be something that we don't have
                 // even more of a pain to place something wrong
-                return placeBlockCost * 1.5 * Baritone.settings().placeIncorrectBlockPenaltyMultiplier.value;
+                return placeBlockCost * 1.5 * settings.placeIncorrectBlockPenaltyMultiplier.value;
             } else {
                 if (hasThrowaway) {
                     return placeBlockCost;
@@ -1152,7 +1173,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                 // it should be a real block
                 // is it already that block?
                 if (valid(bsi.get0(x, y, z), sch, false)) {
-                    return Baritone.settings().breakCorrectBlockPenaltyMultiplier.value;
+                    return settings.breakCorrectBlockPenaltyMultiplier.value;
                 } else {
                     // can break if it's wrong
                     // would be great to return less than 1 here, but that would actually make the cost calculation messed up

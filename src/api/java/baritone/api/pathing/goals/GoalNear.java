@@ -17,6 +17,8 @@
 
 package baritone.api.pathing.goals;
 
+import baritone.api.BaritoneAPI;
+import baritone.api.Settings;
 import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.SettingsUtil;
 import baritone.api.utils.interfaces.IGoalRenderPos;
@@ -48,21 +50,31 @@ public class GoalNear implements Goal, IGoalRenderPos {
 
     @Override
     public double heuristic(int x, int y, int z) {
+        return heuristic(BaritoneAPI.getSettings(), x, y, z);
+    }
+
+    @Override
+    public double heuristic(Settings settings, int x, int y, int z) {
         int xDiff = x - this.x;
         int yDiff = y - this.y;
         int zDiff = z - this.z;
-        return GoalBlock.calculate(xDiff, yDiff, zDiff);
+        return GoalBlock.calculate(settings, xDiff, yDiff, zDiff);
     }
 
     @Override
     public double heuristic() {// TODO less hacky solution
+        return heuristic(BaritoneAPI.getSettings());
+    }
+
+    @Override
+    public double heuristic(Settings settings) {// TODO less hacky solution
         int range = (int) Math.ceil(Math.sqrt(rangeSq));
         DoubleOpenHashSet maybeAlwaysInside = new DoubleOpenHashSet(); // see pull request #1978
         double minOutside = Double.POSITIVE_INFINITY;
         for (int dx = -range; dx <= range; dx++) {
             for (int dy = -range; dy <= range; dy++) {
                 for (int dz = -range; dz <= range; dz++) {
-                    double h = heuristic(x + dx, y + dy, z + dz);
+                    double h = heuristic(settings, x + dx, y + dy, z + dz);
                     if (h < minOutside && isInGoal(x + dx, y + dy, z + dz)) {
                         maybeAlwaysInside.add(h);
                     } else {

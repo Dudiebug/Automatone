@@ -45,7 +45,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * Baritone's settings. Settings apply to all Baritone instances.
+ * Baritone settings. Runtime copies isolate each host from the global defaults.
  *
  * @author leijurv
  */
@@ -1677,7 +1677,7 @@ public final class Settings {
 
     // here be dragons
 
-    Settings() {
+    public Settings() {
         Field[] temp = getClass().getFields();
 
         Map<String, Setting<?>> tmpByName = new HashMap<>();
@@ -1706,6 +1706,42 @@ public final class Settings {
         byLowerName = Collections.unmodifiableMap(tmpByName);
         allSettings = Collections.unmodifiableList(tmpAll);
         settingTypes = Collections.unmodifiableMap(tmpSettingTypes);
+    }
+
+    /** Copies mutable setting containers, so a runtime or calculation owns its values. */
+    public Settings copy() {
+        Settings result = new Settings();
+        for (Setting<?> setting : allSettings) {
+            copySetting(setting, result.byLowerName.get(setting.getName().toLowerCase(Locale.ROOT)));
+        }
+        return result;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void copySetting(Setting<?> source, Setting target) {
+        target.value = copyValue(source.value);
+    }
+
+    private static Object copyValue(Object value) {
+        if (value instanceof List<?> list) {
+            List<Object> copy = new ArrayList<>(list.size());
+            list.forEach(item -> copy.add(copyValue(item)));
+            return copy;
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<Object, Object> copy = new LinkedHashMap<>();
+            map.forEach((key, item) -> copy.put(copyValue(key), copyValue(item)));
+            return copy;
+        }
+        if (value instanceof Set<?> set) {
+            Set<Object> copy = new LinkedHashSet<>();
+            set.forEach(item -> copy.add(copyValue(item)));
+            return copy;
+        }
+        if (value instanceof Vec3i position) {
+            return new Vec3i(position.getX(), position.getY(), position.getZ());
+        }
+        return value;
     }
 
     @SuppressWarnings("unchecked")

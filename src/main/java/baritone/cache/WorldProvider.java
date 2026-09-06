@@ -10,6 +10,7 @@
 package baritone.cache;
 
 import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.cache.IWorldProvider;
 import baritone.api.utils.IPlayerContext;
 import net.minecraft.resources.ResourceLocation;
@@ -19,17 +20,20 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.Supplier;
 
 /** Runtime-owned world data. No component key or global cache owns this instance. */
 public final class WorldProvider implements IWorldProvider {
 
     private final IPlayerContext context;
+    private final Supplier<Settings> settings;
     private final Path dataRoot;
     private Level loadedLevel;
     private WorldData currentWorld;
 
     public WorldProvider(Baritone baritone, Path dataRoot) {
         this.context = baritone.getPlayerContext();
+        this.settings = baritone::getSettings;
         this.dataRoot = dataRoot.toAbsolutePath().normalize();
     }
 
@@ -61,7 +65,7 @@ public final class WorldProvider implements IWorldProvider {
         } catch (IOException ignored) {
         }
         this.loadedLevel = level;
-        this.currentWorld = new WorldData(directory, level.dimensionType());
+        this.currentWorld = new WorldData(directory, level.dimensionType(), settings);
     }
 
     public synchronized void closeWorld() {

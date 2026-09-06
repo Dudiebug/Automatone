@@ -130,6 +130,10 @@ public interface IPath {
         throw new UnsupportedOperationException();
     }
 
+    default IPath cutoffAtLoadedChunks(Object bsi, Settings settings) {
+        return cutoffAtLoadedChunks(bsi);
+    }
+
     /**
      * Cuts off this path using the min length and cutoff factor settings, and returns the resulting path.
      * Default implementation just returns this path, without the intended functionality.
@@ -141,6 +145,10 @@ public interface IPath {
      */
     default IPath staticCutoff(Goal destination) {
         throw new UnsupportedOperationException();
+    }
+
+    default IPath staticCutoff(Goal destination, Settings settings) {
+        return staticCutoff(destination);
     }
 
 

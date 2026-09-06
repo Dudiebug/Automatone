@@ -1,6 +1,7 @@
 package baritone.gametest;
 
 import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.schematic.IStaticSchematic;
 import baritone.api.schematic.format.ISchematicFormat;
 import baritone.api.pathing.goals.GoalBlock;
@@ -314,6 +315,9 @@ public final class RuntimeOwnershipGameTest {
     }
 
     private static Object defaultValue(Class<?> type) {
+        if (type == Settings.class) {
+            return new Settings();
+        }
         if (type == boolean.class) {
             return false;
         }

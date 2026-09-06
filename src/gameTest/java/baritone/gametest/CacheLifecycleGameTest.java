@@ -1,9 +1,9 @@
 package baritone.gametest;
 
-import baritone.Baritone;
 import baritone.cache.CachedWorld;
 import baritone.cache.WorldData;
 import baritone.api.BaritoneAPI;
+import baritone.api.Settings;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.fml.loading.FMLPaths;
 import net.minecraft.gametest.framework.GameTest;
@@ -25,6 +25,7 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 @GameTestHolder("automatone_gametest")
 @PrefixGameTestTemplate(false)
@@ -63,17 +64,16 @@ public final class CacheLifecycleGameTest {
         WorldData worldData = null;
         Thread saveThread = null;
         Thread closeThread = null;
-        boolean originalChunkCaching = Baritone.settings().chunkCaching.value;
-        boolean originalPruneRegionsFromRam = Baritone.settings().pruneRegionsFromRAM.value;
         AtomicReference<Throwable> workerFailure = new AtomicReference<>();
         CountDownLatch saveStarted = new CountDownLatch(1);
         CountDownLatch saveFinished = new CountDownLatch(1);
         CountDownLatch operationsFinished = new CountDownLatch(2);
+        Settings cacheSettings = BaritoneAPI.getSettings().copy();
+        cacheSettings.chunkCaching.value = true;
+        cacheSettings.pruneRegionsFromRAM.value = true;
         try {
-            Baritone.settings().chunkCaching.value = true;
-            Baritone.settings().pruneRegionsFromRAM.value = true;
             root = Files.createTempDirectory(FMLPaths.GAMEDIR.get(), "m1-5-cache-lock-");
-            worldData = newWorldData(root, helper.getLevel());
+            worldData = newWorldData(root, helper.getLevel(), cacheSettings);
             CachedWorld cache = worldData.cache;
             cache.tryLoadFromDisk(0, 0);
             Object provider = BaritoneAPI.getProvider();
@@ -124,8 +124,6 @@ public final class CacheLifecycleGameTest {
             joinQuietly(saveThread);
             joinQuietly(closeThread);
             closeAndDelete(worldData, null, root);
-            Baritone.settings().chunkCaching.value = originalChunkCaching;
-            Baritone.settings().pruneRegionsFromRAM.value = originalPruneRegionsFromRam;
         }
         helper.succeed();
     }
@@ -307,6 +305,22 @@ public final class CacheLifecycleGameTest {
             return constructor.newInstance(root, level.dimensionType());
         } catch (ReflectiveOperationException ex) {
             throw new AssertionError("Unable to construct real package-private WorldData", ex);
+        }
+    }
+
+    private static WorldData newWorldData(
+            Path root,
+            net.minecraft.server.level.ServerLevel level,
+            Settings settings
+    ) {
+        try {
+            Constructor<WorldData> constructor = WorldData.class.getDeclaredConstructor(Path.class,
+                    net.minecraft.world.level.dimension.DimensionType.class, Supplier.class);
+            constructor.setAccessible(true);
+            Supplier<Settings> ownedSettings = () -> settings;
+            return constructor.newInstance(root, level.dimensionType(), ownedSettings);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("Unable to construct settings-owned package-private WorldData", ex);
         }
     }
 

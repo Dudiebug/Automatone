@@ -17,7 +17,7 @@
 
 package baritone.utils;
 
-import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.utils.IPlayerContext;
 import baritone.cache.CachedRegion;
 import baritone.cache.WorldData;
@@ -46,6 +46,7 @@ public class BlockStateInterface {
     public final BlockPos.MutableBlockPos isPassableBlockPos;
     public final BlockGetter access;
     public final BetterWorldBorder worldBorder;
+    public final Settings settings;
 
     private LevelChunk prev = null;
     private CachedRegion prevCached = null;
@@ -55,15 +56,20 @@ public class BlockStateInterface {
     private static final BlockState AIR = Blocks.AIR.defaultBlockState();
 
     public BlockStateInterface(IPlayerContext ctx) {
-        this(ctx, false);
+        this(ctx, false, ctx.getSettings());
     }
 
     public BlockStateInterface(IPlayerContext ctx, boolean copyLoadedChunks) {
+        this(ctx, copyLoadedChunks, ctx.getSettings());
+    }
+
+    public BlockStateInterface(IPlayerContext ctx, boolean copyLoadedChunks, Settings settings) {
+        this.settings = settings;
         this.world = ctx.world();
         this.worldBorder = new BetterWorldBorder(world.getWorldBorder());
         this.worldData = (WorldData) ctx.worldData();
         this.provider = world.getChunkSource();
-        this.useTheRealWorld = !Baritone.settings().pathThroughCachedOnly.value;
+        this.useTheRealWorld = !settings.pathThroughCachedOnly.value;
         this.isPassableBlockPos = new BlockPos.MutableBlockPos();
         this.access = new BlockStateInterfaceAccessWrapper(this);
     }

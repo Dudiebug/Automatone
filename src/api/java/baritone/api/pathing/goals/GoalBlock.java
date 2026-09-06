@@ -17,6 +17,8 @@
 
 package baritone.api.pathing.goals;
 
+import baritone.api.BaritoneAPI;
+import baritone.api.Settings;
 import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.SettingsUtil;
 import baritone.api.utils.interfaces.IGoalRenderPos;
@@ -61,10 +63,15 @@ public class GoalBlock implements Goal, IGoalRenderPos {
 
     @Override
     public double heuristic(int x, int y, int z) {
+        return heuristic(BaritoneAPI.getSettings(), x, y, z);
+    }
+
+    @Override
+    public double heuristic(Settings settings, int x, int y, int z) {
         int xDiff = x - this.x;
         int yDiff = y - this.y;
         int zDiff = z - this.z;
-        return calculate(xDiff, yDiff, zDiff);
+        return calculate(settings, xDiff, yDiff, zDiff);
     }
 
     @Override
@@ -106,6 +113,10 @@ public class GoalBlock implements Goal, IGoalRenderPos {
     }
 
     public static double calculate(double xDiff, int yDiff, double zDiff) {
+        return calculate(BaritoneAPI.getSettings(), xDiff, yDiff, zDiff);
+    }
+
+    public static double calculate(Settings settings, double xDiff, int yDiff, double zDiff) {
         double heuristic = 0;
 
         // if yDiff is 1 that means that currentY-goalY==1 which means that we're 1 block above where we should be
@@ -113,7 +124,7 @@ public class GoalBlock implements Goal, IGoalRenderPos {
         heuristic += GoalYLevel.calculate(0, yDiff);
 
         //use the pythagorean and manhattan mixture from GoalXZ
-        heuristic += GoalXZ.calculate(xDiff, zDiff);
+        heuristic += GoalXZ.calculate(settings, xDiff, zDiff);
         return heuristic;
     }
 }

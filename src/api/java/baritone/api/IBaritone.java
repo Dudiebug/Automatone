@@ -34,6 +34,16 @@ import baritone.api.utils.IPlayerContext;
  */
 public interface IBaritone {
 
+    /** Returns this runtime's settings, or the global defaults for legacy implementations. */
+    default Settings getSettings() {
+        return BaritoneAPI.getSettings();
+    }
+
+    /** Replaces this runtime's settings after cancelling native work. */
+    default void applySettings(Settings settings) {
+        throw new UnsupportedOperationException("This Baritone implementation does not own runtime settings");
+    }
+
     /**
      * @return The {@link IPathingBehavior} instance
      * @see IPathingBehavior

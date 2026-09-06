@@ -17,6 +17,8 @@
 
 package baritone.api.utils;
 
+import baritone.api.BaritoneAPI;
+import baritone.api.Settings;
 import baritone.api.cache.IWorldData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -39,6 +41,11 @@ import java.util.stream.StreamSupport;
  * @since 11/12/2018
  */
 public interface IPlayerContext {
+
+    /** Runtime settings supplied by this host, or the global defaults for legacy contexts. */
+    default Settings getSettings() {
+        return BaritoneAPI.getSettings();
+    }
 
     LivingEntity player();
 

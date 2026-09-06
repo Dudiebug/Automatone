@@ -18,6 +18,7 @@
 package baritone.cache;
 
 import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.cache.ICachedWorld;
 import baritone.api.utils.Helper;
 import com.google.common.cache.CacheBuilder;
@@ -38,6 +39,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 /**
  * @author Brady
@@ -73,6 +75,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
     private final Map<ChunkPos, LevelChunk> toPackMap = CacheBuilder.newBuilder().softValues().<ChunkPos, LevelChunk>build().asMap();
 
     private final DimensionType dimension;
+    private final Supplier<Settings> settings;
 
     private final Object lifecycleLock = new Object();
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -81,6 +84,10 @@ public final class CachedWorld implements ICachedWorld, Helper {
     private final WorkerTask periodicSaveTask;
 
     CachedWorld(Path directory, DimensionType dimension) {
+        this(directory, dimension, Baritone::settings);
+    }
+
+    CachedWorld(Path directory, DimensionType dimension, Supplier<Settings> settings) {
         if (!Files.exists(directory)) {
             try {
                 Files.createDirectories(directory);
@@ -89,6 +96,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
         }
         this.directory = directory.toString();
         this.dimension = dimension;
+        this.settings = settings;
         System.out.println("Cached world directory: " + directory);
         this.packerTask = new WorkerTask(new PackerThread());
         this.periodicSaveTask = new WorkerTask(this::runPeriodicSave);
@@ -178,7 +186,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
     }
 
     private void saveInternal() {
-        if (!Baritone.settings().chunkCaching.value) {
+        if (!settings.get().chunkCaching.value) {
             System.out.println("Not saving to disk; chunk caching is disabled.");
             allRegions().forEach(region -> {
                 if (region != null) {
@@ -204,7 +212,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
      */
     private void prune() {
         synchronized (lifecycleLock) {
-            if (!Baritone.settings().pruneRegionsFromRAM.value) {
+            if (!settings.get().pruneRegionsFromRAM.value) {
                 return;
             }
             BlockPos pruneCenter = guessPosition();
@@ -296,7 +304,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
                 return null;
             }
             return cachedRegions.computeIfAbsent(getRegionID(regionX, regionZ), id -> {
-                CachedRegion newRegion = new CachedRegion(regionX, regionZ, dimension);
+                CachedRegion newRegion = new CachedRegion(regionX, regionZ, dimension, settings);
                 newRegion.load(this.directory);
                 return newRegion;
             });
@@ -395,7 +403,7 @@ public final class CachedWorld implements ICachedWorld, Helper {
                     if (chunk == null) {
                         continue;
                     }
-                    if (toPackQueue.size() > Baritone.settings().chunkPackerQueueMaxSize.value) {
+                    if (toPackQueue.size() > settings.get().chunkPackerQueueMaxSize.value) {
                         continue;
                     }
                     CachedChunk cached = ChunkPacker.pack(chunk);

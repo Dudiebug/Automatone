@@ -17,6 +17,8 @@
 
 package baritone.api.pathing.goals;
 
+import baritone.api.BaritoneAPI;
+import baritone.api.Settings;
 import baritone.api.utils.SettingsUtil;
 import it.unimi.dsi.fastutil.doubles.DoubleIterator;
 import it.unimi.dsi.fastutil.doubles.DoubleOpenHashSet;
@@ -75,9 +77,14 @@ public class GoalRunAway implements Goal {
 
     @Override
     public double heuristic(int x, int y, int z) {// mostly copied from GoalBlock
+        return heuristic(BaritoneAPI.getSettings(), x, y, z);
+    }
+
+    @Override
+    public double heuristic(Settings settings, int x, int y, int z) {// mostly copied from GoalBlock
         double min = Double.MAX_VALUE;
         for (BlockPos p : from) {
-            double h = GoalXZ.calculate(p.getX() - x, p.getZ() - z);
+            double h = GoalXZ.calculate(settings, p.getX() - x, p.getZ() - z);
             if (h < min) {
                 min = h;
             }
@@ -91,6 +98,11 @@ public class GoalRunAway implements Goal {
 
     @Override
     public double heuristic() {// TODO less hacky solution
+        return heuristic(BaritoneAPI.getSettings());
+    }
+
+    @Override
+    public double heuristic(Settings settings) {// TODO less hacky solution
         int distance = (int) Math.ceil(Math.sqrt(distanceSq));
         int minX = Integer.MAX_VALUE;
         int minY = Integer.MAX_VALUE;
@@ -111,7 +123,7 @@ public class GoalRunAway implements Goal {
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
                 for (int z = minZ; z <= maxZ; z++) {
-                    double h = heuristic(x, y, z);
+                    double h = heuristic(settings, x, y, z);
                     if (h < minOutside && isInGoal(x, y, z)) {
                         maybeAlwaysInside.add(h);
                     } else {

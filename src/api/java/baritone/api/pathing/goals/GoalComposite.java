@@ -17,6 +17,7 @@
 
 package baritone.api.pathing.goals;
 
+import baritone.api.Settings;
 import java.util.Arrays;
 
 /**
@@ -48,6 +49,16 @@ public class GoalComposite implements Goal {
     }
 
     @Override
+    public boolean isInGoal(Settings settings, int x, int y, int z) {
+        for (Goal goal : goals) {
+            if (goal.isInGoal(settings, x, y, z)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public double heuristic(int x, int y, int z) {
         double min = Double.MAX_VALUE;
         for (Goal g : goals) {
@@ -58,11 +69,29 @@ public class GoalComposite implements Goal {
     }
 
     @Override
+    public double heuristic(Settings settings, int x, int y, int z) {
+        double min = Double.MAX_VALUE;
+        for (Goal goal : goals) {
+            min = Math.min(min, goal.heuristic(settings, x, y, z));
+        }
+        return min;
+    }
+
+    @Override
     public double heuristic() {
         double min = Double.MAX_VALUE;
         for (Goal g : goals) {
             // just take the highest value that is guaranteed to be inside the goal
             min = Math.min(min, g.heuristic());
+        }
+        return min;
+    }
+
+    @Override
+    public double heuristic(Settings settings) {
+        double min = Double.MAX_VALUE;
+        for (Goal goal : goals) {
+            min = Math.min(min, goal.heuristic(settings));
         }
         return min;
     }

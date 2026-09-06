@@ -3,8 +3,8 @@ package automatone.worker.gametest;
 import automatone.worker.WorkerEntity;
 import automatone.worker.WorkerEntityController;
 import automatone.worker.WorkerMod;
-import baritone.Baritone;
 import baritone.api.IBaritone;
+import baritone.api.Settings;
 import baritone.api.utils.IPlayerContext;
 import baritone.api.utils.RayTraceUtils;
 import baritone.api.utils.Rotation;
@@ -70,15 +70,17 @@ public final class WorkerNativeMineProcessGameTest {
     @GameTest(template = "worker_native_mining", batch = "worker_m3_demo_cost", timeoutTicks = 100)
     public static void demoMiningCostEstimateTracksConfiguredBlockBreakSpeed(GameTestHelper helper) {
         DemoSession demo = null;
-        boolean previousPotionSetting = Baritone.settings().considerPotionEffects.value;
         try {
             demo = startDemo(helper.getLevel(), helper.absolutePos(BlockPos.ZERO));
             AttributeInstance breakSpeed = demo.worker.getAttribute(Attributes.BLOCK_BREAK_SPEED);
             helper.assertTrue(breakSpeed != null,
                     "The demo worker must expose the real block-break-speed attribute");
 
+            Settings baselineSettings = demo.runtime.getSettings().copy();
             for (boolean considerPotions : List.of(false, true)) {
-                Baritone.settings().considerPotionEffects.value = considerPotions;
+                Settings ownedSettings = baselineSettings.copy();
+                ownedSettings.considerPotionEffects.value = considerPotions;
+                demo.runtime.applySettings(ownedSettings);
                 breakSpeed.setBaseValue(1.0D);
                 double normalSpeed = new ToolSet(demo.runtime.getPlayerContext())
                         .getStrVsBlock(Blocks.IRON_ORE.defaultBlockState());
@@ -96,14 +98,13 @@ public final class WorkerNativeMineProcessGameTest {
                     "The fallback assertion requires a normal non-worker host without block-break-speed");
             SimpleContainer inventory = new SimpleContainer(9);
             inventory.setItem(0, new ItemStack(Items.IRON_PICKAXE));
-            double fallbackSpeed = new ToolSet(toolSetContext(nonWorker, inventory))
+            double fallbackSpeed = new ToolSet(toolSetContext(nonWorker, inventory), demo.runtime.getSettings())
                     .getStrVsBlock(Blocks.IRON_ORE.defaultBlockState());
             double vanillaSpeed = ToolSet.calculateSpeedVsBlock(new ItemStack(Items.IRON_PICKAXE),
                     Blocks.IRON_ORE.defaultBlockState());
             helper.assertTrue(Math.abs(fallbackSpeed - vanillaSpeed) < 0.000001D,
                     "A host without block-break-speed must retain the vanilla multiplier of one");
         } finally {
-            Baritone.settings().considerPotionEffects.value = previousPotionSetting;
             if (demo != null) {
                 demo.close();
             }

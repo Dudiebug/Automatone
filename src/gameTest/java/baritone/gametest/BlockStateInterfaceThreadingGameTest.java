@@ -1,6 +1,7 @@
 package baritone.gametest;
 
-import baritone.Baritone;
+import baritone.api.BaritoneAPI;
+import baritone.api.Settings;
 import baritone.api.cache.IWorldData;
 import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.IPlayerContext;
@@ -37,10 +38,10 @@ public final class BlockStateInterfaceThreadingGameTest {
     @GameTest(template = "provider_smoke", batch = "off_thread_loaded_chunk_access", timeoutTicks = 100)
     public static void alreadyLoadedChunksAreReadableWithoutWaitingForTheServerThread(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        boolean previousPathThroughCachedOnly = Baritone.settings().pathThroughCachedOnly.value;
         Map<BlockPos, BlockState> originalStates = Map.of();
         try {
-            Baritone.settings().pathThroughCachedOnly.value = false;
+            Settings ownedSettings = BaritoneAPI.getSettings().copy();
+            ownedSettings.pathThroughCachedOnly.value = false;
             List<BlockPos> loadedPositions = loadedPositions(helper);
             originalStates = originalStates(level, loadedPositions);
             seedLoadedChunks(level, loadedPositions, List.of(
@@ -55,7 +56,7 @@ public final class BlockStateInterfaceThreadingGameTest {
                     "The absent-chunk assertion must start with a chunk the server has not loaded");
 
             IPlayerContext context = context(level, loadedPositions.getFirst());
-            BlockStateInterface blocks = new BlockStateInterface(context, true);
+            BlockStateInterface blocks = new BlockStateInterface(context, true, ownedSettings);
             BlockStateRead read = awaitWorker(() -> new BlockStateRead(
                     loadedPositions.stream().map(blocks::get0).toList(),
                     blocks.get0(absentPosition),
@@ -75,7 +76,6 @@ public final class BlockStateInterfaceThreadingGameTest {
                     "A threaded BlockStateInterface lookup must not load an absent chunk");
         } finally {
             restore(level, originalStates);
-            Baritone.settings().pathThroughCachedOnly.value = previousPathThroughCachedOnly;
         }
         helper.succeed();
     }

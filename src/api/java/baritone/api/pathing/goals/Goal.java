@@ -17,6 +17,7 @@
 
 package baritone.api.pathing.goals;
 
+import baritone.api.Settings;
 import net.minecraft.core.BlockPos;
 
 /**
@@ -37,6 +38,10 @@ public interface Goal {
      */
     boolean isInGoal(int x, int y, int z);
 
+    default boolean isInGoal(Settings settings, int x, int y, int z) {
+        return isInGoal(x, y, z);
+    }
+
     /**
      * Estimate the number of ticks it will take to get to the goal
      *
@@ -46,6 +51,10 @@ public interface Goal {
      * @return The estimate number of ticks to satisfy the goal
      */
     double heuristic(int x, int y, int z);
+
+    default double heuristic(Settings settings, int x, int y, int z) {
+        return heuristic(x, y, z);
+    }
 
     default boolean isInGoal(BlockPos pos) {
         return isInGoal(pos.getX(), pos.getY(), pos.getZ());
@@ -67,5 +76,9 @@ public interface Goal {
      */
     default double heuristic() {
         return 0;
+    }
+
+    default double heuristic(Settings settings) {
+        return heuristic();
     }
 }

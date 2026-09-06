@@ -1,9 +1,9 @@
 package automatone.worker.gametest;
 
 import automatone.worker.WorkerEntity;
-import baritone.Baritone;
 import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
+import baritone.api.Settings;
 import baritone.api.event.events.TickEvent;
 import baritone.api.event.events.type.EventState;
 import baritone.api.event.listener.AbstractGameEventListener;
@@ -366,8 +366,6 @@ public final class WorkerNavigationGameTest {
         private final Level level;
         private final BlockPos origin;
         private final int baselineRuntimeCount;
-        private final boolean originalAllowBreak;
-        private final boolean originalAllowPlace;
         private final Map<BlockPos, BlockState> originalTerrain;
         private final Map<BlockPos, BlockState> expectedTerrain;
         private final NativePathObservation observation = new NativePathObservation();
@@ -379,8 +377,6 @@ public final class WorkerNavigationGameTest {
                 Level level,
                 BlockPos origin,
                 int baselineRuntimeCount,
-                boolean originalAllowBreak,
-                boolean originalAllowPlace,
                 Map<BlockPos, BlockState> originalTerrain
         ) {
             this.worker = worker;
@@ -388,8 +384,6 @@ public final class WorkerNavigationGameTest {
             this.level = level;
             this.origin = origin;
             this.baselineRuntimeCount = baselineRuntimeCount;
-            this.originalAllowBreak = originalAllowBreak;
-            this.originalAllowPlace = originalAllowPlace;
             this.originalTerrain = originalTerrain;
             this.expectedTerrain = new LinkedHashMap<>(originalTerrain);
         }
@@ -398,13 +392,9 @@ public final class WorkerNavigationGameTest {
             Level level = helper.getLevel();
             BlockPos origin = helper.absolutePos(BlockPos.ZERO);
             Map<BlockPos, BlockState> originalTerrain = snapshotTerrain(level, origin);
-            boolean originalAllowBreak = Baritone.settings().allowBreak.value;
-            boolean originalAllowPlace = Baritone.settings().allowPlace.value;
             int baselineRuntimeCount = BaritoneAPI.getProvider().getAllBaritones().size();
             WorkerEntity worker = null;
             try {
-                Baritone.settings().allowBreak.value = false;
-                Baritone.settings().allowPlace.value = false;
                 worker = WorkerGameTestSupport.spawnWorker(helper);
                 BlockPos spawn = absolute(origin, SPAWN_POSITION);
                 worker.moveTo(spawn.getX() + 0.5D, spawn.getY(), spawn.getZ() + 0.5D, 0.0F, 0.0F);
@@ -419,16 +409,18 @@ public final class WorkerNavigationGameTest {
                         || !BaritoneAPI.getProvider().getAllBaritones().contains(runtime)) {
                     throw new AssertionError("Navigation fixture must add exactly one worker runtime");
                 }
+                Settings navigationSettings = runtime.getSettings().copy();
+                navigationSettings.allowBreak.value = false;
+                navigationSettings.allowPlace.value = false;
+                runtime.applySettings(navigationSettings);
                 NavigationFixture fixture = new NavigationFixture(worker, runtime, level, origin, baselineRuntimeCount,
-                        originalAllowBreak, originalAllowPlace, originalTerrain);
+                        originalTerrain);
                 fixture.buildCorridor();
                 runtime.getGameEventHandler().registerEventListener(fixture.observation);
                 return fixture;
             } catch (Throwable failure) {
                 WorkerGameTestSupport.discardWorker(worker);
                 restoreTerrain(level, originalTerrain);
-                Baritone.settings().allowBreak.value = originalAllowBreak;
-                Baritone.settings().allowPlace.value = originalAllowPlace;
                 throw failure;
             }
         }
@@ -444,9 +436,9 @@ public final class WorkerNavigationGameTest {
                             + ", velocity=" + worker.getDeltaMovement()
                             + ", onGround=" + worker.onGround()
                             + ", blockBelowSpawn=" + level.getBlockState(spawnFloor));
-            helper.assertFalse(Baritone.settings().allowBreak.value,
+            helper.assertFalse(runtime.getSettings().allowBreak.value,
                     "Navigation fixture must disable native block breaking");
-            helper.assertFalse(Baritone.settings().allowPlace.value,
+            helper.assertFalse(runtime.getSettings().allowPlace.value,
                     "Navigation fixture must disable native block placement");
             helper.assertFalse(runtime.getCustomGoalProcess().isActive(),
                     "Navigation fixture must start from an idle custom-goal process");
@@ -509,12 +501,7 @@ public final class WorkerNavigationGameTest {
             try {
                 WorkerGameTestSupport.discardWorker(worker);
             } finally {
-                try {
-                    restoreTerrain(level, originalTerrain);
-                } finally {
-                    Baritone.settings().allowBreak.value = originalAllowBreak;
-                    Baritone.settings().allowPlace.value = originalAllowPlace;
-                }
+                restoreTerrain(level, originalTerrain);
             }
         }
 

@@ -35,12 +35,14 @@ import baritone.selection.SelectionManager;
 import baritone.utils.BlockStateInterface;
 import baritone.utils.InputOverrideHandler;
 import baritone.utils.PathingControlManager;
+import net.minecraft.server.level.ServerLevel;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -61,6 +63,7 @@ public class Baritone implements IBaritone {
 
     private final Path directory;
     private boolean disposed;
+    private volatile Settings runtimeSettings;
 
     private final GameEventHandler gameEventHandler;
 
@@ -88,6 +91,8 @@ public class Baritone implements IBaritone {
     public BlockStateInterface bsi;
 
     public Baritone(IPlayerContext playerContext, Path directory) {
+        this.playerContext = Objects.requireNonNull(playerContext, "playerContext");
+        this.runtimeSettings = playerContext.getSettings().copy();
         this.gameEventHandler = new GameEventHandler(this);
         this.directory = directory.toAbsolutePath().normalize();
         if (!Files.exists(this.directory)) {
@@ -95,9 +100,6 @@ public class Baritone implements IBaritone {
                 Files.createDirectories(this.directory);
             } catch (IOException ignored) {}
         }
-
-        // Define this before behaviors try and get it, or else it will be null and the builds will fail!
-        this.playerContext = playerContext;
 
         {
             this.lookBehavior         = this.registerBehavior(LookBehavior::new);
@@ -164,6 +166,22 @@ public class Baritone implements IBaritone {
     @Override
     public IPlayerContext getPlayerContext() {
         return this.playerContext;
+    }
+
+    @Override
+    public Settings getSettings() {
+        return this.runtimeSettings;
+    }
+
+    @Override
+    public synchronized void applySettings(Settings settings) {
+        Objects.requireNonNull(settings, "settings");
+        if (this.playerContext.world() instanceof ServerLevel level && !level.getServer().isSameThread()) {
+            throw new IllegalStateException("Runtime settings must be applied on the server thread");
+        }
+        this.pathingBehavior.forceCancel();
+        this.inputOverrideHandler.clearAllKeys();
+        this.runtimeSettings = settings.copy();
     }
 
     @Override

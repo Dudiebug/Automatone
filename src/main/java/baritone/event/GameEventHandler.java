@@ -54,7 +54,7 @@ public final class GameEventHandler implements IEventBus, Helper {
     public final void onTick(TickEvent event) {
         if (event.getType() == TickEvent.Type.IN) {
             try {
-                baritone.bsi = new BlockStateInterface(baritone.getPlayerContext(), true);
+                baritone.bsi = new BlockStateInterface(baritone.getPlayerContext(), true, baritone.getSettings());
             } catch (Exception ex) {
                 ex.printStackTrace();
                 baritone.bsi = null;
@@ -112,7 +112,7 @@ public final class GameEventHandler implements IEventBus, Helper {
 
     @Override
     public void onBlockChange(BlockChangeEvent event) {
-        if (Baritone.settings().repackOnAnyBlockChange.value) {
+        if (baritone.getSettings().repackOnAnyBlockChange.value) {
             final boolean keepingTrackOf = event.getBlocks().stream()
                     .map(Pair::second).map(BlockState::getBlock)
                     .anyMatch(CachedChunk.BLOCKS_TO_KEEP_TRACK_OF::contains);

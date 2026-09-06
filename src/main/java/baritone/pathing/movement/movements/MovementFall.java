@@ -105,7 +105,7 @@ public class MovementFall extends Movement {
                 return state.setStatus(MovementStatus.UNREACHABLE);
             }
 
-            if (ctx.player().position().y - dest.getY() < ctx.playerController().getBlockReachDistance() && !ctx.player().onGround()) {
+            if (ctx.player().position().y - dest.getY() < baritone.getSettings().blockReachDistance.value && !ctx.player().onGround()) {
                 ctx.setSelectedSlot(waterBucketSlot);
 
                 targetRotation = new Rotation(toDest.getYaw(), 90.0F);

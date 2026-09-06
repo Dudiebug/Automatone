@@ -17,22 +17,30 @@
 
 package baritone.utils;
 
-import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.utils.IPlayerContext;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
+import java.util.function.Supplier;
+
 public class BlockPlaceHelper {
     // base ticks between places caused by tick logic
     private static final int BASE_PLACE_DELAY = 1;
 
     private final IPlayerContext ctx;
+    private final Supplier<Settings> settings;
     private int rightClickTimer;
 
     BlockPlaceHelper(IPlayerContext playerContext) {
+        this(playerContext, playerContext::getSettings);
+    }
+
+    BlockPlaceHelper(IPlayerContext playerContext, Supplier<Settings> settings) {
         this.ctx = playerContext;
+        this.settings = settings;
     }
 
     public void tick(boolean rightClickRequested) {
@@ -44,7 +52,7 @@ public class BlockPlaceHelper {
         if (!rightClickRequested || ctx.player().isUsingItem() || mouseOver == null || mouseOver.getType() != HitResult.Type.BLOCK) {
             return;
         }
-        rightClickTimer = Baritone.settings().rightClickSpeed.value - BASE_PLACE_DELAY;
+        rightClickTimer = settings.get().rightClickSpeed.value - BASE_PLACE_DELAY;
         for (InteractionHand hand : InteractionHand.values()) {
             if (ctx.playerController().processRightClickBlock(ctx.player(), ctx.world(), hand, (BlockHitResult) mouseOver) == InteractionResult.SUCCESS) {
                 ctx.player().swing(hand);

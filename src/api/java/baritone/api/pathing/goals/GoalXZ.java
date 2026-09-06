@@ -18,6 +18,7 @@
 package baritone.api.pathing.goals;
 
 import baritone.api.BaritoneAPI;
+import baritone.api.Settings;
 import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.SettingsUtil;
 import net.minecraft.util.Mth;
@@ -59,9 +60,14 @@ public class GoalXZ implements Goal {
 
     @Override
     public double heuristic(int x, int y, int z) {//mostly copied from GoalBlock
+        return heuristic(BaritoneAPI.getSettings(), x, y, z);
+    }
+
+    @Override
+    public double heuristic(Settings settings, int x, int y, int z) {
         int xDiff = x - this.x;
         int zDiff = z - this.z;
-        return calculate(xDiff, zDiff);
+        return calculate(settings, xDiff, zDiff);
     }
 
     @Override
@@ -95,6 +101,10 @@ public class GoalXZ implements Goal {
     }
 
     public static double calculate(double xDiff, double zDiff) {
+        return calculate(BaritoneAPI.getSettings(), xDiff, zDiff);
+    }
+
+    public static double calculate(Settings settings, double xDiff, double zDiff) {
         //This is a combination of pythagorean and manhattan distance
         //It takes into account the fact that pathing can either walk diagonally or forwards
 
@@ -112,7 +122,7 @@ public class GoalXZ implements Goal {
             diagonal = z;
         }
         diagonal *= SQRT_2;
-        return (diagonal + straight) * BaritoneAPI.getSettings().costHeuristic.value; // big TODO tune
+        return (diagonal + straight) * settings.costHeuristic.value; // big TODO tune
     }
 
     public static GoalXZ fromDirection(Vec3 origin, float yaw, double distance) {

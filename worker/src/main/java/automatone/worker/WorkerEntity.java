@@ -2,9 +2,12 @@ package automatone.worker;
 
 import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
+import baritone.api.Settings;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -23,6 +26,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.LevelResource;
 
@@ -41,6 +45,7 @@ public class WorkerEntity extends Mob implements Container {
     private IBaritone runtime;
     private UUID owner;
     private boolean pendingResume;
+    private Settings configuredSettings = BaritoneAPI.getSettings().copy();
 
     public WorkerEntity(EntityType<? extends WorkerEntity> type, Level level) {
         super(type, level);
@@ -93,9 +98,10 @@ public class WorkerEntity extends Mob implements Container {
             if (pendingResume && runtime != null && isAlive() && !isRemoved()
                     && WorkerChunkLoading.ready(serverLevel, chunkPosition())) {
                 pendingResume = false;
-                ResourceLocation target = ResourceLocation.parse(miningSession.snapshot().target());
                 try {
-                    runtime.getMineProcess().mine(BuiltInRegistries.BLOCK.get(target));
+                    Block[] targets = miningSession.snapshot().targets().stream().map(ResourceLocation::parse)
+                            .map(BuiltInRegistries.BLOCK::get).toArray(Block[]::new);
+                    runtime.getMineProcess().mine(targets);
                 } catch (RuntimeException failure) {
                     miningSession.fail("NATIVE_START_FAILED");
                     cancelNativeMining();
@@ -106,6 +112,26 @@ public class WorkerEntity extends Mob implements Container {
 
     public IBaritone runtime() {
         return runtime;
+    }
+
+    /** Current native settings, including the eager baseline before runtime attachment. */
+    public Settings effectiveSettings() {
+        return runtime == null ? configuredSettings : runtime.getSettings();
+    }
+
+    /** Replan an active job against a new isolated settings snapshot without resetting progress. */
+    public void applySettings(Settings settings) {
+        requireServerThread();
+        Settings replacement = Objects.requireNonNull(settings).copy();
+        boolean wasRunning = miningSession.snapshot().state() == MiningSession.State.RUNNING;
+        pauseMining();
+        configuredSettings = replacement;
+        if (runtime != null) {
+            runtime.applySettings(replacement);
+        }
+        if (wasRunning) {
+            resumeMining();
+        }
     }
 
     public MiningSession.Snapshot miningStatus() {
@@ -129,7 +155,7 @@ public class WorkerEntity extends Mob implements Container {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         CompoundTag saved = new CompoundTag();
-        saved.putInt("Version", 1);
+        saved.putInt("Version", 2);
         NonNullList<ItemStack> items = NonNullList.withSize(getContainerSize(), ItemStack.EMPTY);
         for (int slot = 0; slot < items.size(); slot++) {
             items.set(slot, getItem(slot));
@@ -144,6 +170,12 @@ public class WorkerEntity extends Mob implements Container {
         MiningSession.Snapshot state = miningSession.snapshot();
         CompoundTag job = new CompoundTag();
         job.putString("Target", state.target());
+        ListTag targets = new ListTag();
+        state.targets().forEach(target -> targets.add(StringTag.valueOf(target)));
+        job.put("Targets", targets);
+        if (state.runId() != null) {
+            job.putUUID("RunId", state.runId());
+        }
         job.putInt("Requested", state.requested());
         job.putLong("Completed", state.completed());
         job.putString("State", state.state().name());
@@ -175,16 +207,27 @@ public class WorkerEntity extends Mob implements Container {
         }
         try {
             CompoundTag job = saved.getCompound("Job");
-            if (!saved.contains("Version", Tag.TAG_INT) || saved.getInt("Version") != 1
+            if (!saved.contains("Version", Tag.TAG_INT) || (saved.getInt("Version") != 1 && saved.getInt("Version") != 2)
                     || !job.contains("Target", Tag.TAG_STRING) || !job.contains("Requested", Tag.TAG_INT)
                     || !job.contains("Completed", Tag.TAG_LONG) || !job.contains("State", Tag.TAG_STRING)
                     || !job.contains("Error", Tag.TAG_STRING)) {
                 throw new IllegalArgumentException("INVALID_SAVED_JOB");
             }
-            MiningSession.Snapshot state = new MiningSession.Snapshot(job.getString("Target"), job.getInt("Requested"),
-                    job.getLong("Completed"), MiningSession.State.valueOf(job.getString("State")), job.getString("Error"));
-            if (!state.target().isEmpty()) {
-                ResourceLocation target = ResourceLocation.tryParse(state.target());
+            MiningSession.Snapshot state;
+            if (saved.getInt("Version") == 1) {
+                state = new MiningSession.Snapshot(job.getString("Target"), job.getInt("Requested"),
+                        job.getLong("Completed"), MiningSession.State.valueOf(job.getString("State")), job.getString("Error"));
+            } else {
+                if (!job.contains("Targets", Tag.TAG_LIST)) {
+                    throw new IllegalArgumentException("INVALID_SAVED_JOB");
+                }
+                List<String> targets = job.getList("Targets", Tag.TAG_STRING).stream().map(Tag::getAsString).toList();
+                state = new MiningSession.Snapshot(targets, job.getInt("Requested"), job.getLong("Completed"),
+                        MiningSession.State.valueOf(job.getString("State")), job.getString("Error"),
+                        job.hasUUID("RunId") ? job.getUUID("RunId") : null);
+            }
+            for (String id : state.targets()) {
+                ResourceLocation target = ResourceLocation.tryParse(id);
                 if (target == null || BuiltInRegistries.BLOCK.getOptional(target)
                         .filter(block -> !block.defaultBlockState().isAir()).isEmpty()) {
                     throw new IllegalArgumentException("INVALID_SAVED_JOB");
@@ -205,6 +248,10 @@ public class WorkerEntity extends Mob implements Container {
 
     /** Server-owned product request; zero requests unlimited source blocks. */
     public void startMining(ResourceLocation target, int requested) {
+        startMining(List.of(Objects.requireNonNull(target)), requested);
+    }
+
+    public void startMining(List<ResourceLocation> targets, int requested) {
         requireServerThread();
         if (runtime == null || isRemoved() || !isAlive()) {
             throw new IllegalStateException("WORKER_UNAVAILABLE");
@@ -212,11 +259,43 @@ public class WorkerEntity extends Mob implements Container {
         if (runtime.getMineProcess().isActive()) {
             throw new IllegalStateException("WORKER_BUSY");
         }
-        if (BuiltInRegistries.BLOCK.getOptional(Objects.requireNonNull(target))
-                .filter(candidate -> !candidate.defaultBlockState().isAir()).isEmpty()) {
+        validateTargets(targets);
+        miningSession.start(targets.stream().map(ResourceLocation::toString).toList(), requested);
+        pendingResume = true;
+        syncChunks();
+    }
+
+    public void configureMining(List<ResourceLocation> targets, int requested) {
+        requireServerThread();
+        validateTargets(targets);
+        miningSession.configure(targets.stream().map(ResourceLocation::toString).toList(), requested);
+    }
+
+    private static void validateTargets(List<ResourceLocation> targets) {
+        if (targets == null || targets.isEmpty() || targets.stream().distinct().count() > MiningSession.MAX_TARGET_BLOCKS) {
             throw new IllegalArgumentException("INVALID_BLOCK");
         }
-        miningSession.start(target.toString(), requested);
+        for (ResourceLocation target : targets) {
+            if (target == null || BuiltInRegistries.BLOCK.getOptional(target)
+                    .filter(candidate -> !candidate.defaultBlockState().isAir()).isEmpty()) {
+                throw new IllegalArgumentException("INVALID_BLOCK");
+            }
+        }
+    }
+
+    public void pauseMining() {
+        requireServerThread();
+        pendingResume = false;
+        miningSession.pause();
+        cancelNativeMining();
+    }
+
+    public void resumeMining() {
+        requireServerThread();
+        if (runtime == null || isRemoved() || !isAlive()) {
+            throw new IllegalStateException("WORKER_UNAVAILABLE");
+        }
+        miningSession.resume();
         pendingResume = true;
         syncChunks();
     }

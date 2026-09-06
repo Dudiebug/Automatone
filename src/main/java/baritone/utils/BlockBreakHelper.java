@@ -17,11 +17,13 @@
 
 package baritone.utils;
 
-import baritone.api.BaritoneAPI;
+import baritone.api.Settings;
 import baritone.api.utils.IPlayerContext;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+
+import java.util.function.Supplier;
 
 /**
  * @author Brady
@@ -32,11 +34,17 @@ public final class BlockBreakHelper {
     private static final int BASE_BREAK_DELAY = 1;
 
     private final IPlayerContext ctx;
+    private final Supplier<Settings> settings;
     private boolean wasHitting;
     private int breakDelayTimer = 0;
 
     BlockBreakHelper(IPlayerContext ctx) {
+        this(ctx, ctx::getSettings);
+    }
+
+    BlockBreakHelper(IPlayerContext ctx, Supplier<Settings> settings) {
         this.ctx = ctx;
+        this.settings = settings;
     }
 
     public void stopBreakingBlock() {
@@ -71,7 +79,7 @@ public final class BlockBreakHelper {
             }
             if (ctx.playerController().hasBrokenBlock()) { // block broken this tick
                 // break delay timer only applies for multi-tick block breaks like vanilla
-                breakDelayTimer = BaritoneAPI.getSettings().blockBreakSpeed.value - BASE_BREAK_DELAY;
+                breakDelayTimer = settings.get().blockBreakSpeed.value - BASE_BREAK_DELAY;
                 // must reset controller's destroy delay to prevent the client from delaying itself unnecessarily
                 ctx.playerController().resetDestroyDelay();
             }

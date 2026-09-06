@@ -92,7 +92,7 @@ class Path extends PathBase {
         var startNodePos = new BetterBlockPos(start.x, start.y, start.z);
         if (!realStart.equals(startNodePos) && start.equals(end)) {
             this.start = realStart;
-            PathNode fakeNode = new PathNode(realStart.x, realStart.y, realStart.z, goal);
+            PathNode fakeNode = new PathNode(realStart.x, realStart.y, realStart.z, goal, context.settings);
             fakeNode.cost = 0;
             tempNodes.add(fakeNode);
             tempPath.add(realStart);

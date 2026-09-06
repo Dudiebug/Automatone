@@ -46,7 +46,7 @@ public class WaypointBehavior extends Behavior {
 
     @Override
     public void onBlockInteract(BlockInteractEvent event) {
-        if (!Baritone.settings().doBedWaypoints.value)
+        if (!baritone.getSettings().doBedWaypoints.value)
             return;
         if (event.getType() == BlockInteractEvent.Type.USE) {
             BetterBlockPos pos = BetterBlockPos.from(event.getPos());
@@ -66,7 +66,7 @@ public class WaypointBehavior extends Behavior {
 
     @Override
     public void onPlayerDeath() {
-        if (!Baritone.settings().doDeathWaypoints.value)
+        if (!baritone.getSettings().doDeathWaypoints.value)
             return;
         Waypoint deathWaypoint = new Waypoint("death", Waypoint.Tag.DEATH, ctx.playerFeet());
         baritone.getWorldProvider().getCurrentWorld().getWaypoints().addWaypoint(deathWaypoint);

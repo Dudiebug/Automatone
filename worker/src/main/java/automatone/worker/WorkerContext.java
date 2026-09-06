@@ -1,6 +1,7 @@
 package automatone.worker;
 
 import baritone.api.IBaritone;
+import baritone.api.Settings;
 import baritone.api.cache.IWorldData;
 import baritone.api.utils.IPlayerContext;
 import baritone.api.utils.IPlayerController;
@@ -18,6 +19,11 @@ public final class WorkerContext implements IPlayerContext {
     WorkerContext(WorkerEntity worker) {
         this.worker = worker;
         this.controller = new WorkerEntityController(worker);
+    }
+
+    @Override
+    public Settings getSettings() {
+        return worker.effectiveSettings();
     }
 
     @Override

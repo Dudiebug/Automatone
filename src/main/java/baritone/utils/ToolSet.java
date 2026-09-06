@@ -17,7 +17,7 @@
 
 package baritone.utils;
 
-import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.utils.IPlayerContext;
 import net.minecraft.core.Holder;
 import net.minecraft.tags.ItemTags;
@@ -59,18 +59,24 @@ public class ToolSet {
     private final LivingEntity player;
     private final Container inventory;
     private final int selectedSlot;
+    private final Settings settings;
 
     public ToolSet(IPlayerContext context) {
+        this(context, context.getSettings());
+    }
+
+    public ToolSet(IPlayerContext context, Settings settings) {
         breakStrengthCache = new HashMap<>();
         this.player = context.player();
         this.inventory = context.inventory();
         this.selectedSlot = context.selectedSlot();
+        this.settings = settings;
 
         // Capture the host's breaking speed before this tool set is used by path calculation.
         var breakSpeed = player.getAttribute(Attributes.BLOCK_BREAK_SPEED);
         double attributeMultiplier = breakSpeed == null ? 1.0D : breakSpeed.getValue();
         double amplifier = attributeMultiplier
-                * (Baritone.settings().considerPotionEffects.value ? potionAmplifier() : 1.0D);
+                * (settings.considerPotionEffects.value ? potionAmplifier() : 1.0D);
         Function<Double, Double> amplify = x -> amplifier * x;
         backendCalculation = amplify.compose(this::getBestDestructionTime);
     }
@@ -134,7 +140,7 @@ public class ToolSet {
         If we actually want know what efficiency our held item has instead of the best one
         possible, this lets us make pathing depend on the actual tool to be used (if auto tool is disabled)
         */
-        if (!Baritone.settings().autoTool.value && pathingCalculation) {
+        if (!settings.autoTool.value && pathingCalculation) {
             return hotbarSize == 0 ? 0 : Math.min(selectedSlot, hotbarSize - 1);
         }
 
@@ -145,11 +151,11 @@ public class ToolSet {
         BlockState blockState = b.defaultBlockState();
         for (int i = 0; i < hotbarSize; i++) {
             ItemStack itemStack = inventory.getItem(i);
-            if (!Baritone.settings().useSwordToMine.value && itemStack.is(ItemTags.SWORDS)) {
+            if (!settings.useSwordToMine.value && itemStack.is(ItemTags.SWORDS)) {
                 continue;
             }
 
-            if (Baritone.settings().itemSaver.value && (itemStack.getDamageValue() + Baritone.settings().itemSaverThreshold.value) >= itemStack.getMaxDamage() && itemStack.getMaxDamage() > 1) {
+            if (settings.itemSaver.value && (itemStack.getDamageValue() + settings.itemSaverThreshold.value) >= itemStack.getMaxDamage() && itemStack.getMaxDamage() > 1) {
                 continue;
             }
             double speed = calculateSpeedVsBlock(itemStack, blockState);
@@ -187,7 +193,7 @@ public class ToolSet {
     }
 
     private double avoidanceMultiplier(Block b) {
-        return Baritone.settings().blocksToAvoidBreaking.value.contains(b) ? Baritone.settings().avoidBreakingMultiplier.value : 1;
+        return settings.blocksToAvoidBreaking.value.contains(b) ? settings.avoidBreakingMultiplier.value : 1;
     }
 
     /**

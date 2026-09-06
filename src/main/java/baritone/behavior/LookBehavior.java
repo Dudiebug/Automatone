@@ -31,6 +31,7 @@ import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public final class LookBehavior extends Behavior implements ILookBehavior {
 
@@ -58,14 +59,14 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
     public LookBehavior(Baritone baritone) {
         super(baritone);
-        this.processor = new AimProcessor(baritone.getPlayerContext());
+        this.processor = new AimProcessor(baritone.getPlayerContext(), baritone::getSettings);
         this.smoothYawBuffer = new ArrayDeque<>();
         this.smoothPitchBuffer = new ArrayDeque<>();
     }
 
     @Override
     public void updateTarget(Rotation rotation, boolean blockInteract) {
-        this.target = new Target(rotation, Target.Mode.resolve(ctx, blockInteract));
+        this.target = new Target(rotation, Target.Mode.resolve(ctx, baritone.getSettings(), blockInteract));
     }
 
     @Override
@@ -115,17 +116,17 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
                 // Reset the player's rotations back to their original values
                 if (this.prevRotation != null) {
                     this.smoothYawBuffer.addLast(this.target.rotation.getYaw());
-                    while (this.smoothYawBuffer.size() > Baritone.settings().smoothLookTicks.value) {
+                    while (this.smoothYawBuffer.size() > baritone.getSettings().smoothLookTicks.value) {
                         this.smoothYawBuffer.removeFirst();
                     }
                     this.smoothPitchBuffer.addLast(this.target.rotation.getPitch());
-                    while (this.smoothPitchBuffer.size() > Baritone.settings().smoothLookTicks.value) {
+                    while (this.smoothPitchBuffer.size() > baritone.getSettings().smoothLookTicks.value) {
                         this.smoothPitchBuffer.removeFirst();
                     }
                     if (this.target.mode == Target.Mode.SERVER) {
                         ctx.player().setYRot(this.prevRotation.getYaw());
                         ctx.player().setXRot(this.prevRotation.getPitch());
-                    } else if (ctx.player().isFallFlying() ? Baritone.settings().elytraSmoothLook.value : Baritone.settings().smoothLook.value) {
+                    } else if (ctx.player().isFallFlying() ? baritone.getSettings().elytraSmoothLook.value : baritone.getSettings().smoothLook.value) {
                         ctx.player().setYRot((float) this.smoothYawBuffer.stream().mapToDouble(d -> d).average().orElse(this.prevRotation.getYaw()));
                         if (ctx.player().isFallFlying()) {
                             ctx.player().setXRot((float) this.smoothPitchBuffer.stream().mapToDouble(d -> d).average().orElse(this.prevRotation.getPitch()));
@@ -170,7 +171,7 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     }
 
     public Optional<Rotation> getEffectiveRotation() {
-        if (Baritone.settings().freeLook.value) {
+        if (baritone.getSettings().freeLook.value) {
             return Optional.ofNullable(this.serverRotation);
         }
         // If freeLook isn't on, just defer to the player's actual rotations
@@ -188,8 +189,8 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
 
     private static final class AimProcessor extends AbstractAimProcessor {
 
-        public AimProcessor(final IPlayerContext ctx) {
-            super(ctx);
+        public AimProcessor(final IPlayerContext ctx, Supplier<Settings> settings) {
+            super(ctx, settings);
         }
 
         @Override
@@ -202,17 +203,20 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
     private static abstract class AbstractAimProcessor implements ITickableAimProcessor {
 
         protected final IPlayerContext ctx;
+        private final Supplier<Settings> settings;
         private final ForkableRandom rand;
         private double randomYawOffset;
         private double randomPitchOffset;
 
-        public AbstractAimProcessor(IPlayerContext ctx) {
+        public AbstractAimProcessor(IPlayerContext ctx, Supplier<Settings> settings) {
             this.ctx = ctx;
+            this.settings = settings;
             this.rand = new ForkableRandom();
         }
 
         private AbstractAimProcessor(final AbstractAimProcessor source) {
             this.ctx = source.ctx;
+            this.settings = source.settings;
             this.rand = source.rand.fork();
             this.randomYawOffset = source.randomYawOffset;
             this.randomPitchOffset = source.randomPitchOffset;
@@ -243,15 +247,15 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
         @Override
         public final void tick() {
             // randomLooking
-            this.randomYawOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
-            this.randomPitchOffset = (this.rand.nextDouble() - 0.5) * Baritone.settings().randomLooking.value;
+            this.randomYawOffset = (this.rand.nextDouble() - 0.5) * settings.get().randomLooking.value;
+            this.randomPitchOffset = (this.rand.nextDouble() - 0.5) * settings.get().randomLooking.value;
 
             // randomLooking113
             double random = this.rand.nextDouble() - 0.5;
             if (Math.abs(random) < 0.1) {
                 random *= 4;
             }
-            this.randomYawOffset += random * Baritone.settings().randomLooking113.value;
+            this.randomYawOffset += random * settings.get().randomLooking113.value;
         }
 
         @Override
@@ -345,8 +349,7 @@ public final class LookBehavior extends Behavior implements ILookBehavior {
              */
             NONE;
 
-            static Mode resolve(IPlayerContext ctx, boolean blockInteract) {
-                final Settings settings = Baritone.settings();
+            static Mode resolve(IPlayerContext ctx, Settings settings, boolean blockInteract) {
                 final boolean antiCheat = settings.antiCheatCompatibility.value;
                 final boolean blockFreeLook = settings.blockFreeLook.value;
 

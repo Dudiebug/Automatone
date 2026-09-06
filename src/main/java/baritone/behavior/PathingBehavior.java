@@ -152,11 +152,11 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
             safeToCancel = current.onTick();
             if (current.failed() || current.finished()) {
                 current = null;
-                if (goal == null || goal.isInGoal(ctx.playerFeet())) {
+                if (goal == null || goal.isInGoal(baritone.getSettings(), ctx.playerFeet().x, ctx.playerFeet().y, ctx.playerFeet().z)) {
                     logDebug("All done. At " + goal);
                     queuePathEvent(PathEvent.AT_GOAL);
                     next = null;
-                    if (Baritone.settings().disconnectOnArrival.value && ctx.world().isClientSide()) {
+                    if (baritone.getSettings().disconnectOnArrival.value && ctx.world().isClientSide()) {
                         ctx.world().disconnect();
                     }
                     return;
@@ -202,7 +202,7 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
                 current.onTick();
                 return;
             }
-            if (Baritone.settings().splicePath.value) {
+            if (baritone.getSettings().splicePath.value) {
                 current = current.trySplice(next);
             }
             if (next != null && current.getPath().getDest().equals(next.getPath().getDest())) {
@@ -217,11 +217,11 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
                     // and we have no plan for what to do next
                     return;
                 }
-                if (goal == null || goal.isInGoal(current.getPath().getDest())) {
+                if (goal == null || goal.isInGoal(baritone.getSettings(), current.getPath().getDest().getX(), current.getPath().getDest().getY(), current.getPath().getDest().getZ())) {
                     // and this path doesn't get us all the way there
                     return;
                 }
-                if (ticksRemainingInSegment(false).get() < Baritone.settings().planningTickLookahead.value) {
+                if (ticksRemainingInSegment(false).get() < baritone.getSettings().planningTickLookahead.value) {
                     // and this path has 7.5 seconds or less left
                     // don't include the current movement so a very long last movement (e.g. descend) doesn't trip it up
                     // if we actually included current, it wouldn't start planning ahead until the last movement was done, if the last movement took more than 7.5 seconds on its own
@@ -254,7 +254,7 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         if (goal == null) {
             return false;
         }
-        if (goal.isInGoal(ctx.playerFeet())) {
+        if (goal.isInGoal(baritone.getSettings(), ctx.playerFeet().x, ctx.playerFeet().y, ctx.playerFeet().z)) {
             return false;
         }
         synchronized (pathPlanLock) {
@@ -388,7 +388,7 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         if (currentGoal == null || currentPos == null || currentStart == null) {
             return Optional.empty();
         }
-        if (currentGoal.isInGoal(currentPos)) {
+        if (currentGoal.isInGoal(baritone.getSettings(), currentPos.x, currentPos.y, currentPos.z)) {
             synchronized (pathPlanLock) {
                 if (goal != currentGoal || startPosition != currentStart || ticksElapsedSoFar != ticks) {
                     return Optional.empty();
@@ -400,12 +400,12 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         if (ticks == 0) {
             return Optional.empty();
         }
-        double current = currentGoal.heuristic(currentPos.x, currentPos.y, currentPos.z);
-        double start = currentGoal.heuristic(currentStart.x, currentStart.y, currentStart.z);
+        double current = currentGoal.heuristic(baritone.getSettings(), currentPos.x, currentPos.y, currentPos.z);
+        double start = currentGoal.heuristic(baritone.getSettings(), currentStart.x, currentStart.y, currentStart.z);
         if (current == start) {// can't check above because current and start can be equal even if currentPos and startPosition are not
             return Optional.empty();
         }
-        double eta = Math.abs(current - currentGoal.heuristic()) * ticks / Math.abs(start - current);
+        double eta = Math.abs(current - currentGoal.heuristic(baritone.getSettings())) * ticks / Math.abs(start - current);
         return Optional.of(eta);
     }
 
@@ -496,11 +496,11 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
         long primaryTimeout;
         long failureTimeout;
         if (current == null) {
-            primaryTimeout = Baritone.settings().primaryTimeoutMS.value;
-            failureTimeout = Baritone.settings().failureTimeoutMS.value;
+            primaryTimeout = context.settings.primaryTimeoutMS.value;
+            failureTimeout = context.settings.failureTimeoutMS.value;
         } else {
-            primaryTimeout = Baritone.settings().planAheadPrimaryTimeoutMS.value;
-            failureTimeout = Baritone.settings().planAheadFailureTimeoutMS.value;
+            primaryTimeout = context.settings.planAheadPrimaryTimeoutMS.value;
+            failureTimeout = context.settings.planAheadFailureTimeoutMS.value;
         }
         AbstractNodeCostSearch pathfinder = createPathfinder(start, goal, current == null ? null : current.getPath(), context);
         if (!Objects.equals(pathfinder.getGoal(), goal)) { // will return the exact same object if simplification didn't happen
@@ -553,7 +553,7 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
                     }
                 }
                 if (talkAboutIt && current != null && current.getPath() != null) {
-                    if (goal.isInGoal(current.getPath().getDest())) {
+                    if (goal.isInGoal(context.settings, current.getPath().getDest().getX(), current.getPath().getDest().getY(), current.getPath().getDest().getZ())) {
                         logDebug("Finished finding a path from " + start + " to " + goal + ". " + current.getPath().getNumNodesConsidered() + " nodes considered");
                     } else {
                         logDebug("Found path segment from " + start + " towards " + goal + ". " + current.getPath().getNumNodesConsidered() + " nodes considered");
@@ -568,7 +568,7 @@ public final class PathingBehavior extends Behavior implements IPathingBehavior,
 
     private AbstractNodeCostSearch createPathfinder(BlockPos start, Goal goal, IPath previous, CalculationContext context) {
         Goal transformed = goal;
-        if (Baritone.settings().simplifyUnloadedYCoord.value && goal instanceof IGoalRenderPos) {
+        if (context.settings.simplifyUnloadedYCoord.value && goal instanceof IGoalRenderPos) {
             BlockPos pos = ((IGoalRenderPos) goal).getGoalPos();
             if (!context.bsi.worldContainsLoadedChunk(pos.getX(), pos.getZ())) {
                 transformed = new GoalXZ(pos.getX(), pos.getZ());

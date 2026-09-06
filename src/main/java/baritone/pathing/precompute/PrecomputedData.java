@@ -17,12 +17,15 @@
 
 package baritone.pathing.precompute;
 
+import baritone.api.Settings;
 import baritone.pathing.movement.MovementHelper;
 import baritone.utils.BlockStateInterface;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class PrecomputedData {
+
+    private final Settings settings;
 
     private final byte[] data = new byte[Block.BLOCK_STATE_REGISTRY.size()];
 
@@ -42,17 +45,21 @@ public class PrecomputedData {
     private static final byte CAN_WALK_ON_MAYBE_MASK = (byte) 1 << 5;
     private static final byte CAN_WALK_ON_MASK = (byte) 1 << 6;
 
+    public PrecomputedData(Settings settings) {
+        this.settings = settings;
+    }
+
     private int fillData(int id, BlockState state) {
         byte blockData = 0;
 
-        Ternary canWalkOnState = MovementHelper.canWalkOnBlockState(state);
+        Ternary canWalkOnState = MovementHelper.canWalkOnBlockState(state, settings);
         switch (canWalkOnState) {
             case YES -> blockData |= CAN_WALK_ON_MASK;
             case MAYBE -> blockData |= CAN_WALK_ON_MAYBE_MASK;
             case NO -> { }
         }
 
-        Ternary canWalkThroughState = MovementHelper.canWalkThroughBlockState(state);
+        Ternary canWalkThroughState = MovementHelper.canWalkThroughBlockState(state, settings);
         switch (canWalkThroughState) {
             case YES -> blockData |= CAN_WALK_THROUGH_MASK;
             case MAYBE -> blockData |= CAN_WALK_THROUGH_MAYBE_MASK;

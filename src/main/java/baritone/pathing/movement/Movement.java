@@ -155,13 +155,13 @@ public abstract class Movement implements IMovement, MovementHelper {
         }
         boolean somethingInTheWay = false;
         for (BetterBlockPos blockPos : positionsToBreak) {
-            if (!ctx.world().getEntitiesOfClass(FallingBlockEntity.class, new AABB(0, 0, 0, 1, 1.1, 1).move(blockPos)).isEmpty() && Baritone.settings().pauseMiningForFallingBlocks.value) {
+            if (!ctx.world().getEntitiesOfClass(FallingBlockEntity.class, new AABB(0, 0, 0, 1, 1.1, 1).move(blockPos)).isEmpty() && baritone.getSettings().pauseMiningForFallingBlocks.value) {
                 return false;
             }
             if (!MovementHelper.canWalkThrough(ctx, blockPos)) { // can't break air, so don't try
                 somethingInTheWay = true;
                 MovementHelper.switchToBestToolFor(ctx, BlockStateInterface.get(ctx, blockPos));
-                Optional<Rotation> reachable = RotationUtils.reachable(ctx, blockPos, ctx.playerController().getBlockReachDistance());
+                Optional<Rotation> reachable = RotationUtils.reachable(ctx, blockPos, baritone.getSettings());
                 if (reachable.isPresent()) {
                     Rotation rotTowardsBlock = reachable.get();
                     state.setTarget(new MovementState.MovementTarget(rotTowardsBlock, true));

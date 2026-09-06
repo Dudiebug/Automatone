@@ -18,6 +18,7 @@
 package baritone.behavior;
 
 import baritone.Baritone;
+import baritone.api.Settings;
 import baritone.api.event.events.TickEvent;
 import baritone.api.utils.Helper;
 import baritone.utils.ToolSet;
@@ -46,7 +47,7 @@ public final class InventoryBehavior extends Behavior implements Helper {
 
     @Override
     public void onTick(TickEvent event) {
-        if (!Baritone.settings().allowInventory.value) {
+        if (!baritone.getSettings().allowInventory.value) {
             return;
         }
         if (event.getType() == TickEvent.Type.OUT) {
@@ -120,11 +121,11 @@ public final class InventoryBehavior extends Behavior implements Helper {
             lastTickRequestedMove = null;
             return true;
         }
-        if (ticksSinceLastInventoryMove < Baritone.settings().ticksBetweenInventoryMoves.value) {
-            logDebug("Inventory move requested but delaying " + ticksSinceLastInventoryMove + " " + Baritone.settings().ticksBetweenInventoryMoves.value);
+        if (ticksSinceLastInventoryMove < baritone.getSettings().ticksBetweenInventoryMoves.value) {
+            logDebug("Inventory move requested but delaying " + ticksSinceLastInventoryMove + " " + baritone.getSettings().ticksBetweenInventoryMoves.value);
             return false;
         }
-        if (Baritone.settings().inventoryMoveOnlyIfStationary.value && !baritone.getInventoryPauserProcess().stationaryForInventoryMove()) {
+        if (baritone.getSettings().inventoryMoveOnlyIfStationary.value && !baritone.getInventoryPauserProcess().stationaryForInventoryMove()) {
             logDebug("Inventory move requested but delaying until stationary");
             return false;
         }
@@ -140,7 +141,7 @@ public final class InventoryBehavior extends Behavior implements Helper {
             return -1;
         }
         for (int i = 0; i < inventory.getContainerSize(); i++) {
-            if (Baritone.settings().acceptableThrowawayItems.value.contains(inventory.getItem(i).getItem())) {
+            if (baritone.getSettings().acceptableThrowawayItems.value.contains(inventory.getItem(i).getItem())) {
                 return i;
             }
         }
@@ -159,7 +160,7 @@ public final class InventoryBehavior extends Behavior implements Helper {
             if (stack.isEmpty()) {
                 continue;
             }
-            if (Baritone.settings().itemSaver.value && (stack.getDamageValue() + Baritone.settings().itemSaverThreshold.value) >= stack.getMaxDamage() && stack.getMaxDamage() > 1) {
+            if (baritone.getSettings().itemSaver.value && (stack.getDamageValue() + baritone.getSettings().itemSaverThreshold.value) >= stack.getMaxDamage() && stack.getMaxDamage() > 1) {
                 continue;
             }
             if (cla$$.isInstance(stack.getItem())) {
@@ -174,8 +175,12 @@ public final class InventoryBehavior extends Behavior implements Helper {
     }
 
     public boolean hasGenericThrowaway() {
-        for (Item item : Baritone.settings().acceptableThrowawayItems.value) {
-            if (throwaway(false, stack -> item.equals(stack.getItem()))) {
+        return hasGenericThrowaway(baritone.getSettings());
+    }
+
+    public boolean hasGenericThrowaway(Settings settings) {
+        for (Item item : settings.acceptableThrowawayItems.value) {
+            if (throwaway(false, stack -> item.equals(stack.getItem()), settings.allowInventory.value)) {
                 return true;
             }
         }
@@ -187,7 +192,7 @@ public final class InventoryBehavior extends Behavior implements Helper {
         if (maybe != null && throwaway(select, stack -> stack.getItem() instanceof BlockItem && ((BlockItem) stack.getItem()).getBlock().equals(maybe.getBlock()))) {
             return true;
         }
-        for (Item item : Baritone.settings().acceptableThrowawayItems.value) {
+        for (Item item : baritone.getSettings().acceptableThrowawayItems.value) {
             if (throwaway(select, stack -> item.equals(stack.getItem()))) {
                 return true;
             }
@@ -196,7 +201,7 @@ public final class InventoryBehavior extends Behavior implements Helper {
     }
 
     public boolean throwaway(boolean select, Predicate<? super ItemStack> desired) {
-        return throwaway(select, desired, Baritone.settings().allowInventory.value);
+        return throwaway(select, desired, baritone.getSettings().allowInventory.value);
     }
 
     public boolean throwaway(boolean select, Predicate<? super ItemStack> desired, boolean allowInventory) {

@@ -64,7 +64,8 @@ public final class WorkerChunkLoadingGameTest {
         helper.succeed();
     }
 
-    @GameTest(template = "worker_native_mining", batch = "worker_m4_chunks", timeoutTicks = 100)
+    // This move can enter the next template's clearing bounds; run without sibling setup.
+    @GameTest(template = "worker_native_mining", batch = "worker_m4_chunk_boundary", timeoutTicks = 100)
     public static void chunkBoundaryMoveReplacesTheThreeByThreeDiff(GameTestHelper helper) {
         WorkerEntity worker = WorkerGameTestSupport.spawnWorker(helper);
         try {
@@ -76,6 +77,8 @@ public final class WorkerChunkLoadingGameTest {
                     worker.getYRot(), worker.getXRot());
             helper.runAfterDelay(1, () -> {
                 try {
+                    helper.assertTrue(worker.isAlive() && !worker.isRemoved(),
+                            "Boundary fixture worker must survive neighboring structure cleanup");
                     assertTickets(helper, worker.level(), WorkerChunkLoading.CENTER_CONTROLLER_ID, worker.getUUID(),
                             chunks(newCenter), "Moving across a boundary must replace the center ticket");
                     LongSet expected = ring(newCenter);

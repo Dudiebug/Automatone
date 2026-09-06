@@ -94,6 +94,7 @@ public final class PathingCancellationRaceGameTest {
                     start,
                     goal,
                     stale,
+                    context,
                     completionFailure
             ), "pathing-cancellation-race");
 
@@ -140,7 +141,8 @@ public final class PathingCancellationRaceGameTest {
                                 Goal.class,
                                 AbstractNodeCostSearch.class,
                                 long.class,
-                                long.class
+                                long.class,
+                                CalculationContext.class
                         }))
                 .findFirst()
                 .orElseThrow(() -> new NoSuchMethodException("PathingBehavior async completion closure"));
@@ -152,11 +154,12 @@ public final class PathingCancellationRaceGameTest {
             BetterBlockPos start,
             Goal goal,
             AbstractNodeCostSearch stale,
+            CalculationContext context,
             AtomicReference<Throwable> completionFailure
     ) {
         try {
             completion.setAccessible(true);
-            completion.invoke(behavior, false, start, goal, stale, 1_000L, 1_000L);
+            completion.invoke(behavior, false, start, goal, stale, 1_000L, 1_000L, context);
         } catch (InvocationTargetException ex) {
             completionFailure.set(ex.getCause());
         } catch (ReflectiveOperationException ex) {

@@ -19,6 +19,7 @@ package baritone.pathing.movement;
 
 import baritone.Baritone;
 import baritone.api.IBaritone;
+import baritone.api.Settings;
 import baritone.api.pathing.movement.ActionCosts;
 import baritone.cache.WorldData;
 import baritone.pathing.precompute.PrecomputedData;
@@ -54,6 +55,7 @@ public class CalculationContext {
 
     public final boolean safeForThreadedUse;
     public final IBaritone baritone;
+    public final Settings settings;
     public final Level world;
     public final WorldData worldData;
     public final BlockStateInterface bsi;
@@ -92,28 +94,29 @@ public class CalculationContext {
     }
 
     public CalculationContext(IBaritone baritone, boolean forUseOnAnotherThread) {
-        this.precomputedData = new PrecomputedData();
         this.safeForThreadedUse = forUseOnAnotherThread;
         this.baritone = baritone;
+        this.settings = baritone.getSettings().copy();
+        this.precomputedData = new PrecomputedData(settings);
         LivingEntity player = baritone.getPlayerContext().player();
         Container inventory = baritone.getPlayerContext().inventory();
         this.world = baritone.getPlayerContext().world();
         this.worldData = (WorldData) baritone.getPlayerContext().worldData();
-        this.bsi = new BlockStateInterface(baritone.getPlayerContext(), forUseOnAnotherThread);
-        this.toolSet = new ToolSet(baritone.getPlayerContext());
-        this.hasThrowaway = Baritone.settings().allowPlace.value && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway();
-        this.hasWaterBucket = Baritone.settings().allowWaterBucketFall.value
+        this.bsi = new BlockStateInterface(baritone.getPlayerContext(), forUseOnAnotherThread, settings);
+        this.toolSet = new ToolSet(baritone.getPlayerContext(), settings);
+        this.hasThrowaway = settings.allowPlace.value && ((Baritone) baritone).getInventoryBehavior().hasGenericThrowaway(settings);
+        this.hasWaterBucket = settings.allowWaterBucketFall.value
                 && inventoryHasInHotbar(inventory, STACK_BUCKET_WATER)
                 && world.dimension() != Level.NETHER;
-        this.canSprint = Baritone.settings().allowSprint.value && player.canSprint();
-        this.placeBlockCost = Baritone.settings().blockPlacementPenalty.value;
-        this.allowBreak = Baritone.settings().allowBreak.value;
-        this.allowBreakAnyway = new ArrayList<>(Baritone.settings().allowBreakAnyway.value);
-        this.allowParkour = Baritone.settings().allowParkour.value;
-        this.allowParkourPlace = Baritone.settings().allowParkourPlace.value;
-        this.allowJumpAtBuildLimit = Baritone.settings().allowJumpAtBuildLimit.value;
-        this.allowParkourAscend = Baritone.settings().allowParkourAscend.value;
-        this.assumeWalkOnWater = Baritone.settings().assumeWalkOnWater.value;
+        this.canSprint = settings.allowSprint.value && player.canSprint();
+        this.placeBlockCost = settings.blockPlacementPenalty.value;
+        this.allowBreak = settings.allowBreak.value;
+        this.allowBreakAnyway = new ArrayList<>(settings.allowBreakAnyway.value);
+        this.allowParkour = settings.allowParkour.value;
+        this.allowParkourPlace = settings.allowParkourPlace.value;
+        this.allowJumpAtBuildLimit = settings.allowJumpAtBuildLimit.value;
+        this.allowParkourAscend = settings.allowParkourAscend.value;
+        this.assumeWalkOnWater = settings.assumeWalkOnWater.value;
         this.allowFallIntoLava = false; // Super secret internal setting for ElytraBehavior
         // todo: technically there can now be datapack enchants that replace blocks with any other at any range
         int frostWalkerLevel = 0;
@@ -129,12 +132,12 @@ public class CalculationContext {
             }
         }
         this.frostWalker = frostWalkerLevel;
-        this.allowDiagonalDescend = Baritone.settings().allowDiagonalDescend.value;
-        this.allowDiagonalAscend = Baritone.settings().allowDiagonalAscend.value;
-        this.allowDownward = Baritone.settings().allowDownward.value;
+        this.allowDiagonalDescend = settings.allowDiagonalDescend.value;
+        this.allowDiagonalAscend = settings.allowDiagonalAscend.value;
+        this.allowDownward = settings.allowDownward.value;
         this.minFallHeight = 3; // Minimum fall height used by MovementFall
-        this.maxFallHeightNoWater = Baritone.settings().maxFallHeightNoWater.value;
-        this.maxFallHeightBucket = Baritone.settings().maxFallHeightBucket.value;
+        this.maxFallHeightNoWater = settings.maxFallHeightNoWater.value;
+        this.maxFallHeightBucket = settings.maxFallHeightBucket.value;
         float waterSpeedMultiplier = 1.0f;
         OUTER: for (EquipmentSlot slot : EquipmentSlot.values()) {
             ItemEnchantments itemEnchantments = baritone.getPlayerContext()
@@ -153,11 +156,11 @@ public class CalculationContext {
             }
         }
         this.waterWalkSpeed = ActionCosts.WALK_ONE_IN_WATER_COST * (1 - waterSpeedMultiplier) + ActionCosts.WALK_ONE_BLOCK_COST * waterSpeedMultiplier;
-        this.breakBlockAdditionalCost = Baritone.settings().blockBreakAdditionalPenalty.value;
-        this.backtrackCostFavoringCoefficient = Baritone.settings().backtrackCostFavoringCoefficient.value;
-        this.jumpPenalty = Baritone.settings().jumpPenalty.value;
-        this.walkOnWaterOnePenalty = Baritone.settings().walkOnWaterOnePenalty.value;
-        this.allowWalkOnMagmaBlocks = Baritone.settings().allowWalkOnMagmaBlocks.value;
+        this.breakBlockAdditionalCost = settings.blockBreakAdditionalPenalty.value;
+        this.backtrackCostFavoringCoefficient = settings.backtrackCostFavoringCoefficient.value;
+        this.jumpPenalty = settings.jumpPenalty.value;
+        this.walkOnWaterOnePenalty = settings.walkOnWaterOnePenalty.value;
+        this.allowWalkOnMagmaBlocks = settings.allowWalkOnMagmaBlocks.value;
         // why cache these things here, why not let the movements just get directly from settings?
         // because if some movements are calculated one way and others are calculated another way,
         // then you get a wildly inconsistent path that isn't optimal for either scenario.
@@ -206,10 +209,10 @@ public class CalculationContext {
         if (!worldBorder.canPlaceAt(x, z)) {
             return COST_INF;
         }
-        if (!Baritone.settings().allowPlaceInFluidsSource.value && current.getFluidState().isSource()) {
+        if (!settings.allowPlaceInFluidsSource.value && current.getFluidState().isSource()) {
             return COST_INF;
         }
-        if (!Baritone.settings().allowPlaceInFluidsFlow.value && !current.getFluidState().isEmpty() && !current.getFluidState().isSource()) {
+        if (!settings.allowPlaceInFluidsFlow.value && !current.getFluidState().isEmpty() && !current.getFluidState().isSource()) {
             return COST_INF;
         }
         return placeBlockCost;

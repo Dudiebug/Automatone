@@ -30,7 +30,7 @@ public final class Favoring {
 
     public Favoring(IPlayerContext ctx, IPath previous, CalculationContext context) {
         this(previous, context);
-        for (Avoidance avoid : Avoidance.create(ctx)) {
+        for (Avoidance avoid : Avoidance.create(ctx, context.settings)) {
             avoid.applySpherical(favorings);
         }
         Helper.HELPER.logDebug("Favoring size: " + favorings.size());

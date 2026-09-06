@@ -19,6 +19,7 @@ package baritone.api.utils;
 
 import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
+import baritone.api.Settings;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
@@ -154,7 +155,15 @@ public final class RotationUtils {
     }
 
     public static Optional<Rotation> reachable(IPlayerContext ctx, BlockPos pos, boolean wouldSneak) {
-        return reachable(ctx, pos, ctx.playerController().getBlockReachDistance(), wouldSneak);
+        return reachable(ctx, pos, ctx.getSettings(), wouldSneak);
+    }
+
+    public static Optional<Rotation> reachable(IPlayerContext ctx, BlockPos pos, Settings settings) {
+        return reachable(ctx, pos, settings, false);
+    }
+
+    public static Optional<Rotation> reachable(IPlayerContext ctx, BlockPos pos, Settings settings, boolean wouldSneak) {
+        return reachable(ctx, pos, settings, settings.blockReachDistance.value, wouldSneak);
     }
 
     /**
@@ -170,15 +179,19 @@ public final class RotationUtils {
      * @return The optional rotation
      */
     public static Optional<Rotation> reachable(IPlayerContext ctx, BlockPos pos, double blockReachDistance) {
-        return reachable(ctx, pos, blockReachDistance, false);
+        return reachable(ctx, pos, ctx.getSettings(), blockReachDistance, false);
     }
 
     public static Optional<Rotation> reachable(IPlayerContext ctx, BlockPos pos, double blockReachDistance, boolean wouldSneak) {
+        return reachable(ctx, pos, ctx.getSettings(), blockReachDistance, wouldSneak);
+    }
+
+    public static Optional<Rotation> reachable(IPlayerContext ctx, BlockPos pos, Settings settings, double blockReachDistance, boolean wouldSneak) {
         // Prevent BetterBlockPos from leaking into Minecraft's block entity map
         if (pos instanceof BetterBlockPos) {
             pos = new BlockPos(pos.getX(), pos.getY(), pos.getZ());
         }
-        if (BaritoneAPI.getSettings().remainWithExistingLookDirection.value && ctx.isLookingAt(pos)) {
+        if (settings.remainWithExistingLookDirection.value && ctx.isLookingAt(pos)) {
             /*
              * why add 0.0001?
              * to indicate that we actually have a desired pitch
