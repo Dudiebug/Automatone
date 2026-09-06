@@ -432,3 +432,36 @@ the manual acceptance checklist remains PENDING.
   acceptance remains PENDING; M5 is not ACCEPTED and M6 has not begun.
   Updated `dist/automatone-M5-test.zip` retains the b379805d production JARs with
   current verification notes and `docs/M5_MANUAL_ACCEPTANCE.md`.
+
+## Post-release unavailable-worker repair (verified death/unload path COMPLETE)
+
+- Human reports successful general client use, then an unavailable worker that
+  cannot be managed or retired. Exact live-world trigger and saved state are not
+  yet available; no default-profile Minecraft log is present in this environment.
+  This is not a claim that every manual acceptance check was performed.
+- Source establishes a failure path: death releases the last ticking ticket before
+  vanilla completes delayed corpse removal; an intervening unload previously
+  captured a zero-health worker as an active roster entry. Remove the entry when
+  death actually commits, handle dead unloads, discard old non-retired zero-health
+  saved records and prevent dead entity reattachment from readopting the identity.
+  Healthy unloads and archived records remain preserved. The death hook checks
+  vanilla's committed `dead` transition so cancelled deaths retain ownership.
+- Focused worker compilation PASS. Initial affected roster/chunk runtime suite
+  PASS, 23 required GameTests, including three new real entity/roster regressions.
+  Controller reviewed tests and tightened the immediate-removal assertion and
+  fixture cleanup. Cancelled-death and final cleanup recheck PENDING. Logs:
+  `.agents/evidence/M5/unavailable-worker-compile.log` and
+  `.agents/evidence/M5/unavailable-worker-runtime.log`.
+- Inventory expansion/collection work is parked separately until this repair's
+  focused checks complete. The user's reported worker is not claimed recovered
+  without the world details or a successful user retry.
+- Final affected runtime PASS: 24 required roster/chunk-loading GameTests in
+  `.agents/evidence/M5/unavailable-worker-final-runtime.log`. Includes cancelled
+  death, legacy dead-record migration, no dead re-adoption, freed capacity, healthy
+  unload retention and existing death/transfer/ticket behavior. A helper's incorrect
+  NeoForge import was corrected before this run. Teardown releases only fixture
+  UUID tickets through registered controller IDs. Controller reviewed source and
+  tests and confirms this bounded repair; no new broad/milestone run is necessary.
+  Unchanged UI, protocol and nine-slot inventory remain compatible with the M5
+  preview. Inventory extension resumes separately; the exact user-world cause
+  remains UNVERIFIED pending their details/retry.

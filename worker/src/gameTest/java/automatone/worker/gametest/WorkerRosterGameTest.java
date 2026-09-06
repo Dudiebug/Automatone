@@ -1,20 +1,27 @@
 package automatone.worker.gametest;
 
 import automatone.worker.MiningSession;
+import automatone.worker.WorkerChunkLoading;
 import automatone.worker.WorkerEntity;
 import automatone.worker.WorkerMod;
 import automatone.worker.WorkerRoster;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.neoforged.neoforge.common.world.chunk.TicketController;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +31,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import net.minecraft.world.level.ChunkPos;
 
 /** Dedicated-server contract tests for the M5.2 owner roster and archive. */
 @GameTestHolder("automatone_worker_m5_roster_gametest")
@@ -323,6 +333,211 @@ public final class WorkerRosterGameTest {
             WorkerGameTestSupport.discardWorker(legacy);
         }
         helper.succeed();
+    }
+
+    @GameTest(template = "provider_smoke", batch = "worker_m5_roster_recovery", timeoutTicks = 120)
+    public static void deadWorkerUnloadReleasesRosterSlotAndSaveLoadDropsRecord(GameTestHelper helper) {
+        WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
+        UUID owner = UUID.randomUUID();
+        WorkerEntity worker = WorkerGameTestSupport.spawnWorker(helper);
+        List<UUID> requests = new ArrayList<>();
+        try {
+            worker.claim(owner);
+            UUID workerId = worker.getUUID();
+            helper.assertTrue(roster.list(owner, false).stream().anyMatch(view -> view.worker().equals(workerId)),
+                    "Death cleanup setup must register the owned worker as active");
+
+            worker.setHealth(0.0F);
+            worker.die(worker.damageSources().genericKill());
+            helper.assertTrue(worker.getHealth() <= 0.0F && !worker.isAlive(),
+                    "The real worker death path must mark the worker dead before unload cleanup");
+            helper.assertTrue(roster.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
+                    "Death must release the roster slot before the chunk can unload");
+            worker.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            helper.assertTrue(worker.isRemoved()
+                            && worker.getRemovalReason() == Entity.RemovalReason.UNLOADED_TO_CHUNK,
+                    "The recovery fixture must exercise an unload before vanilla death completion");
+            helper.assertTrue(roster.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
+                    "A dead worker unloaded before death completion must not remain active or occupy the roster");
+
+            for (int index = 0; index < WorkerRoster.ACTIVE_LIMIT; index++) {
+                UUID request = UUID.randomUUID();
+                requests.add(request);
+                roster.reserve(owner, request, null);
+            }
+            expectFailure(helper, () -> roster.reserve(owner, UUID.randomUUID(), null), "ACTIVE_LIMIT",
+                    "The dead worker must release its active slot for a full replacement reservation set");
+            requests.forEach(request -> roster.cancelReservation(owner, request));
+            requests.clear();
+
+            CompoundTag saved = roster.save(new CompoundTag(), helper.getLevel().getServer().registryAccess());
+            WorkerRoster loaded = WorkerRoster.load(helper.getLevel().getServer(), saved);
+            helper.assertTrue(loaded.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
+                    "A saved and reloaded roster must not resurrect a dead active worker record");
+        } finally {
+            requests.forEach(request -> roster.cancelReservation(owner, request));
+            releaseFixtureTickets(worker);
+            WorkerGameTestSupport.discardWorker(worker);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "provider_smoke", batch = "worker_m5_roster_recovery", timeoutTicks = 120)
+    public static void healthyUnloadedWorkerIsRetainedAndDeadReloadCannotReadoptIdentity(GameTestHelper helper) {
+        WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
+        ServerLevel level = helper.getLevel();
+        UUID owner = UUID.randomUUID();
+        WorkerEntity worker = WorkerGameTestSupport.spawnWorker(helper);
+        WorkerEntity deadReload = null;
+        try {
+            worker.claim(owner);
+            UUID workerId = worker.getUUID();
+            worker.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            helper.assertTrue(worker.isRemoved()
+                            && roster.list(owner, false).stream().anyMatch(view -> view.worker().equals(workerId)),
+                    "Unloading a healthy worker must retain its live offline roster record");
+
+            CompoundTag saved = roster.save(new CompoundTag(), level.getServer().registryAccess());
+            WorkerRoster loaded = WorkerRoster.load(level.getServer(), saved);
+            helper.assertTrue(loaded.list(owner, false).stream().anyMatch(view -> view.worker().equals(workerId)),
+                    "A healthy unloaded worker must remain manageable after roster save/load");
+
+            CompoundTag deadEntity = worker.saveWithoutId(new CompoundTag());
+            deadEntity.putFloat("Health", 0.0F);
+            deadReload = WorkerMod.WORKER.get().create(level);
+            if (deadReload == null) {
+                throw new AssertionError("Registered worker entity did not create the dead reload fixture");
+            }
+            deadReload.load(deadEntity);
+            BlockPos position = helper.absolutePos(new BlockPos(2, 1, 0));
+            deadReload.moveTo(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D, 0.0F, 0.0F);
+            deadReload.setNoGravity(true);
+            if (!level.addFreshEntity(deadReload)) {
+                throw new AssertionError("Dedicated server rejected the dead reload fixture");
+            }
+            helper.assertTrue(deadReload.getHealth() <= 0.0F,
+                    "The loaded reattachment fixture must retain its non-positive health");
+            helper.assertTrue(roster.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
+                    "Rejecting a dead reattachment must remove the stale active roster entry");
+
+            CompoundTag afterReject = roster.save(new CompoundTag(), level.getServer().registryAccess());
+            WorkerRoster reloadedAfterReject = WorkerRoster.load(level.getServer(), afterReject);
+            helper.assertTrue(reloadedAfterReject.list(owner, false).stream()
+                            .noneMatch(view -> view.worker().equals(workerId)),
+                    "A dead reattachment must not reappear in a subsequent saved roster");
+        } finally {
+            releaseFixtureTickets(worker);
+            WorkerGameTestSupport.discardWorker(worker);
+            releaseFixtureTickets(deadReload);
+            WorkerGameTestSupport.discardWorker(deadReload);
+            roster.removed(worker, Entity.RemovalReason.KILLED);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "provider_smoke", batch = "worker_m5_roster_recovery", timeoutTicks = 100)
+    public static void legacyDeadEntityHealthIsIgnoredWhenLoadingActualRosterSave(GameTestHelper helper) {
+        WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
+        UUID owner = UUID.randomUUID();
+        WorkerEntity worker = WorkerGameTestSupport.spawnWorker(helper);
+        try {
+            worker.claim(owner);
+            UUID workerId = worker.getUUID();
+            worker.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
+            CompoundTag actualSave = roster.save(new CompoundTag(), helper.getLevel().getServer().registryAccess());
+            ListTag workers = actualSave.getList("Workers", Tag.TAG_COMPOUND);
+            boolean changed = false;
+            for (Tag value : workers) {
+                CompoundTag entry = (CompoundTag) value;
+                if (entry.getUUID("Worker").equals(workerId)) {
+                    CompoundTag entity = entry.getCompound("Entity");
+                    entity.putFloat("Health", 0.0F);
+                    entry.put("Entity", entity);
+                    changed = true;
+                    break;
+                }
+            }
+            helper.assertTrue(changed, "The actual roster save must contain the healthy offline worker fixture");
+
+            WorkerRoster loaded = WorkerRoster.load(helper.getLevel().getServer(), actualSave);
+            helper.assertTrue(loaded.list(owner, false).stream().noneMatch(view -> view.worker().equals(workerId)),
+                    "A legacy stuck non-retired entity with non-positive saved health must be ignored on load");
+        } finally {
+            releaseFixtureTickets(worker);
+            WorkerGameTestSupport.discardWorker(worker);
+            roster.removed(worker, Entity.RemovalReason.KILLED);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "provider_smoke", batch = "worker_m5_roster_recovery", timeoutTicks = 100)
+    public static void cancelledLivingDeathPreservesRosterAndTickets(GameTestHelper helper) {
+        WorkerRoster roster = WorkerRoster.get(helper.getLevel().getServer());
+        WorkerEntity worker = WorkerGameTestSupport.spawnWorker(helper);
+        AtomicBoolean cancelled = new AtomicBoolean();
+        UUID owner = UUID.randomUUID();
+        UUID workerId = worker.getUUID();
+        Consumer<LivingDeathEvent> listener = event -> {
+            if (event.getEntity() instanceof WorkerEntity
+                    && event.getEntity().getUUID().equals(workerId)) {
+                cancelled.set(true);
+                event.setCanceled(true);
+                event.getEntity().setHealth(1.0F);
+            }
+        };
+        try {
+            worker.claim(owner);
+            worker.startMining(IRON_ORE, 1);
+            ChunkPos center = worker.chunkPosition();
+            helper.assertTrue(WorkerChunkLoadingGameTest.tickets(helper.getLevel(),
+                            WorkerChunkLoading.CENTER_CONTROLLER_ID, workerId).contains(center.toLong())
+                            && WorkerChunkLoadingGameTest.tickets(helper.getLevel(),
+                            WorkerChunkLoading.WORKING_RING_CONTROLLER_ID, workerId).size() == 8,
+                    "Death cancellation setup must own the center and eight working-ring tickets");
+
+            NeoForge.EVENT_BUS.addListener(listener);
+            worker.setHealth(0.0F);
+            worker.die(worker.damageSources().genericKill());
+            helper.assertTrue(cancelled.get() && worker.getHealth() == 1.0F && worker.isAlive(),
+                    "A cancelled LivingDeathEvent must restore this worker's health and stop death commit");
+            helper.assertTrue(roster.list(owner, false).stream().anyMatch(view -> view.worker().equals(workerId))
+                            && roster.active(owner, workerId).equals(worker),
+                    "A cancelled death must retain the owned worker's active roster identity");
+            helper.assertTrue(WorkerChunkLoadingGameTest.tickets(helper.getLevel(),
+                            WorkerChunkLoading.CENTER_CONTROLLER_ID, workerId).contains(center.toLong())
+                            && WorkerChunkLoadingGameTest.tickets(helper.getLevel(),
+                            WorkerChunkLoading.WORKING_RING_CONTROLLER_ID, workerId).size() == 8,
+                    "A cancelled death must retain the worker's center and working-ring tickets");
+        } finally {
+            NeoForge.EVENT_BUS.unregister(listener);
+            if (!worker.isRemoved() && worker.isAlive()
+                    && worker.miningStatus().state() == MiningSession.State.RUNNING) {
+                worker.stopMining();
+            }
+            releaseFixtureTickets(worker);
+            WorkerGameTestSupport.discardWorker(worker);
+            roster.removed(worker, Entity.RemovalReason.KILLED);
+        }
+        helper.succeed();
+    }
+
+    /** Remove only this fixture worker's registered center/ring tickets after simulated unload. */
+    private static void releaseFixtureTickets(WorkerEntity worker) {
+        if (worker == null || !(worker.level() instanceof ServerLevel level)) {
+            return;
+        }
+        UUID owner = worker.getUUID();
+        ChunkPos center = worker.chunkPosition();
+        new TicketController(WorkerChunkLoading.CENTER_CONTROLLER_ID)
+                .forceChunk(level, owner, center.x, center.z, false, true);
+        TicketController ring = new TicketController(WorkerChunkLoading.WORKING_RING_CONTROLLER_ID);
+        for (int x = center.x - 1; x <= center.x + 1; x++) {
+            for (int z = center.z - 1; z <= center.z + 1; z++) {
+                if (x != center.x || z != center.z) {
+                    ring.forceChunk(level, owner, x, z, false, true);
+                }
+            }
+        }
     }
 
     private static Vec3 destination(GameTestHelper helper) {

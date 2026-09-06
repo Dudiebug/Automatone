@@ -135,6 +135,13 @@ public final class WorkerRoster extends SavedData {
             entry.name = saved.getString("Name");
             entry.overrides = WorkerSettings.load(saved.getCompound("Overrides"));
             entry.entity = saved.getCompound("Entity").copy();
+            // Older versions could unload a dying worker after releasing its last ticket,
+            // leaving an active roster entry that can never resolve to a living entity.
+            if (!entry.retired && entry.entity.contains("Health", Tag.TAG_ANY_NUMERIC)
+                    && entry.entity.getFloat("Health") <= 0.0F) {
+                result.setDirty();
+                continue;
+            }
             entry.notifiedRun = saved.hasUUID("NotifiedRun") ? saved.getUUID("NotifiedRun") : null;
             if (result.entries.put(saved.getUUID("Worker"), entry) != null) {
                 throw new IllegalArgumentException("DUPLICATE_WORKER");
@@ -513,6 +520,10 @@ public final class WorkerRoster extends SavedData {
     /** Adopt legacy entities; archive overflow rather than losing identity or inventory at the active cap. */
     public void attached(WorkerEntity worker) {
         requireThread();
+        if (worker.getHealth() <= 0.0F) {
+            removed(worker, Entity.RemovalReason.KILLED);
+            return;
+        }
         if (worker.ownerUUID().isEmpty()) {
             return;
         }
@@ -542,7 +553,7 @@ public final class WorkerRoster extends SavedData {
         requireThread();
         Entry entry = entries.get(worker.getUUID());
         if (entry != null && !entry.retired) {
-            if (reason != null && reason.shouldDestroy()) {
+            if (worker.getHealth() <= 0.0F || (reason != null && reason.shouldDestroy())) {
                 entries.remove(worker.getUUID());
             } else {
                 capture(entry, worker);

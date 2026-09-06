@@ -457,8 +457,10 @@ public class WorkerEntity extends Mob implements Container {
 
     @Override
     public void die(DamageSource source) {
+        boolean wasDead = dead;
         super.die(source);
-        if (level() instanceof ServerLevel serverLevel) {
+        if (!wasDead && dead && level() instanceof ServerLevel serverLevel) {
+            WorkerRoster.get(serverLevel.getServer()).removed(this, RemovalReason.KILLED);
             chunkLoading.release(serverLevel, getUUID());
         }
     }
