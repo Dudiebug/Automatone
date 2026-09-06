@@ -13,6 +13,10 @@ Before modifying implementation code, read:
 
 Do not load unrelated documentation merely to increase context.
 
+Reuse reading already completed in the current task. A small follow-up repair
+needs only the affected contract and source, not a new task specification or a
+repeat of the full reading list.
+
 ## Source-of-truth order
 
 When sources conflict, use this precedence:
@@ -31,7 +35,9 @@ Graphify is a structural sensor and navigation aid. It does not override source 
 
 Tasks become `COMPLETE` after their focused acceptance checks pass and the controller confirms scope and architectural invariants. The next task in the same milestone may then begin. Record deferred milestone checks as `PENDING`, never `PASS`; task completion does not accept the milestone.
 
-During a task, run the smallest checks relevant to the change and compile affected code when needed. For a bug fix, retain or add a focused regression demonstrating the defect and correction where practical. Repeat a passing check only after a change that could invalidate it or specific new evidence. Do not routinely run full unit, GameTest, architecture, SpotBugs, CPD, or other broad suites after small edits.
+For a clear, small fix, implement directly and compile affected code when needed. Source evidence plus compilation or an existing focused check can be sufficient; a new regression and a RED/GREEN cycle are not mandatory. Add a regression when it catches a plausible recurrence or resolves uncertainty, not merely because code changed. Once the relevant evidence is sufficient, stop checking and deliver. Do not routinely run full unit, GameTest, architecture, SpotBugs, CPD, or other broad suites after small edits.
+
+For uncertain or risky behavior, use focused behavioral tests. Authorization, persistence/data loss, concurrency, and server/client boundaries need evidence appropriate to the risk; the small-fix shortcut must not substitute compilation for an unresolved behavioral question. Repeat a passing check only after a change that could invalidate it or specific new evidence.
 
 Earlier broad checks require a concrete risk: build/dependency changes, shared infrastructure, cross-cutting refactors, concurrency, data loss, or server/client boundaries. Select checks relevant to that risk, not every available layer. Mutation tests, coverage targets, property-based tests and multiple independent review rounds are not defaults; justify them only when simpler checks cannot establish the relevant property.
 
@@ -43,13 +49,13 @@ Keep useful regressions. Remove or consolidate only demonstrated redundancy or i
 
 Use the installed `graphify` skill for structural preflight, impact queries, and graph updates when the task benefits from repository topology or duplicate-responsibility awareness.
 
-Use the installed `old-coder` skill for focused test work under this policy. Its optional extended testing layers do not override the proportional verification policy above.
+Use the installed `old-coder` skill for explicitly requested high-assurance work or when the risk warrants it. Ordinary focused tests do not require that workflow. Skill workflows do not override this proportional verification policy.
 
 ### Astra ownership and optional delegation
 
 - Astra is the primary implementer and controller. Implement, diagnose, repair, run checks and integrate directly by default; delegate only when a bounded assignment adds value.
-- All test writing and test modifications, including regressions, fixtures and test-harness repairs, must be assigned to Terra or Luna. Astra defines acceptance criteria, reviews tests and evidence, and may run existing checks, but neither Astra nor Sol authors or edits tests. Astra may switch between Terra and Luna without user approval; if neither is available, preserve the pending test work and report the capability blocker instead of substituting another author.
-- Sol implementation/repair and additional verification delegation remain optional. Astra chooses reasoning effort, reviews and integrates results, and may take over production work without user approval. Old Coder test authoring follows the mandatory Terra/Luna routing above.
+- Astra may write or modify tests, fixtures and test harnesses directly. Terra/Luna test delegation is optional when it saves time or provides useful independent scrutiny; small fixes must not wait for a separate test author.
+- Implementation, test and repair delegation remain optional. Astra chooses reasoning effort, reviews and integrates results, and may take over work without user approval. Do not add a helper review round to routine work merely to satisfy a preferred routing pattern.
 - Assign explicit scope, owned files, acceptance checks and escalation conditions. Helpers are not alone in the checkout: preserve others' changes. Helpers must not redelegate or approve their own work.
 - Every helper escalates directly to Astra on ambiguity, unexpected scope, conflicting evidence, a failed repair or lack of progress. Return current changes, results and the smallest unresolved issue instead of starting a handoff chain.
 - Astra automatically reviews helper changes and evidence, repairs or rejects inadequate work, and approves integration/task completion when checks establish the criteria. Automatic review does not mean automatic PASS. Do not ask the user to review or approve helper output.
@@ -64,7 +70,7 @@ When `graphify-out/graph.json` exists:
 
 - prefer `graphify query`, `graphify path`, or `graphify explain` for scoped structural questions;
 - do not rebuild the graph from scratch merely because it is dirty;
-- after meaningful code changes, run `graphify update .` to refresh it;
+- batch `graphify update .` at a milestone boundary or when structural changes make the graph materially stale; small local fixes and documentation edits do not require an immediate refresh;
 - use graph findings as advisory context unless a deterministic sensor converts the finding into a project rule.
 
 When the graph does not exist and the assigned task requires graph preflight, build it using the installed Graphify skill before implementation.
@@ -116,3 +122,8 @@ Every implementation or repair attempt must leave enough evidence for an indepen
 - whether any task assumption was disproven.
 
 Keep one concise evidence record: changes, checks/results, relevant reused evidence, and deferred milestone checks. The controller confirms task completion; the independent verifier supplies milestone acceptance evidence. Do not create separate reports repeating the same information.
+
+For routine repairs, a short entry in the existing evidence record or commit/PR
+description is enough. Do not create a new report, task file, or per-attempt state
+update unless scope, acceptance status, or a real blocker changes. Preserve exact
+PASS/FAIL/PENDING/UNVERIFIED distinctions; lighter paperwork is not weaker evidence.

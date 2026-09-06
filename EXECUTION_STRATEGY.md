@@ -9,17 +9,23 @@ checkout, or multiple independent rounds for every task. It changes verification
 cadence, not product criteria, architecture, analyzer thresholds, or permission
 to waive failures.
 
+The 2026-09-06 human instruction to loosen the workflow supersedes older
+mandatory test-author routing, per-fix regression/RED requirements, and immediate
+graph/evidence-update cadence, including those in older implementation plans and
+task specifications. Use the small-fix path below. Milestone acceptance and
+architecture requirements remain in force.
+
 Astra is the primary implementer and controller. Work directly by default.
-Always delegate test authoring and modification to Terra or Luna. Astra reviews
-tests and may run existing checks; Astra and Sol do not write or edit tests.
-Delegate other work only when useful: Sol for focused implementation/repair
-and suitable helpers for verification. Follow AGENTS.md's delegation
+Test authoring and modification may be performed directly by Astra. Delegate
+tests to Terra/Luna, or implementation/repair to another helper, only when the
+assignment saves time or supplies useful independent scrutiny. Follow AGENTS.md's delegation
 and escalation rules. Astra selects models, takes over stalled work, reviews
 helper changes and evidence, and approves satisfactory work autonomously. Helpers
 escalate directly to Astra, never through an automatic agent chain or to the user.
 A milestone gets one fresh independent verifier selected by Astra; that verifier
 does not repair the code or tests it grades. Graphify is advisory: use scoped
-queries when useful and update after meaningful changes.
+queries when useful; batch updates at milestone boundaries or after structural
+changes that materially invalidate the graph. Skip refreshes for small local fixes.
 
 The 2026-09-05 user instruction supersedes mandatory Luna routing and model-change
 approval requirements. Routine implementation, testing, delegation, review and
@@ -71,12 +77,32 @@ without a change or concrete concern. M2 product work stays behind that gate.
 
 ## During a task
 
+### Small, clear fixes
+
+When the cause and correction are evident from a narrow source path or an
+existing reproduction, implement directly. Compile affected code when needed;
+use an existing focused check if it adds useful confidence. Do not require a new
+test, a separate test author, a forced RED/GREEN cycle, or a new independent
+review. A new regression is worthwhile for a plausible recurrence or unresolved
+behavioral question, not as ceremony. Stop once sufficient evidence is available.
+
+This path does not cover unresolved authorization, persistence/data-loss,
+concurrency, or server/client behavior. Use focused behavioral checks for those
+risks. A known failing check still requires repair or an explicit human exception.
+
+Reuse the plan/context already read. Record the change and actual validation in
+a few lines in the existing evidence record or commit/PR description. No new task
+specification, report, repeated state update, or graph refresh is needed merely
+because a small repair occurred. Update state when scope, acceptance, or a blocker
+actually changes.
+
+### Other changes
+
 1. Read the task and directly relevant contracts. Identify the changed behavior,
    affected callers and any concrete cross-cutting risk.
 2. Select the smallest checks that demonstrate that behavior. Compile affected
-   code when needed. A bug fix should retain or add a focused regression showing
-   the defect and passing correction where practical; record a limitation if a
-   practical RED is unavailable.
+   code when needed. Add focused regressions when they address a real behavioral
+   risk; do not delay an evident fix solely to manufacture a failing test first.
 3. Implement the scoped change and run those checks. Retain useful regressions.
 4. Repeat a passing check only if a later change could affect its result or new
    evidence raises a specific concern. Record why a repeated/broader run is needed.
@@ -115,6 +141,13 @@ contract only with the contradiction recorded.
 - Keep baseline debt distinct from new findings. Exact exception rules and
   explicit human approval requirements remain in force. No baseline refresh,
   suppression, architecture relaxation or threshold change to hide a failure.
+
+An existing source-hash disposition whose finding, affected code and approved
+contract remain unchanged may be revalidated directly by the controller, with
+a concise reason and the updated hash. Do not require a separate reviewer solely
+for an unrelated edit in the same file. Changed contracts, identities or new
+findings still follow the existing approval rules; validators and thresholds
+remain unchanged.
 
 ## Verification entry point
 
