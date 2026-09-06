@@ -58,4 +58,21 @@ does not claim to explain every unavailable worker.
   `docs/M5_INVENTORY_MANUAL_ACCEPTANCE.md`.
 
 Controller confirms focused task completion and architectural scope. Independent
-extension verdict remains PENDING. M5 remains IN_PROGRESS; M6 has not begun.
+extension verdict is recorded below. M5 remains IN_PROGRESS; M6 has not begun.
+
+## Independent gate and affected repair
+
+- One fresh independent profile ran on clean `97248614`: FAIL. Compilation,
+  units, Checkstyle, Error Prone, SpotBugs and CPD PASS. ArchUnit correctly rejected
+  cleanup's direct ServerPlayer menu access. Move that unchanged lookup into
+  WorkerMenu, which owns the player/menu boundary; no rule change. The worker
+  runtime suite passed 98/99; its remaining legacy controller test incorrectly
+  expected slot 9 to be out of bounds. Update that assertion to the first invalid
+  slot, 36, under the superseding M5.9 contract. Do not weaken index validation.
+- Independent two-process restart PASS: write and read both exit 0, required
+  M45_RESTART_WRITE_PASS / M45_RESTART_READ_PASS markers, no failure markers.
+  Inventory slot 35 and existing progress/resume/ticket assertions passed.
+- Independent record: `.agents/evidence/M5/inventory-independent-verdict.json`.
+  Initial raw profile remains FAIL as historical evidence. Affected architecture
+  and runtime rechecks are PENDING; no duplicate full profile is required for a
+  lookup move and correction of the obsolete test bound.

@@ -321,7 +321,7 @@ public final class WorkerRuntimeGameTest {
                     "Foreign container rejection must not mutate the foreign container");
 
             expectIndexFailure(() -> controller.swapContainerSlots(inventory, -1, 0));
-            expectIndexFailure(() -> controller.swapContainerSlots(inventory, 0, 9));
+            expectIndexFailure(() -> controller.swapContainerSlots(inventory, 0, WorkerEntity.INVENTORY_SIZE));
             helper.assertTrue(inventory.getItem(0) == second && inventory.getItem(1) == first,
                     "Invalid slot indices must not mutate the worker inventory");
 

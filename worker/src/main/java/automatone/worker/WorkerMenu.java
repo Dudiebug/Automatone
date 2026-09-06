@@ -118,6 +118,11 @@ public final class WorkerMenu extends AbstractContainerMenu {
         }
     }
 
+    static boolean isOpenFor(MinecraftServer server, UUID worker) {
+        return server.getPlayerList().getPlayers().stream().anyMatch(player ->
+                player.containerMenu instanceof WorkerMenu menu && worker.equals(menu.worker()));
+    }
+
     /** Validated callers always open a new menu id when selecting another worker. */
     public static void open(Player holder, UUID worker, boolean retired, int requestedPage) {
         if (!(holder instanceof ServerPlayer serverPlayer) || holder.isSpectator() || !hasController(holder)) {

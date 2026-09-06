@@ -167,8 +167,7 @@ final class WorkerInventoryManagement {
 
     boolean canMakeSpace(WorkerEntity worker) {
         if (!enabled || !(worker.level() instanceof ServerLevel level)
-                || level.getServer().getPlayerList().getPlayers().stream().anyMatch(player ->
-                player.containerMenu instanceof WorkerMenu menu && worker.getUUID().equals(menu.worker()))) { return false; }
+                || WorkerMenu.isOpenFor(level.getServer(), worker.getUUID())) { return false; }
         for (List<Integer> slots : discardSlots(worker).values()) {
             int amount = slots.stream().mapToInt(slot -> worker.getItem(slot).getCount()).sum();
             int stackSize = worker.getItem(slots.getFirst()).getMaxStackSize();
