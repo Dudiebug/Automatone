@@ -5,9 +5,12 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -15,18 +18,29 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 @Mod(WorkerMod.MOD_ID)
 public final class WorkerMod {
     public static final String MOD_ID = "automatone_worker";
+    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
+    public static final DeferredHolder<Item, Item> CONTROLLER = ITEMS.registerSimpleItem("controller",
+            new Item.Properties().stacksTo(1));
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, MOD_ID);
     public static final DeferredHolder<EntityType<?>, EntityType<WorkerEntity>> WORKER = ENTITIES.register("worker",
             () -> EntityType.Builder.of(WorkerEntity::new, MobCategory.MISC).sized(0.6F, 1.8F).build(MOD_ID + ":worker"));
 
     public WorkerMod(IEventBus bus) {
+        ITEMS.register(bus);
         ENTITIES.register(bus);
+        bus.addListener(WorkerMod::creativeItems);
         bus.addListener(WorkerMod::registerAttributes);
         bus.addListener(WorkerChunkLoading::register);
         NeoForge.EVENT_BUS.addListener(WorkerChunkLoading::tick);
         NeoForge.EVENT_BUS.addListener(WorkerChunkLoading::clear);
         NeoForge.EVENT_BUS.addListener(WorkerRelocation::onServerTick);
         NeoForge.EVENT_BUS.addListener(WorkerRelocation::stop);
+    }
+
+    private static void creativeItems(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey().equals(CreativeModeTabs.TOOLS_AND_UTILITIES)) {
+            event.accept(CONTROLLER.get());
+        }
     }
 
     private static void registerAttributes(EntityAttributeCreationEvent event) {

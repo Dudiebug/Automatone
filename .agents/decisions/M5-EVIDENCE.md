@@ -182,3 +182,31 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
 - Controller confirms M5.3 focused criteria COMPLETE. All path/mine/movement
   algorithms remain native. Broader static/architecture and fresh independent
   clean-candidate milestone verification remain PENDING.
+
+## M5.4 — Controller item (visual acceptance BLOCKED)
+
+- Drew the production controller directly in the Piskel browser editor with pen,
+  rectangle and fill tools. Saved editable `docs/art/controller/controller.piskel`
+  and its 1x texture export. Nine colors, iron casing, green worker display/button,
+  copper antenna; no ImageGen production asset. Standard generated item model and
+  English localization; reusable non-stackable item in Tools & Utilities.
+- Shipped recipe: four iron ingots, one copper ingot, glass pane and redstone,
+  producing one controller. No binding, durability, energy or equipment grants.
+  Opening the holder's roster is the dependent M5.5 menu integration.
+- PASS: `:worker:compileJava :worker:processResources` (Gradle exit 0), log
+  `.agents/evidence/M5-controller-compile.log`. Existing chunk-loading warnings
+  were not suppressed. PASS: texture is 16x16 with 154 fully transparent pixels
+  and nine opaque colors; every pixel matches the PNG embedded in editable source,
+  `.agents/evidence/M5-controller-assets.log`. Visually inspected in Piskel.
+- PASS: one real dedicated-server GameTest, Gradle exit 0, log
+  `.agents/evidence/M5-controller-runtime.log`. The loaded recipe matches the exact
+  approved ingredients, assembles the registered default controller with stack
+  limit one/no durability/no binding components, and rejects each missing ingredient.
+- BLOCKED/UNVERIFIED: actual inventory/held-item observation. Launched
+  `:worker:runM3Client`; NeoForge reported `Failed to locate a primary monitor`
+  (`glfwGetPrimaryMonitor failed`). Desktop capture also failed for that client
+  monitor. Stopped only the identified failed client process; launch exits nonzero.
+  Raw log: `.agents/evidence/M5-controller-client.log`. No rendering PASS claimed.
+- Requested restoration of the display or explicit deferral of this task's visual
+  check to the final M5 gate. M5.4 is not COMPLETE and dependent M5.5 implementation
+  has not started. Broad sensors and independent milestone acceptance remain PENDING.
