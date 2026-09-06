@@ -31,9 +31,11 @@ def stageM3ClientStructures = tasks.register('stageM3ClientStructures', Copy) {
     into layout.buildDirectory.dir('m3-client/gameteststructures')
 }
 
+def m4RestartDirectory = layout.buildDirectory.dir(providers.gradleProperty('workerRestartDirectory').orElse('m4-restart'))
+
 def prepareM4RestartFixtures = tasks.register('prepareM4RestartFixtures') {
-    def eula = layout.buildDirectory.file('m4-restart/eula.txt')
-    def properties = layout.buildDirectory.file('m4-restart/server.properties')
+    def eula = m4RestartDirectory.map { it.file('eula.txt') }
+    def properties = m4RestartDirectory.map { it.file('server.properties') }
     outputs.files(eula, properties)
     doLast {
         File fixture = eula.get().asFile
@@ -73,7 +75,7 @@ neoForge {
         m4RestartServer {
             server()
             sourceSet = sourceSets.gameTest
-            gameDirectory = layout.buildDirectory.dir('m4-restart')
+            gameDirectory = m4RestartDirectory
             programArgument '--nogui'
             systemProperty 'automatone.worker.restartPhase', providers.gradleProperty('workerRestartPhase').orElse('').get()
             loadedMods = [mods.automatone, mods.automatone_worker, mods.automatone_worker_gametest]

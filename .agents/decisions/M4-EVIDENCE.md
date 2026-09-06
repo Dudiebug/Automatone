@@ -59,3 +59,11 @@ selection identities, shared executor identity and accessor lines/contracts are
 unchanged. Updated only their UTF-8/LF source hash; eligibility, thresholds and
 original approval contracts remain unchanged. Affected raw analysis and a new
 write/read run are PENDING; the failed original evidence is retained.
+
+Affected repair checks PASS on 0b42f459: root/worker Checkstyle, fresh main
+SpotBugs/dispositions, CPD and all 15 M4 GameTests
+(.agents/evidence/M4/m45-repair-affected.raw.log). The execution policy rejected
+deleting the old test directory. Added an optional workerRestartDirectory Gradle
+property so the verifier can use a fresh isolated build directory while preserving
+the failed world's evidence. This launch-only adjustment does not invalidate the
+passing product/static/runtime checks. New write/read measurement remains PENDING.
