@@ -70,10 +70,10 @@ This plan intentionally has **26 implementation tasks total**.
 | 1. NeoForge port | 5 |
 | 2. Worker attachment | 4 |
 | 3. Mine one block | 4 |
-| 4. Quantity and cancellation | 4 |
+| 4. Quantity, cancellation and chunk loading | 5 |
 | 5. Controller, GUI, networking | 5 |
 | 6. Ownership, persistence, failures | 4 |
-| **Total** | **26** |
+| **Total** | **27** |
 
 A task is a coherent implementation unit that could reasonably be one PR or one tightly related pair of commits. Checklist bullets inside a task are implementation notes and acceptance details, **not additional project tasks**.
 

@@ -31,6 +31,18 @@ def stageM3ClientStructures = tasks.register('stageM3ClientStructures', Copy) {
     into layout.buildDirectory.dir('m3-client/gameteststructures')
 }
 
+def prepareM4RestartFixtures = tasks.register('prepareM4RestartFixtures') {
+    def eula = layout.buildDirectory.file('m4-restart/eula.txt')
+    def properties = layout.buildDirectory.file('m4-restart/server.properties')
+    outputs.files(eula, properties)
+    doLast {
+        File fixture = eula.get().asFile
+        fixture.parentFile.mkdirs()
+        fixture.setText('eula=true\n', 'UTF-8')
+        properties.get().asFile.setText('level-type=minecraft:flat\ngenerate-structures=false\nserver-port=0\n', 'UTF-8')
+    }
+}
+
 neoForge {
     version = neo_version
     addModdingDependenciesTo sourceSets.gameTest
@@ -57,6 +69,15 @@ neoForge {
             server()
             programArgument '--nogui'
             loadedMods = [mods.automatone, mods.automatone_worker]
+        }
+        m4RestartServer {
+            server()
+            sourceSet = sourceSets.gameTest
+            gameDirectory = layout.buildDirectory.dir('m4-restart')
+            programArgument '--nogui'
+            systemProperty 'automatone.worker.restartPhase', providers.gradleProperty('workerRestartPhase').orElse('').get()
+            loadedMods = [mods.automatone, mods.automatone_worker, mods.automatone_worker_gametest]
+            taskBefore prepareM4RestartFixtures
         }
         gameTestServer {
             type = 'gameTestServer'
@@ -86,6 +107,7 @@ tasks.named('processResources') {
     filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
 }
 tasks.named('runGameTestServer') { timeout.set(java.time.Duration.ofMinutes(5)) }
+tasks.named('runM4RestartServer') { timeout.set(java.time.Duration.ofMinutes(3)) }
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 21

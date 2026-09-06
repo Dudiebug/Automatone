@@ -6,6 +6,43 @@ import static org.junit.Assert.*;
 
 public final class MiningSessionTest {
     @Test
+    public void restoredFiniteJobCountsOnlyTheRemainingBlocks() {
+        MiningSession session = new MiningSession();
+        session.restore(new MiningSession.Snapshot("minecraft:iron_ore", 3, 2, MiningSession.State.RUNNING, ""));
+        assertTrue(session.recordBreak("minecraft:iron_ore"));
+        assertEquals(3, session.snapshot().completed());
+        assertEquals(MiningSession.State.COMPLETED, session.snapshot().state());
+    }
+
+    @Test
+    public void invalidRestoredProgressCannotBecomeActiveWork() {
+        MiningSession session = new MiningSession();
+        for (MiningSession.Snapshot invalid : new MiningSession.Snapshot[] {
+                new MiningSession.Snapshot("minecraft:iron_ore", 3, 3, MiningSession.State.RUNNING, ""),
+                new MiningSession.Snapshot("minecraft:iron_ore", 3, 4, MiningSession.State.CANCELLED, ""),
+                new MiningSession.Snapshot("minecraft:iron_ore", 0, 2, MiningSession.State.COMPLETED, ""),
+                new MiningSession.Snapshot("minecraft:iron_ore", 3, -1, MiningSession.State.RUNNING, ""),
+                new MiningSession.Snapshot("", 3, 0, MiningSession.State.RUNNING, "")}) {
+            assertThrows(IllegalArgumentException.class, () -> session.restore(invalid));
+        }
+        assertEquals(MiningSession.State.IDLE, session.snapshot().state());
+    }
+
+    @Test
+    public void restoredTerminalJobsNeverCountAndUnlimitedProgressDoesNotOverflow() {
+        MiningSession session = new MiningSession();
+        for (MiningSession.State state : new MiningSession.State[] {
+                MiningSession.State.COMPLETED, MiningSession.State.CANCELLED, MiningSession.State.FAILED}) {
+            session.restore(new MiningSession.Snapshot("minecraft:iron_ore", 3, 3, state, ""));
+            assertFalse(session.recordBreak("minecraft:iron_ore"));
+            assertEquals(state, session.snapshot().state());
+        }
+        session.restore(new MiningSession.Snapshot("minecraft:iron_ore", 0, Long.MAX_VALUE, MiningSession.State.RUNNING, ""));
+        assertFalse(session.recordBreak("minecraft:iron_ore"));
+        assertEquals(Long.MAX_VALUE, session.snapshot().completed());
+    }
+
+    @Test
     public void onlyMatchingDestructionsAdvanceAndFiniteWorkStopsAtTheRequestedCount() {
         MiningSession session = new MiningSession();
         session.start("minecraft:iron_ore", 3);

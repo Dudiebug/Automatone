@@ -7,6 +7,7 @@ import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -21,6 +22,9 @@ public final class WorkerMod {
     public WorkerMod(IEventBus bus) {
         ENTITIES.register(bus);
         bus.addListener(WorkerMod::registerAttributes);
+        bus.addListener(WorkerChunkLoading::register);
+        NeoForge.EVENT_BUS.addListener(WorkerChunkLoading::tick);
+        NeoForge.EVENT_BUS.addListener(WorkerChunkLoading::clear);
     }
 
     private static void registerAttributes(EntityAttributeCreationEvent event) {
