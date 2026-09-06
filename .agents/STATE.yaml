@@ -259,8 +259,10 @@ tasks:
   M5.9:
     state: COMPLETE
     baseline: 557bbd01
+    candidate: c6d384b31d586a66115509b5aa872070279daf01
     last_verdict: PASS
     last_evidence: .agents/decisions/M5-INVENTORY-EVIDENCE.md
+    deferred: "Automated extension gate and restart PASS; manual GPU/client acceptance remains PENDING."
     blocker: null
     execution_authorization: "Human requested full 36-slot inventories, side-by-side UI, Collect all and configurable block-list cleanup."
   M6.1:

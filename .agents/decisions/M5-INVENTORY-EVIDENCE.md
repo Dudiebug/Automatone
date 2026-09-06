@@ -48,12 +48,12 @@ does not claim to explain every unavailable worker.
 - Source plus the passing lifecycle/serialization checks establishes that the
   entire entity NBT, including the tested policy/protection payload, follows
   archives/reactivation and relocation. The isolated restart probe now checks
-  slot 35 in addition to the existing hotbar contents; its new run remains PENDING.
+  slot 35 in addition to the existing hotbar contents; its final result is below.
 - Graphify boundary update completed: 5,813 nodes / 17,162 edges; existing Groovy
   parser warnings remain advisory (`inventory-graph-update.log`). No duplicate
   inventory authority or native mining/scanning engine was introduced.
-- Fresh independent extension profile and isolated restart evidence PENDING.
-  No duplicate preliminary full profile has been run.
+- Fresh independent extension profile and isolated restart evidence are below.
+  No duplicate preliminary full profile was run.
 - GPU/client layout and interaction acceptance PENDING; checklist:
   `docs/M5_INVENTORY_MANUAL_ACCEPTANCE.md`.
 
@@ -73,6 +73,22 @@ extension verdict is recorded below. M5 remains IN_PROGRESS; M6 has not begun.
   M45_RESTART_WRITE_PASS / M45_RESTART_READ_PASS markers, no failure markers.
   Inventory slot 35 and existing progress/resume/ticket assertions passed.
 - Independent record: `.agents/evidence/M5/inventory-independent-verdict.json`.
-  Initial raw profile remains FAIL as historical evidence. Affected architecture
-  and runtime rechecks are PENDING; no duplicate full profile is required for a
-  lookup move and correction of the obsolete test bound.
+  Initial raw profile remains FAIL as historical evidence. No duplicate full
+  profile is required for a lookup move and correction of the obsolete test bound.
+- Affected repair `c6d384b31d586a66115509b5aa872070279daf01` PASS:
+  `:worker:sensorTest` passed all 5 architecture cases; the affected core worker
+  and inventory namespaces passed all 51 required GameTests. Log:
+  `.agents/evidence/M5/inventory-affected-repair.log`. This covers the corrected
+  index bound and the moved menu guard through the real menu/pickup regression.
+  The initial independent root 28 and unaffected worker runtime results remain
+  applicable, establishing the complete 127-case runtime profile after repair.
+  Unchanged unit/style/raw-analyzer/CPD results and independent restart evidence
+  are reused: the repair moved the same lookup expression and corrected a test
+  literal; it did not change persistence, mining or restart execution paths.
+- Controller confirms automated extension criteria and architecture PASS. Manual
+  GPU/client acceptance remains PENDING, so M5 remains IN_PROGRESS.
+- Built matching production 0.11.1 JARs successfully and verified their embedded
+  versions, absence of GameTest classes, ZIP entries and all four SHA256 entries.
+  Bundle: `dist/automatone-M5-inventory-update.zip`; SHA256:
+  `68b0d8aa92f19ee0f2509768a9b2358b78b9af17f2d86accfbbbac8f41292579`.
+  Build log: `.agents/evidence/M5/inventory-package.log`.
