@@ -2,10 +2,18 @@ schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
 accepted_baseline: 30561e6bad934087848cc252796b352c0630444d
-active_task: null
+active_task: M3.1
 active_gate: null
 
 milestones:
+  M3:
+    state: IN_PROGRESS
+    candidate: null
+    last_verdict: null
+    last_evidence: .agents/decisions/M3-EVIDENCE.md
+    implementation_plan: docs/M3_MINING_IMPLEMENTATION_PLAN.md
+    execution_authorization: "Human approved M3 implementation, including non-player hooks and the Stevenator humanoid renderer; stop after M3."
+    blocker: null
   M2:
     state: ACCEPTED
     candidate: 30561e6bad934087848cc252796b352c0630444d
@@ -121,11 +129,12 @@ tasks:
     last_evidence: .agents/decisions/M2.4-EVIDENCE.md
     deferred: null
   M3.1:
-    state: PLANNED
-    baseline: null
+    state: COMPLETE
+    baseline: bd7877ca
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PASS
+    blocker: null
+    last_evidence: .agents/decisions/M3-EVIDENCE.md
   M3.2:
     state: PLANNED
     baseline: null

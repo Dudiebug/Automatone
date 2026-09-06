@@ -58,6 +58,7 @@ public class WorkerEntity extends Mob implements Container {
     @Override
     public void aiStep() {
         if (!level().isClientSide()) {
+            ((WorkerEntityController) context.playerController()).validateBreakingTarget();
             getNavigation().stop();
             if (onGround() && xxa == 0.0F && zza == 0.0F) {
                 setDeltaMovement(0.0D, getDeltaMovement().y, 0.0D);
@@ -81,6 +82,7 @@ public class WorkerEntity extends Mob implements Container {
     }
 
     public void detachRuntime() {
+        context.playerController().resetBlockRemoving();
         if (runtime != null) {
             BaritoneAPI.getProvider().destroyBaritone(runtime);
             runtime = null;

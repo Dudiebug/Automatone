@@ -10,6 +10,7 @@ import baritone.api.event.listener.AbstractGameEventListener;
 import baritone.api.utils.BlockOptionalMetaLookup;
 import baritone.api.utils.IPlayerContext;
 import baritone.api.utils.IPlayerController;
+import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -22,8 +23,10 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -32,6 +35,58 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder("automatone_worker_gametest")
 @PrefixGameTestTemplate(false)
 public final class WorkerRuntimeGameTest {
+
+    @GameTest(template = "worker_movement", batch = "worker_m3_targeting_baseline", timeoutTicks = 100)
+    public static void controllerAcceptsValidRaycastBreakIntent(GameTestHelper helper) {
+        WorkerEntity worker = null;
+        BlockPos target = null;
+        BlockPos corridorOne = null;
+        BlockPos corridorTwo = null;
+        BlockState targetBefore = null;
+        BlockState corridorOneBefore = null;
+        BlockState corridorTwoBefore = null;
+        try {
+            worker = WorkerGameTestSupport.spawnWorker(helper);
+            IBaritone runtime = worker.runtime();
+            helper.assertTrue(runtime != null, "Targeting fixture requires a live worker runtime");
+            IPlayerContext context = runtime.getPlayerContext();
+            IPlayerController controller = context.playerController();
+            BlockPos workerPosition = helper.absolutePos(new BlockPos(6, 1, 6));
+            worker.moveTo(workerPosition.getX() + 0.5D, workerPosition.getY(), workerPosition.getZ() + 0.5D,
+                    0.0F, 0.0F);
+            target = helper.absolutePos(new BlockPos(6, 1, 9));
+            corridorOne = helper.absolutePos(new BlockPos(6, 2, 7));
+            corridorTwo = helper.absolutePos(new BlockPos(6, 2, 8));
+            targetBefore = helper.getLevel().getBlockState(target);
+            corridorOneBefore = helper.getLevel().getBlockState(corridorOne);
+            corridorTwoBefore = helper.getLevel().getBlockState(corridorTwo);
+            helper.getLevel().setBlock(corridorOne, Blocks.AIR.defaultBlockState(), 3);
+            helper.getLevel().setBlock(corridorTwo, Blocks.AIR.defaultBlockState(), 3);
+            helper.getLevel().setBlock(target, Blocks.STONE.defaultBlockState(), 3);
+            worker.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(target));
+
+            HitResult trace = context.objectMouseOver();
+            helper.assertTrue(trace instanceof BlockHitResult,
+                    "The worker eye ray must hit a block before accepting break intent");
+            BlockHitResult blockHit = (BlockHitResult) trace;
+            helper.assertTrue(blockHit.getBlockPos().equals(target),
+                    "The worker eye ray must hit the requested reachable target; expected " + target
+                            + " but hit " + blockHit.getBlockPos() + " from " + worker.getEyePosition(1.0F)
+                            + " at yaw=" + worker.getYRot() + ", pitch=" + worker.getXRot());
+            helper.assertTrue(controller.onPlayerDamageBlock(target, blockHit.getDirection()),
+                    "A valid worker eye ray must begin block-damage intent");
+            helper.assertTrue(controller.clickBlock(target, blockHit.getDirection()),
+                    "A valid worker eye ray must continue block-break intent");
+        } catch (Throwable failure) {
+            helper.fail("Worker controller targeting failed: " + failure);
+        } finally {
+            restoreBlock(helper, target, targetBefore);
+            restoreBlock(helper, corridorOne, corridorOneBefore);
+            restoreBlock(helper, corridorTwo, corridorTwoBefore);
+            WorkerGameTestSupport.discardWorker(worker);
+        }
+        helper.succeed();
+    }
 
     @GameTest(template = "provider_smoke", batch = "worker_runtime_ownership", timeoutTicks = 100)
     public static void oneWorkerOwnsOneRuntimeAndStableContext(GameTestHelper helper) {
@@ -311,6 +366,12 @@ public final class WorkerRuntimeGameTest {
             return;
         }
         throw new AssertionError("Expected IllegalArgumentException");
+    }
+
+    private static void restoreBlock(GameTestHelper helper, BlockPos position, BlockState state) {
+        if (position != null && state != null) {
+            helper.getLevel().setBlock(position, state, 3);
+        }
     }
 
     private static void expectIndexFailure(Runnable operation) {

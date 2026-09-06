@@ -1,8 +1,11 @@
 package automatone.worker;
 
 import baritone.api.utils.IPlayerController;
+import baritone.api.utils.RayTraceUtils;
+import baritone.api.utils.Rotation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -10,13 +13,20 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 import java.util.Objects;
 
-/** Inventory adaptation only; world interactions belong to the mining milestone. */
+/** Adapts native break intent and inventory access to one real server worker. */
 public final class WorkerEntityController implements IPlayerController {
     private final WorkerEntity worker;
+    private final WorkerBreakState breaking = new WorkerBreakState();
+    private BlockState targetState;
+    private ItemStack selectedTool = ItemStack.EMPTY;
+    private int selectedSlot = -1;
+    private int breakStage = -1;
 
     WorkerEntityController(WorkerEntity worker) {
         this.worker = worker;
@@ -46,18 +56,91 @@ public final class WorkerEntityController implements IPlayerController {
     }
 
     @Override
+    public double getBlockReachDistance() {
+        return 4.5D;
+    }
+
+    @Override
     public boolean hasBrokenBlock() {
-        return false;
+        return breaking.complete();
     }
 
     @Override
     public boolean onPlayerDamageBlock(BlockPos pos, Direction side) {
-        return false;
+        if (worker.level().isClientSide()) {
+            return false;
+        }
+        requireServerThread();
+        if (side == null || !canTarget(pos)) {
+            resetBlockRemoving();
+            return false;
+        }
+        BlockState state = worker.level().getBlockState(pos);
+        if (!matchesTarget(pos, state)) {
+            resetBlockRemoving();
+            breaking.start(pos);
+            targetState = state;
+            selectedTool = worker.getMainHandItem().copy();
+            selectedSlot = worker.selectedSlot();
+        }
+        return true;
     }
 
     @Override
     public boolean clickBlock(BlockPos loc, Direction face) {
-        return false;
+        return onPlayerDamageBlock(loc, face);
+    }
+
+    private boolean matchesTarget(BlockPos pos, BlockState state) {
+        return breaking.matches(pos) && selectedSlot == worker.selectedSlot()
+                && Objects.equals(targetState, state)
+                && ItemStack.isSameItemSameComponents(selectedTool, worker.getMainHandItem());
+    }
+
+    private boolean canTarget(BlockPos pos) {
+        if (pos == null || !worker.isAlive() || !worker.isAddedToLevel() || worker.isRemoved()
+                || !worker.level().hasChunkAt(pos) || !worker.level().getWorldBorder().isWithinBounds(pos)) {
+            return false;
+        }
+        BlockState state = worker.level().getBlockState(pos);
+        if (state.isAir() || state.getDestroySpeed(worker.level(), pos) < 0.0F) {
+            return false;
+        }
+        HitResult trace = RayTraceUtils.rayTraceTowards(worker,
+                new Rotation(worker.getYRot(), worker.getXRot()), getBlockReachDistance());
+        return trace.getType() == HitResult.Type.BLOCK
+                && ((BlockHitResult) trace).getBlockPos().equals(pos);
+    }
+
+    /** Also invalidate an abandoned interaction when no new break call arrives. */
+    public void validateBreakingTarget() {
+        if (worker.level().isClientSide() || breaking.target() == null || breaking.complete()) {
+            return;
+        }
+        requireServerThread();
+        BlockPos pos = breaking.target();
+        if (!canTarget(pos) || !matchesTarget(pos, worker.level().getBlockState(pos))) {
+            resetBlockRemoving();
+        }
+    }
+
+    /** Immutable position of the active interaction, or null while idle/complete. */
+    public BlockPos breakingBlock() {
+        return breaking.complete() ? null : breaking.target();
+    }
+
+    public float breakProgress() {
+        return breaking.progress();
+    }
+
+    public int breakStage() {
+        return breakStage;
+    }
+
+    private void requireServerThread() {
+        if (!(worker.level() instanceof ServerLevel level) || !level.getServer().isSameThread()) {
+            throw new IllegalStateException("Worker block interaction requires the server thread");
+        }
     }
 
     @Override
@@ -72,13 +155,27 @@ public final class WorkerEntityController implements IPlayerController {
 
     @Override
     public void resetBlockRemoving() {
+        if (worker.level().isClientSide()) {
+            return;
+        }
+        requireServerThread();
+        if (breakStage != -1 && breaking.target() != null) {
+            worker.level().destroyBlockProgress(worker.getId(), breaking.target(), -1);
+        }
+        breakStage = -1;
+        selectedSlot = -1;
+        targetState = null;
+        selectedTool = ItemStack.EMPTY;
+        breaking.reset();
     }
 
     @Override
     public void setHittingBlock(boolean hittingBlock) {
+        // BlockBreakHelper toggles this every tick. Only explicit reset aborts progress.
     }
 
     @Override
     public void resetDestroyDelay() {
+        // BlockBreakHelper owns the inter-block delay; the worker adds no second timer.
     }
 }
