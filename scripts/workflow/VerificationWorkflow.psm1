@@ -327,7 +327,10 @@ function Invoke-GradleSensor {
     }
     Set-Content -LiteralPath $RawOutputPath -Value $output -Encoding utf8NoBOM
     $markers = Get-GradleSensorMarkers -Output $output
-    $status = if ($exitCode -eq 0) { 'PASS' } elseif ($output -match '(?i)\bUNVERIFIED\b') { 'UNVERIFIED' } else { 'FAIL' }
+    $status = if ($exitCode -eq 0) { 'PASS' }
+        elseif (@($markers.Values | Where-Object { $_.status -eq 'FAIL' }).Count -gt 0) { 'FAIL' }
+        elseif (@($markers.Values | Where-Object { $_.status -eq 'UNVERIFIED' }).Count -gt 0) { 'UNVERIFIED' }
+        else { 'FAIL' }
     return [pscustomobject]@{
         task = $GradleTask -join ', '
         exit_code = $exitCode
@@ -385,6 +388,8 @@ function Get-TaskSensorRecords {
         }
         $marker = if ($markers.ContainsKey([string] $sensorId)) { $markers[[string] $sensorId] } else { $null }
         $taskName = if ($taskBySensor.ContainsKey([string] $sensorId)) { $taskBySensor[[string] $sensorId] } else { [string] $sensorId }
+        $runtimeFailed = [string] $sensorId -eq 'neoforge_gametest' -and
+            @($Runs | Where-Object { $_.output -match '(?m):runGameTestServer FAILED' }).Count -gt 0
         $underlyingFailed = switch ([string] $sensorId) {
             'compile' { @($Runs | Where-Object { $_.output -match '(?m):compile(?:Java|TestJava|SensorTestJava) FAILED' }).Count -gt 0 }
             'unit_tests' { @($Runs | Where-Object { $_.output -match '(?m):test FAILED' }).Count -gt 0 }
@@ -393,11 +398,12 @@ function Get-TaskSensorRecords {
             'spotbugs' { @($Runs | Where-Object { $_.output -match '(?m):(?:spotbugs(?:Main|Test|SensorTest)|verifyMainSpotBugsDispositions|analyzeRawMainSpotBugs) FAILED' }).Count -gt 0 }
             'archunit' { @($Runs | Where-Object { $_.output -match '(?m):sensor(?:Test|Archunit) FAILED' }).Count -gt 0 }
             'duplication' { @($Runs | Where-Object { $_.output -match '(?m):cpdCheck FAILED' }).Count -gt 0 }
+            'neoforge_gametest' { $runtimeFailed }
             default { @($Runs | Where-Object { $_.output -match "(?m):$taskName FAILED" }).Count -gt 0 }
         }
         $underlyingFailed = $underlyingFailed -or @($Runs | Where-Object { $_.output -match "(?m):$taskName FAILED" }).Count -gt 0
         # UNVERIFIED tasks intentionally exit nonzero when their measurement is unavailable.
-        $failedMeasurement = $underlyingFailed -and ($null -eq $marker -or $marker.status -ne 'UNVERIFIED')
+        $failedMeasurement = $runtimeFailed -or ($underlyingFailed -and ($null -eq $marker -or $marker.status -ne 'UNVERIFIED'))
         $status = if ($failedMeasurement) { 'FAIL' } elseif ($null -ne $marker) { $marker.status } else { 'UNVERIFIED' }
         $summary = if ($failedMeasurement) {
             if ([string] $sensorId -eq 'error_prone') {

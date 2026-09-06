@@ -104,10 +104,10 @@ public class BlockStateInterface {
             if (cached != null && cached.getPos().x == x >> 4 && cached.getPos().z == z >> 4) {
                 return getFromChunk(cached, x, y, z);
             }
-            var chunk = provider.getChunk(x >> 4, z >> 4, ChunkStatus.FULL, false);
-            if (chunk instanceof LevelChunk levelChunk && !levelChunk.isEmpty()) {
-                prev = levelChunk;
-                return getFromChunk(levelChunk, x, y, z);
+            LevelChunk chunk = getLoadedChunk(provider, x >> 4, z >> 4);
+            if (chunk != null && !chunk.isEmpty()) {
+                prev = chunk;
+                return getFromChunk(chunk, x, y, z);
             }
         }
         // same idea here, skip the Long2ObjectOpenHashMap.get if at all possible
@@ -136,9 +136,9 @@ public class BlockStateInterface {
         if (prevChunk != null && prevChunk.getPos().x == x >> 4 && prevChunk.getPos().z == z >> 4) {
             return true;
         }
-        var chunk = provider.getChunk(x >> 4, z >> 4, ChunkStatus.FULL, false);
-        if (chunk instanceof LevelChunk levelChunk && !levelChunk.isEmpty()) {
-            prev = levelChunk;
+        LevelChunk chunk = getLoadedChunk(provider, x >> 4, z >> 4);
+        if (chunk != null && !chunk.isEmpty()) {
+            prev = chunk;
             return true;
         }
         CachedRegion prevRegion = prevCached;
@@ -163,5 +163,18 @@ public class BlockStateInterface {
             return AIR;
         }
         return section.getBlockState(x & 15, y & 15, z & 15);
+    }
+
+    /** Reads already available chunks without joining the server's main-thread executor. */
+    public static LevelChunk getLoadedChunk(ChunkSource provider, int chunkX, int chunkZ) {
+        net.minecraft.world.level.chunk.ChunkAccess chunk;
+        if (provider instanceof net.minecraft.server.level.ServerChunkCache server) {
+            // Minecraft publishes this immutable visible map for access from other threads.
+            var holder = server.chunkMap.getVisibleChunkIfPresent(net.minecraft.world.level.ChunkPos.asLong(chunkX, chunkZ));
+            chunk = holder == null ? null : holder.getChunkIfPresent(ChunkStatus.FULL);
+        } else {
+            chunk = provider.getChunk(chunkX, chunkZ, ChunkStatus.FULL, false);
+        }
+        return chunk instanceof LevelChunk loaded ? loaded : null;
     }
 }

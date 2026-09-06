@@ -22,6 +22,7 @@ import baritone.api.cache.IWorldScanner;
 import baritone.api.utils.BetterBlockPos;
 import baritone.api.utils.BlockOptionalMetaLookup;
 import baritone.api.utils.IPlayerContext;
+import baritone.utils.BlockStateInterface;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.state.BlockState;
@@ -68,7 +69,7 @@ public enum WorldScanner implements IWorldScanner {
                     foundChunks = true;
                     int chunkX = xoff + playerChunkX;
                     int chunkZ = zoff + playerChunkZ;
-                    LevelChunk chunk = chunkProvider.getChunk(chunkX, chunkZ, false);
+                    LevelChunk chunk = BlockStateInterface.getLoadedChunk(chunkProvider, chunkX, chunkZ);
                     if (chunk == null) {
                         continue;
                     }
@@ -95,7 +96,7 @@ public enum WorldScanner implements IWorldScanner {
         }
 
         ChunkSource chunkProvider = ctx.world().getChunkSource();
-        LevelChunk chunk = chunkProvider.getChunk(pos.x, pos.z, false);
+        LevelChunk chunk = BlockStateInterface.getLoadedChunk(chunkProvider, pos.x, pos.z);
         int playerY = ctx.playerFeet().getY() - ctx.world().dimensionType().minY();
 
         if (chunk == null || chunk.isEmpty()) {
@@ -130,7 +131,7 @@ public enum WorldScanner implements IWorldScanner {
         int queued = 0;
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
-                LevelChunk chunk = chunkProvider.getChunk(x, z, false);
+                LevelChunk chunk = BlockStateInterface.getLoadedChunk(chunkProvider, x, z);
 
                 if (chunk != null && !chunk.isEmpty()) {
                     queued++;

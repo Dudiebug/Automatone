@@ -150,10 +150,10 @@ tasks:
     blocker: null
     last_evidence: .agents/decisions/M3-EVIDENCE.md
   M3.4:
-    state: COMPLETE
+    state: IMPLEMENTING
     baseline: e944b15b
-    candidate: null
-    last_verdict: PASS
+    candidate: bb28ca6744b59b11c7013b5c7ff416e01ec4cef6
+    last_verdict: FAIL
     blocker: null
     last_evidence: .agents/decisions/M3-EVIDENCE.md
   M4.1:

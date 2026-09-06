@@ -76,6 +76,35 @@ try {
         $records = @(Records "AUTOMATONE_SENSOR id=neoforge_gametest status=UNVERIFIED summary=missing`n> Task :sensorIntegration FAILED" @('neoforge_gametest'))
         Expect ($records[0].status -eq 'UNVERIFIED') 'unavailable measurement was mislabeled'
     }
+    Check 'H-001 worker GameTest failure remains a local defect despite unrelated UNVERIFIED prose' {
+        $profilesPath = Join-Path $testRoot 'config/verification/profiles.json'
+        $wrapperPath = Join-Path $testRoot 'gradlew.bat'
+        $originalProfiles = Get-Content -LiteralPath $profilesPath -Raw
+        $originalWrapper = Get-Content -LiteralPath $wrapperPath -Raw
+        try {
+            Set-Content -LiteralPath $profilesPath -Value '{"profiles":{"bootstrap":{"gradle_tasks":[":worker:runGameTestServer"],"sensors":["neoforge_gametest"]}}}' -NoNewline
+            Set-Content -LiteralPath $wrapperPath -Value @'
+@echo off
+echo AUTOMATONE_SENSOR id=neoforge_gametest status=PASS summary=31 tests completed
+echo 31 tests, 2 failed
+echo runtime lifecycle remains unverified
+echo ^> Task :worker:runGameTestServer FAILED
+exit /b 1
+'@ -NoNewline
+
+            $result = Invoke-VerificationController -Root $testRoot -TaskId BOOTSTRAP -Profile @('bootstrap') `
+                -GradleTasks @(':worker:runGameTestServer') -RiskReason 'fixture runtime failure classification' `
+                -ReportPath (Join-Path $testRoot '.agents/evidence/bootstrap/worker-gametest-failure.json')
+            Expect ($result.Runs[0].status -eq 'FAIL') 'unrelated UNVERIFIED prose misclassified the failed Gradle process'
+            $sensor = @($result.Report.sensors | Where-Object { $_.id -eq 'neoforge_gametest' })[0]
+            Expect ($sensor.status -eq 'FAIL') 'the worker GameTest failure did not override its premature PASS marker'
+            $failure = @($result.Report.failures | Where-Object { $_.sensor -eq 'neoforge_gametest' })[0]
+            Expect ($failure.classification -eq 'LOCAL_DEFECT') 'the real worker GameTest failure was classified as an environment failure'
+        } finally {
+            Set-Content -LiteralPath $profilesPath -Value $originalProfiles -NoNewline
+            Set-Content -LiteralPath $wrapperPath -Value $originalWrapper -NoNewline
+        }
+    }
 
     $firstPath = Join-Path $testRoot '.agents/evidence/bootstrap/independent/first.json'
     $secondPath = Join-Path $testRoot '.agents/evidence/bootstrap/independent/second.json'

@@ -1,6 +1,6 @@
 # M3 evidence
 
-Status: IN_PROGRESS. M3.1–M3.4 focused work COMPLETE; independent gate PENDING; client observation UNVERIFIED.
+Status: IN_PROGRESS. M3.4 reopened for independent-gate runtime repairs; client observation UNVERIFIED.
 
 ## Authority and starting point
 
@@ -19,7 +19,7 @@ Status: IN_PROGRESS. M3.1–M3.4 focused work COMPLETE; independent gate PENDING
 
 - Initial git status: clean. M2 prerequisite ancestry check: PASS.
 - M3.1–M3.4 focused checks: PASS (measurements below).
-- Final default + architecture_sensitive + runtime_minecraft union: PENDING.
+- Independent profile union: static/root runtime PASS, worker runtime FAIL; affected repair checks PENDING.
 - Three fresh native mining worker-server runs: PENDING.
 - Actual client visual/audio observation: UNVERIFIED (host OpenGL unavailable).
 
@@ -328,3 +328,74 @@ Graphify incremental refresh PASS: 4,986 nodes / 13,714 edges / 268 communities.
 The existing eight Groovy parse advisories and community relabel warning remain
 advisory. M3.4 focused work is controller COMPLETE; milestone remains IN_PROGRESS
 pending the independent gate, fresh-server consistency and client observation.
+
+## Independent milestone gate and repairs
+
+The single fresh Terra verifier received only the human contract, approved spec,
+clean candidate `bb28ca6744b59b11c7013b5c7ff416e01ec4cef6` and runner entry point.
+It ran the default + architecture_sensitive + runtime_minecraft union once.
+Initial raw/report: `.agents/evidence/M3/independent-milestone.json` and
+`independent-milestone.raw/checks.txt`. Compile, unit tests, Checkstyle, Error Prone,
+SpotBugs, architecture and duplication PASS. Root GameTests: 26/26 PASS, 1.952s.
+Worker GameTests: 31 run, two FAIL, 39.56s: native navigation cancellation did not
+reach cancellable movement within 400 ticks; native ore proof still had AStar in
+progress without movement after 700 ticks / 36,414ms. The prior focused PASS does
+not establish consistency or override these fresh failures. Extra worker runs
+were held for repair rather than repeating the same failing candidate.
+
+The runner mislabeled these real GameTest failures as UNVERIFIED/INCOMPLETE:
+its runtime mapping omitted the underlying runGameTestServer failure, and a broad
+UNVERIFIED word match consumed unrelated log prose. Acceptance remained blocked.
+Correcting that mapping requires a focused regression, not a policy relaxation.
+The initial JSON/raw are retained unchanged; actual runtime failures are FAIL.
+
+Blind source review found native ownership intact and no injected target/path
+or test double in the ore proof. The verifier recorded the run/spec/test/checker
+and ownership findings before receiving this builder evidence. It remains the
+same independent context for affected repair checks; no second review context
+or identical preliminary/full-profile rerun is planned. Canary/mutation and
+additional review rounds were not run under the proportional policy.
+
+Root cause under repair: pinned ServerChunkCache.getChunk dispatches background
+lookups to the main-thread executor and joins. BlockStateInterface and native
+WorldScanner use it during asynchronous work. Pinned ChunkMap instead exposes
+an immutable, volatile visible-chunk map expressly for access from other threads;
+its public holder lookup and getChunkIfPresent(FULL) read completed atomic futures
+without joining or loading chunks. Reuse that loaded view in native lookups.
+Test author owns focused background-access and checker regressions; no consumer
+scanner, path policy, native timeout or dependency change is proposed.
+
+The native access regressions demonstrated RED: root 28 tests, exactly the two
+new BSI/scanner background reads timed out while the server thread waited; prior
+26 tests passed. Raw server copy: `logs/m3-native-chunk-access-red-server.log`.
+Implemented shared `BlockStateInterface.getLoadedChunk`: on server use the
+published visible chunk holder and completed FULL chunk; on other providers keep
+the existing non-loading lookup. BSI get0/isLoaded and the three native scanner
+lookups reuse it. Root GREEN: 28/28, 1.902s (`logs/m3-native-chunk-access-green.log`).
+No new chunk snapshot, scanner, path algorithm or dependency was introduced.
+
+Affected compile, Checkstyle and CPD passed (`logs/m3-final-compile-static.log`).
+That invocation correctly blocked at the old source-hash approval for AIR;
+it is not an all-PASS static run. The helper now sits after the existing
+methods, preserving frozen AIR return identity at line 93; the analyzer and
+approval validator will be rerun on the reviewed source.
+
+### Existing AIR warning revalidation
+
+Reused independent Luna reviewer `luna_old_coder` revalidated only existing
+SpotBugs ID 67: AIR is still the private static immutable registry BlockState,
+returned by get0(III) for invalid vertical coordinates at line 93. VALID,
+canonical UTF-8/LF source SHA-256
+`216c07456120a73c59e90fd1a4cc9b98300bd357572777b4a7f15a93eb5dee1f`.
+Updated only that approval's source hash and evidence link. Frozen eligibility,
+identity, reviewer and contract remain unchanged; no new warning was waived.
+
+The workflow repair recognizes underlying runGameTestServer failures and uses
+explicit measurement markers rather than an unrelated UNVERIFIED word in prose.
+Existing 38 workflow repair checks passed; retained new regressions and final
+independent affected checks are still to be recorded.
+
+Human clarified at 2026-09-06 03:21 UTC that the offered manual checks mean
+IN-GAME appearance/GUI-style observations. Automated GameTests remain this
+implementation's responsibility. Continue those autonomously; hand off only
+visual/audio observation and keep M3 unaccepted until it passes.
