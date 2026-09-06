@@ -2,18 +2,26 @@ schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
 accepted_baseline: 30561e6bad934087848cc252796b352c0630444d
-active_task: null
-active_gate: M3
+active_task: M4.5
+active_gate: M4
 
 milestones:
+  M4:
+    state: IN_PROGRESS
+    candidate: null
+    last_verdict: null
+    last_evidence: .agents/decisions/M4-EVIDENCE.md
+    implementation_plan: docs/M4_JOBS_AND_CHUNK_LOADING.md
+    execution_authorization: Human approved M4 prerequisites and M4.5 chunk loading/automatic resume; update M5-M6 specs.
+    blocker: null
   M3:
-    state: BLOCKED
-    candidate: 3d4107583efeb970d8534b1b8ec852d09fabdd2c
-    last_verdict: INCOMPLETE
+    state: ACCEPTED
+    candidate: f2568be80ac881056c21327c6a7c4a38da94e7bc
+    last_verdict: PASS
     last_evidence: .agents/decisions/M3-EVIDENCE.md
     implementation_plan: docs/M3_MINING_IMPLEMENTATION_PLAN.md
     execution_authorization: "Human approved M3 implementation, including non-player hooks and the Stevenator humanoid renderer; stop after M3."
-    blocker: "Mining speed fix compiled and packaged; human requested skipping further tests. New preview requires in-game retest; post-fix runtime checks UNVERIFIED."
+    blocker: null
   M2:
     state: ACCEPTED
     candidate: 30561e6bad934087848cc252796b352c0630444d
@@ -150,36 +158,43 @@ tasks:
     blocker: null
     last_evidence: .agents/decisions/M3-EVIDENCE.md
   M3.4:
-    state: BLOCKED
+    state: COMPLETE
     baseline: e944b15b
-    candidate: m3-preview-mining-fix-20260906
-    last_verdict: UNVERIFIED
-    blocker: In-game retest pending; further automated runs skipped by human instruction.
+    candidate: f2568be80ac881056c21327c6a7c4a38da94e7bc
+    last_verdict: PASS
+    blocker: null
     last_evidence: .agents/decisions/M3-EVIDENCE.md
   M4.1:
-    state: PLANNED
-    baseline: null
+    state: COMPLETE
+    baseline: f2568be80ac881056c21327c6a7c4a38da94e7bc
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PASS
+    blocker: null
   M4.2:
-    state: PLANNED
+    state: COMPLETE
     baseline: null
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PASS
+    blocker: null
   M4.3:
-    state: PLANNED
+    state: COMPLETE
     baseline: null
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PASS
+    blocker: null
   M4.4:
-    state: PLANNED
+    state: COMPLETE
+    baseline: null
+    candidate: null
+    last_verdict: PASS
+    blocker: null
+  M4.5:
+    state: IMPLEMENTING
     baseline: null
     candidate: null
     last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    blocker: null
+    last_evidence: .agents/decisions/M4-EVIDENCE.md
   M5.1:
     state: PLANNED
     baseline: null

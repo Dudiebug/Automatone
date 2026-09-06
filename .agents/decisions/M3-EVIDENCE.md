@@ -486,3 +486,5 @@ preservation. `:worker:runGameTestServer` PASS, 34/34, including the previously
 unrun slow-demo completion and cost regressions; raw `logs/m3-pickup-gametest.log`.
 `:jar :worker:jar` PASS. No broad static rerun or graph refresh for this local fix.
 Manual visual acceptance and later persistence work remain pending.
+
+M3 prerequisite closed at f2568be8: human happy with pickup preview; all34worker tests PASS; reused independent verifier ran affected root/worker Checkstyle, CPD, raw SpotBugs/dispositions/main tasks PASS (39s). Earlier unaffected independent profile evidence retained. Controller accepts M3 before authorized M4 prerequisites.

@@ -590,7 +590,7 @@ public final class WorkerNativeMineProcessGameTest {
         }
     }
 
-    private static final class MiningChamber {
+    static final class MiningChamber {
         private static final int WIDTH = 17;
         private static final int HEIGHT = 5;
         private static final int DEPTH = 9;
@@ -601,7 +601,7 @@ public final class WorkerNativeMineProcessGameTest {
         private final BlockPos origin;
         private final Map<BlockPos, BlockState> originalBlocks = new LinkedHashMap<>();
 
-        private MiningChamber(Level level, BlockPos origin) {
+        MiningChamber(Level level, BlockPos origin) {
             this.level = level;
             this.origin = origin;
         }
@@ -610,11 +610,11 @@ public final class WorkerNativeMineProcessGameTest {
             return origin;
         }
 
-        private BlockPos workerPosition() {
+        BlockPos workerPosition() {
             return origin.offset(WORKER_OFFSET);
         }
 
-        private BlockPos target() {
+        BlockPos target() {
             return origin.offset(TARGET_OFFSET);
         }
 
@@ -622,7 +622,7 @@ public final class WorkerNativeMineProcessGameTest {
             return level.getBlockState(target()).is(block);
         }
 
-        private void build() {
+        void build() {
             for (int x = 0; x < WIDTH; x++) {
                 for (int z = 0; z < DEPTH; z++) {
                     replace(origin.offset(x, 0, z), Blocks.STONE.defaultBlockState());
@@ -646,7 +646,7 @@ public final class WorkerNativeMineProcessGameTest {
                     entity -> entity.getItem().is(item)).isEmpty();
         }
 
-        private void clearDrops() {
+        void clearDrops() {
             for (ItemEntity item : level.getEntities(EntityTypeTest.forClass(ItemEntity.class),
                     new AABB(origin.getX(), origin.getY(), origin.getZ(),
                             origin.getX() + WIDTH, origin.getY() + HEIGHT, origin.getZ() + DEPTH).inflate(1.0D), entity -> true)) {
@@ -654,12 +654,12 @@ public final class WorkerNativeMineProcessGameTest {
             }
         }
 
-        private void replace(BlockPos position, BlockState state) {
+        void replace(BlockPos position, BlockState state) {
             originalBlocks.putIfAbsent(position, level.getBlockState(position));
             level.setBlock(position, state, 3);
         }
 
-        private void restore() {
+        void restore() {
             for (Map.Entry<BlockPos, BlockState> entry : originalBlocks.entrySet()) {
                 level.setBlock(entry.getKey(), entry.getValue(), 3);
             }
@@ -667,7 +667,7 @@ public final class WorkerNativeMineProcessGameTest {
         }
     }
 
-    private static WorkerEntity spawnWorker(ServerLevel level, BlockPos position) {
+    static WorkerEntity spawnWorker(ServerLevel level, BlockPos position) {
         WorkerEntity worker = WorkerMod.WORKER.get().create(level);
         if (worker == null) {
             throw new IllegalStateException("Registered worker entity type did not create an entity");

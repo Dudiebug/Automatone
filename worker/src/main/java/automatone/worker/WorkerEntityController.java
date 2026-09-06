@@ -186,6 +186,7 @@ public final class WorkerEntityController implements IPlayerController {
             resetBlockRemoving();
             return false;
         }
+        worker.onBlockDestroyed(state);
         clearCracks();
         state.getBlock().destroy(level, pos, state);
         stack.getItem().mineBlock(stack, level, state, pos, worker);

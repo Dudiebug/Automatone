@@ -3,6 +3,8 @@ package automatone.worker;
 import baritone.api.BaritoneAPI;
 import baritone.api.IBaritone;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.EntityType;
@@ -16,6 +18,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.LevelResource;
 
 import java.util.List;
@@ -24,6 +27,7 @@ import java.util.Objects;
 /** Server worker with explicit, transient ownership of one native runtime. */
 public class WorkerEntity extends Mob implements Container {
     private final SimpleContainer inventory = new SimpleContainer(9);
+    private final MiningSession miningSession = new MiningSession();
     private final WorkerContext context = new WorkerContext(this);
     private int selectedSlot;
     private IBaritone runtime;
@@ -63,6 +67,10 @@ public class WorkerEntity extends Mob implements Container {
             // Native look owns entity yaw; expose the same facing through vanilla head tracking.
             setYHeadRot(getYRot());
             ((WorkerEntityController) context.playerController()).validateBreakingTarget();
+            if (miningSession.snapshot().state() == MiningSession.State.RUNNING
+                    && runtime != null && !runtime.getMineProcess().isActive()) {
+                miningSession.fail("NATIVE_STOPPED");
+            }
             getNavigation().stop();
             if (onGround() && xxa == 0.0F && zza == 0.0F) {
                 setDeltaMovement(0.0D, getDeltaMovement().y, 0.0D);
@@ -74,6 +82,57 @@ public class WorkerEntity extends Mob implements Container {
 
     public IBaritone runtime() {
         return runtime;
+    }
+
+    public MiningSession.Snapshot miningStatus() {
+        return miningSession.snapshot();
+    }
+
+    void onBlockDestroyed(BlockState state) {
+        if (miningSession.recordBreak(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString())) {
+            cancelNativeMining();
+        }
+    }
+
+    /** Server-owned product request; zero requests unlimited source blocks. */
+    public void startMining(ResourceLocation target, int requested) {
+        requireServerThread();
+        if (runtime == null || isRemoved() || !isAlive()) {
+            throw new IllegalStateException("WORKER_UNAVAILABLE");
+        }
+        if (runtime.getMineProcess().isActive()) {
+            throw new IllegalStateException("WORKER_BUSY");
+        }
+        var block = BuiltInRegistries.BLOCK.getOptional(Objects.requireNonNull(target))
+                .filter(candidate -> !candidate.defaultBlockState().isAir())
+                .orElseThrow(() -> new IllegalArgumentException("INVALID_BLOCK"));
+        miningSession.start(target.toString(), requested);
+        try {
+            runtime.getMineProcess().mine(block);
+        } catch (RuntimeException failure) {
+            miningSession.fail("NATIVE_START_FAILED");
+            cancelNativeMining();
+            throw failure;
+        }
+    }
+
+    private void cancelNativeMining() {
+        if (runtime != null) {
+            runtime.getMineProcess().cancel();
+        }
+        context.playerController().resetBlockRemoving();
+    }
+
+    public void stopMining() {
+        requireServerThread();
+        miningSession.stop();
+        cancelNativeMining();
+    }
+
+    private void requireServerThread() {
+        if (!(level() instanceof ServerLevel serverLevel) || !serverLevel.getServer().isSameThread()) {
+            throw new IllegalStateException("Worker jobs require the server thread");
+        }
     }
 
     @Override

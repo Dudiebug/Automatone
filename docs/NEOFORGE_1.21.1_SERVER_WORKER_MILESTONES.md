@@ -1,5 +1,11 @@
 # Automatone NeoForge 1.21.1 Server Worker Rebuild Plan
 
+## Approved 2026-09-06 addition
+
+See docs/M4_JOBS_AND_CHUNK_LOADING.md: M4.5 adds nine active/one idle ticking
+chunks, persistence and automatic resume; M5 adds cross-dimension controller
+lookup. These requirements supersede the original exclusions below.
+
 ## Purpose
 
 Build a deliberately small NeoForge 1.21.1 server-side worker around native Automatone rather than rebuilding Baritone inside the consumer mod.
@@ -124,8 +130,8 @@ Do not add:
 
 - storage automation;
 - chest assignment/deposit behavior;
-- chunk tickets/loading;
-- offline mining;
+- configurable chunk-loading radii and chunk-loading dashboards;
+- catch-up mining while the server is stopped or paused;
 - work areas or exclusion zones;
 - dashboards or telemetry history;
 - worker fleets;
@@ -543,6 +549,13 @@ Cover:
 - pre-existing matching inventory does not count;
 - multi-drop/Fortune does not count as multiple source blocks.
 
+### M4.5 — Chunk loading and automatic resume
+
+Implement docs/M4_JOBS_AND_CHUNK_LOADING.md after the quantity/cancellation cases.
+Nine UUID-owned ticking chunks while mining; one while idle. Persist inventory
+and session state, resume RUNNING jobs with fresh runtimes, and clean up tickets
+on removal, transfer and orphan recovery. M5 handles cross-dimension user control.
+
 ## Runnable acceptance test
 
 ```bash
@@ -596,7 +609,7 @@ A player can bind one controller to one worker, open one GUI, select a block and
 ### M5.1 — Controller item and binding
 
 - Register the controller item.
-- Store bound worker UUID in a versioned item data component; dimension may be included for lookup/diagnostics if useful.
+- Store bound worker UUID and dimension in a versioned item data component; resolve the loaded worker server-side across dimensions without a proximity requirement.
 - Bind by interacting with an owned worker.
 - Perform binding writes and ownership validation on the server.
 - Keep rebinding behavior explicit and simple.
@@ -720,7 +733,7 @@ Then execute the documented dedicated-server/client flow once.
 
 ## Goal
 
-Finish the MVP with safe save/reload behavior, enforced ownership, and meaningful failure reporting without adding offline operation or a persistent pathfinding/job engine.
+Finish the MVP with safe save/reload behavior, enforced ownership, and meaningful failure reporting using the M4.5 chunk-loading and automatic-resume foundation, without a persistent pathfinding engine.
 
 ## Required code/modules
 
@@ -754,14 +767,14 @@ Centralize ownership checks enough that binding, menu open, Start, and Stop use 
 
 MVP rules:
 
-- unloaded worker does no work because there is no chunk loading;
-- a persisted `RUNNING` task reloads as `INTERRUPTED`;
+- M4.5 keeps nine chunks ticking while mining and one while idle, including without an online owner;
+- a persisted `RUNNING` task resumes automatically once its worker and required chunks are ready;
 - reconstruct a fresh transient Automatone runtime from current world state;
-- never silently auto-resume after restart;
-- user must press Start again;
-- retain target/amount/progress so a manual restart can continue toward the requested total.
+- completed, cancelled and failed jobs must not auto-resume;
+- only previously running jobs resume, using a fresh transient runtime;
+- retain target/amount/progress so automatic restart continues toward the requested total.
 
-**Done when:** restart never causes unattended movement/mining, and no stale runtime/path state is restored.
+**Done when:** restart resumes only saved running jobs toward their remaining count, and no stale runtime/path state is restored.
 
 ### M6.3 — Add typed native failure reporting and user error mapping
 
@@ -797,7 +810,7 @@ Automated/end-to-end coverage:
 - ownership remains after restart;
 - controller binding remains after restart;
 - target/quantity/progress persist;
-- running job reloads as `INTERRUPTED` and does not auto-resume;
+- running jobs resume automatically; terminal jobs stay stopped;
 - fresh transient runtime is created once after reload;
 - no target -> `NO_TARGETS`;
 - unreachable target -> deterministic path failure;
@@ -839,9 +852,9 @@ The MVP is complete when a player can:
 8. Stop;
 9. receive a clear failure/status when something goes wrong;
 10. save/restart without losing identity, ownership, binding, configuration, or progress;
-11. observe that interrupted work never silently resumes.
+11. observe that only previously running work resumes and retains its completed progress.
 
-No storage automation, chunk loading, work zones, dashboards, multi-worker dispatch, or scanner enhancements are part of this gate.
+No storage automation, work zones, dashboards, multi-worker dispatch, or scanner enhancements are part of this gate.
 
 ---
 
@@ -865,7 +878,7 @@ Keep these simple rules throughout the project:
 5. `M1.5` server smoke tests.
 6. `M2.1-M2.4` minimal worker and movement proof.
 7. `M3.1-M3.4` real worker block breaking and one-block native mining proof.
-8. `M4.1-M4.4` exact quantities/unlimited/cancellation.
+8. `M4.1-M4.4` exact quantities/unlimited/cancellation, then `M4.5` chunk loading/save/resume.
 9. `M5.1-M5.5` controller, one-screen GUI, networking, validation.
 10. `M6.1-M6.4` persistence, failure reporting, final MVP acceptance.
 

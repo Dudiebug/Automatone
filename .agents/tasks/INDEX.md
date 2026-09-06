@@ -5,6 +5,12 @@ docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md. The plan remains the product
 and architecture authority. The task files preserve its original 26 task IDs;
 they do not add product work.
 
+## Current authority
+
+Use .agents/STATE.yaml for current status; the planning caveats below are historical.
+The approved 2026-09-06 addition docs/M4_JOBS_AND_CHUNK_LOADING.md adds M4.5
+after M4.4 and supersedes no-loading/no-auto-resume assumptions in this index.
+
 ## Planning status and caveats
 
 - All 26 task specifications are PLANNED. None is READY or ACCEPTED.
