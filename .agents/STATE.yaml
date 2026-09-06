@@ -2,7 +2,7 @@ schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
 accepted_baseline: 14762d261c107f7020930aa73d905e47359f3d04
-active_task: M5.14
+active_task: null
 active_gate: M5
 
 milestones:
@@ -286,10 +286,11 @@ tasks:
     last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
     deferred: "In-game acceptance PENDING — HUMAN TESTING; see recorded historical focused results."
   M5.14:
-    state: IMPLEMENTING
-    last_verdict: PENDING
+    state: COMPLETE
+    candidate: e987600a24fdaf4cfa184b41ecccd667fd3f9d12
+    last_verdict: PASS
     last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
-    deferred: "All in-game testing belongs to the human; no agent client/GameTest/restart runs."
+    deferred: "Implementation/delivery PASS; all in-game acceptance PENDING — HUMAN TESTING. M5 is not ACCEPTED."
   M6.1:
     state: PLANNED
     baseline: null

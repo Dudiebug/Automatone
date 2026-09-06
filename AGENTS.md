@@ -70,7 +70,7 @@ Use the installed `old-coder` skill for explicitly requested high-assurance work
 - Every helper escalates directly to Astra on ambiguity, unexpected scope, conflicting evidence, a failed repair or lack of progress. Return current changes, results and the smallest unresolved issue instead of starting a handoff chain.
 - Astra automatically reviews helper changes and evidence, repairs or rejects inadequate work, and approves integration/task completion when checks establish the criteria. Automatic review does not mean automatic PASS. Do not ask the user to review or approve helper output.
 - Reuse helper contexts for related work. Preserve one fresh independent milestone verification context, separate from implementation/test authoring; Astra selects its model and reviews its evidence. Do not claim independence for Astra's own implementation context.
-- Involve the user only for genuinely manual interaction, unavailable access/input, or an unresolved decision outside the approved product scope. Run automated GameTests autonomously; request user participation only for a check that actually requires a person. Tool permission restrictions remain authoritative.
+- The human performs all in-game checks, including GameTests and restart checks; provide actions and expected results with the build. Run local code/build/unit/static checks autonomously. Involve the user for unavailable access/input or unresolved decisions outside the approved product scope. Tool permission restrictions remain authoritative.
 
 Do not copy third-party skill text into repository output. Invoke/reference the installed skills.
 

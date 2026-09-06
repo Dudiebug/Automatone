@@ -51,8 +51,8 @@ changes that materially invalidate the graph. Skip refreshes for small local fix
 
 The 2026-09-05 user instruction supersedes mandatory Luna routing and model-change
 approval requirements. Routine implementation, testing, delegation, review and
-integration decisions require no user participation. Run automated GameTests
-locally; ask the user only for actual manual checks, missing access/input, or
+integration decisions require no user participation. Run code/build/unit/static
+checks locally and supply the human's in-game checklist; ask for missing access/input or
 unresolved decisions outside the approved product scope. This routing revision
 does not waive required checks or change the product architecture.
 

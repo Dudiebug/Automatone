@@ -127,3 +127,42 @@ without a specific request. Deliver code/build/static evidence and a numbered
 human checklist; do not hold delivery for human-owned in-game checks. The final
 fresh independent gate will therefore run the non-game profiles only. In-game
 milestone acceptance stays PENDING, including restart and normal/compact GUI.
+
+## M5.14 — implementation/delivery COMPLETE; in-game acceptance PENDING — HUMAN TESTING
+
+Fresh independent verifier checked clean candidate
+`e987600a24fdaf4cfa184b41ecccd667fd3f9d12` once with
+`Invoke-AutomatoneVerification.ps1 -TaskId M5.14 -Scope Milestone -Profile
+default,architecture_sensitive -FreshContext`. All seven deduplicated sensors
+PASS: compilation, unit tests, Checkstyle, Error Prone, SpotBugs, ArchUnit and CPD.
+Raw measurement: `.agents/evidence/M5/global-independent-profile.json` and its
+`.raw/checks.txt`. Independent source/contract inspection found no actionable
+source or architecture defect. Removed the reported trailing blank line in the
+M5.12 task document. No product repair or repeat broad run was needed.
+
+Controller confirms approved scope and native/consumer/server boundaries.
+Protocol 4 and matching native/worker version 0.12.0 are packaged. Graphify
+boundary update PASS (`global-graph-update.log`): 6,240 nodes / 19,253 edges;
+eight existing Groovy parser warnings are advisory. `jar :worker:jar` PASS
+(`global-package.log`). Inspected both mod descriptors, exact worker dependency
+`[0.12.0]`, Batch/Collection production classes and absence of GameTest classes.
+All four payload entries in the ZIP match the included SHA256 manifest.
+
+Delivery: `dist/automatone-0.12.0-global-management.zip`, containing both JARs,
+README, checksums and `M5_GLOBAL_MANAGEMENT_USER_GUIDE.md` with 12 numbered
+actions/expected results. ZIP SHA256:
+`93dbbed3e2e39a0d91aace96be47170d2fb7c046f38f7bee27483c36ba66acd7`.
+Native JAR SHA256: `eb024441194024e51ebfa2e3742d0b1f5850d92e8844755660642912a7b54202`.
+Worker JAR SHA256: `785af3dfc4b0f4730b514ca7ac4bb5cb4c6c5de6738829e5859d56124526e02b`.
+Prior 0.11.1 artifacts are preserved. Final tracked changes only record completion,
+remove the task-document whitespace and align old workflow wording with the
+human's explicit test ownership; packaged product source remains the verified
+candidate. No product assumption was disproven in this gate.
+
+NOT RUN in the final gate: Minecraft client, GameTest server, restart probe or
+any other in-game acceptance. These are PENDING — HUMAN TESTING, including the
+corrected ten-worker cap fixture, layouts, gameplay and restart persistence.
+Historical earlier runtime measurements above remain evidence only for those
+runs. The controller completes implementation and handoff; M5 remains unaccepted
+until the human reports the required in-game results or explicitly accepts an
+exception. No later milestone was started.
