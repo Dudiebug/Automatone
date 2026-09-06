@@ -13,7 +13,7 @@ milestones:
     last_evidence: .agents/decisions/M3-EVIDENCE.md
     implementation_plan: docs/M3_MINING_IMPLEMENTATION_PLAN.md
     execution_authorization: "Human approved M3 implementation, including non-player hooks and the Stevenator humanoid renderer; stop after M3."
-    blocker: "Automated checks pass; actual client visual/audio observation remains UNVERIFIED because this host lacks working OpenGL. Human will perform the in-game checklist."
+    blocker: "Mining speed fix compiled and packaged; human requested skipping further tests. New preview requires in-game retest; post-fix runtime checks UNVERIFIED."
   M2:
     state: ACCEPTED
     candidate: 30561e6bad934087848cc252796b352c0630444d
@@ -150,11 +150,11 @@ tasks:
     blocker: null
     last_evidence: .agents/decisions/M3-EVIDENCE.md
   M3.4:
-    state: COMPLETE
+    state: BLOCKED
     baseline: e944b15b
-    candidate: 3d4107583efeb970d8534b1b8ec852d09fabdd2c
-    last_verdict: PASS
-    blocker: null
+    candidate: m3-preview-mining-fix-20260906
+    last_verdict: UNVERIFIED
+    blocker: In-game retest pending; further automated runs skipped by human instruction.
     last_evidence: .agents/decisions/M3-EVIDENCE.md
   M4.1:
     state: PLANNED

@@ -3,15 +3,21 @@ package automatone.worker.gametest;
 import automatone.worker.WorkerEntity;
 import automatone.worker.WorkerEntityController;
 import automatone.worker.WorkerMod;
+import baritone.Baritone;
 import baritone.api.IBaritone;
+import baritone.api.utils.IPlayerContext;
 import baritone.api.utils.RayTraceUtils;
 import baritone.api.utils.Rotation;
+import baritone.utils.ToolSet;
+import java.lang.reflect.Proxy;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -29,6 +35,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Exercises one native MineProcess request without supplying a target position to the worker. */
@@ -38,9 +45,12 @@ public final class WorkerNativeMineProcessGameTest {
     private static final int SETTLE_TICKS = 2;
     private static final int MAXIMUM_PROOF_TICKS = 700;
     private static final int TEST_TIMEOUT_TICKS = 760;
+    private static final int MAXIMUM_DEMO_SLOW_COMPLETION_TICKS = 900;
+    private static final int DEMO_SLOW_COMPLETION_TIMEOUT_TICKS = 960;
     private static final long NATIVE_ASYNC_YIELD_MILLIS = 50L;
     private static final double MINIMUM_PATH_DISPLACEMENT_SQUARED = 4.0D;
     private static final float MAXIMUM_HEAD_YAW_ERROR = 30.0F;
+    private static final double SLOW_TEST_BLOCK_BREAK_SPEED = 0.025D;
 
     private WorkerNativeMineProcessGameTest() {
     }
@@ -54,6 +64,76 @@ public final class WorkerNativeMineProcessGameTest {
             helper.runAfterDelay(SETTLE_TICKS, () -> beginNativeMining(helper, startedFixture));
         } catch (Throwable failure) {
             failAndClose(helper, fixture, "Native MineProcess fixture setup failed", failure);
+        }
+    }
+
+    @GameTest(template = "worker_native_mining", batch = "worker_m3_demo_cost", timeoutTicks = 100)
+    public static void demoMiningCostEstimateTracksConfiguredBlockBreakSpeed(GameTestHelper helper) {
+        DemoSession demo = null;
+        boolean previousPotionSetting = Baritone.settings().considerPotionEffects.value;
+        try {
+            demo = startDemo(helper.getLevel(), helper.absolutePos(BlockPos.ZERO));
+            AttributeInstance breakSpeed = demo.worker.getAttribute(Attributes.BLOCK_BREAK_SPEED);
+            helper.assertTrue(breakSpeed != null,
+                    "The demo worker must expose the real block-break-speed attribute");
+
+            for (boolean considerPotions : List.of(false, true)) {
+                Baritone.settings().considerPotionEffects.value = considerPotions;
+                breakSpeed.setBaseValue(1.0D);
+                double normalSpeed = new ToolSet(demo.runtime.getPlayerContext())
+                        .getStrVsBlock(Blocks.IRON_ORE.defaultBlockState());
+                breakSpeed.setBaseValue(SLOW_TEST_BLOCK_BREAK_SPEED);
+                double demoSpeed = new ToolSet(demo.runtime.getPlayerContext())
+                        .getStrVsBlock(Blocks.IRON_ORE.defaultBlockState());
+                helper.assertTrue(normalSpeed > 0.0D
+                                && Math.abs(demoSpeed / normalSpeed - SLOW_TEST_BLOCK_BREAK_SPEED) < 0.000001D,
+                        "ToolSet must scale iron-ore cost by the demo block-break-speed attribute with considerPotionEffects="
+                                + considerPotions + "; normal=" + normalSpeed + ", demo=" + demoSpeed);
+            }
+
+            ArmorStand nonWorker = new ArmorStand(helper.getLevel(), 0.0D, 0.0D, 0.0D);
+            helper.assertTrue(nonWorker.getAttribute(Attributes.BLOCK_BREAK_SPEED) == null,
+                    "The fallback assertion requires a normal non-worker host without block-break-speed");
+            SimpleContainer inventory = new SimpleContainer(9);
+            inventory.setItem(0, new ItemStack(Items.IRON_PICKAXE));
+            double fallbackSpeed = new ToolSet(toolSetContext(nonWorker, inventory))
+                    .getStrVsBlock(Blocks.IRON_ORE.defaultBlockState());
+            double vanillaSpeed = ToolSet.calculateSpeedVsBlock(new ItemStack(Items.IRON_PICKAXE),
+                    Blocks.IRON_ORE.defaultBlockState());
+            helper.assertTrue(Math.abs(fallbackSpeed - vanillaSpeed) < 0.000001D,
+                    "A host without block-break-speed must retain the vanilla multiplier of one");
+        } finally {
+            Baritone.settings().considerPotionEffects.value = previousPotionSetting;
+            if (demo != null) {
+                demo.close();
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "worker_native_mining", batch = "worker_m3_demo", timeoutTicks = DEMO_SLOW_COMPLETION_TIMEOUT_TICKS)
+    public static void demoSessionCompletesSlowMiningWithOutsideIronOre(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        DemoSession demo = null;
+        Map<BlockPos, BlockState> outsideTerrain = new LinkedHashMap<>();
+        try {
+            demo = startDemo(level, helper.absolutePos(BlockPos.ZERO));
+            AttributeInstance breakSpeed = demo.worker.getAttribute(Attributes.BLOCK_BREAK_SPEED);
+            helper.assertTrue(breakSpeed != null,
+                    "The slow-demo completion regression requires the worker block-break-speed attribute");
+            breakSpeed.setBaseValue(SLOW_TEST_BLOCK_BREAK_SPEED);
+            BlockPos outsideOre = demo.target().offset(-15, 0, 0);
+            seedOutsideIronTerrain(level, outsideOre, outsideTerrain);
+            helper.assertTrue(level.getBlockState(outsideOre).is(Blocks.IRON_ORE),
+                    "The demo regression must include another iron ore outside the chamber");
+            helper.assertTrue(!outsideOre.equals(demo.target()),
+                    "The outside terrain ore must not replace the demo chamber target");
+            demo.start();
+            DemoSession startedDemo = demo;
+            helper.runAfterDelay(1, () -> observeSlowDemoMining(helper, startedDemo, outsideOre, outsideTerrain,
+                    new DemoMiningObservation(), 1));
+        } catch (Throwable failure) {
+            failAndCloseDemo(helper, demo, level, outsideTerrain, "Slow demo mining setup failed", failure);
         }
     }
 
@@ -91,6 +171,127 @@ public final class WorkerNativeMineProcessGameTest {
 
     static DemoSession startDemo(ServerLevel level, BlockPos origin) {
         return DemoSession.create(level, origin);
+    }
+
+    private static IPlayerContext toolSetContext(ArmorStand player, SimpleContainer inventory) {
+        return (IPlayerContext) Proxy.newProxyInstance(
+                IPlayerContext.class.getClassLoader(),
+                new Class<?>[]{IPlayerContext.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "player" -> player;
+                    case "inventory" -> inventory;
+                    case "selectedSlot" -> 0;
+                    default -> throw new UnsupportedOperationException(method.toString());
+                }
+        );
+    }
+
+    private static void observeSlowDemoMining(
+            GameTestHelper helper,
+            DemoSession demo,
+            BlockPos outsideOre,
+            Map<BlockPos, BlockState> outsideTerrain,
+            DemoMiningObservation observation,
+            int elapsedTicks
+    ) {
+        try {
+            waitForNativeAsyncWork();
+            observation.sample(demo);
+            if (demo.chamber.targetStateIs(Blocks.AIR)) {
+                helper.assertTrue(demo.chamber.level.getBlockState(outsideOre).is(Blocks.IRON_ORE),
+                        "The unreachable outside ore must remain terrain while the demo completes its chamber target");
+                helper.assertTrue(observation.targetProgressSamples > 1,
+                        "The configured slow demo must expose progressive target damage before completion; observed="
+                                + observation.describe(demo));
+                closeAndRestoreDemo(demo, demo.chamber.level, outsideTerrain);
+                helper.succeed();
+                return;
+            }
+            helper.assertTrue(elapsedTicks < MAXIMUM_DEMO_SLOW_COMPLETION_TICKS,
+                    "The configured slow demo did not complete its chamber target within "
+                            + MAXIMUM_DEMO_SLOW_COMPLETION_TICKS + " ticks; observed=" + observation.describe(demo));
+            helper.runAfterDelay(1, () -> observeSlowDemoMining(helper, demo, outsideOre, outsideTerrain, observation,
+                    elapsedTicks + 1));
+        } catch (Throwable failure) {
+            failAndCloseDemo(helper, demo, demo.chamber.level, outsideTerrain,
+                    "Slow demo mining observation failed", failure);
+        }
+    }
+
+    private static void seedOutsideIronTerrain(
+            ServerLevel level,
+            BlockPos outsideOre,
+            Map<BlockPos, BlockState> originalBlocks
+    ) {
+        for (int x = -1; x <= 1; x++) {
+            for (int y = -1; y <= 1; y++) {
+                for (int z = -1; z <= 1; z++) {
+                    BlockPos position = outsideOre.offset(x, y, z);
+                    originalBlocks.putIfAbsent(position, level.getBlockState(position));
+                    level.setBlock(position, Blocks.STONE.defaultBlockState(), 3);
+                }
+            }
+        }
+        level.setBlock(outsideOre, Blocks.IRON_ORE.defaultBlockState(), 3);
+    }
+
+    private static void closeAndRestoreDemo(DemoSession demo, Level level, Map<BlockPos, BlockState> outsideTerrain) {
+        try {
+            demo.close();
+        } finally {
+            outsideTerrain.forEach((position, state) -> level.setBlock(position, state, 3));
+        }
+    }
+
+    private static void failAndCloseDemo(
+            GameTestHelper helper,
+            DemoSession demo,
+            Level level,
+            Map<BlockPos, BlockState> outsideTerrain,
+            String message,
+            Throwable failure
+    ) {
+        try {
+            if (demo != null) {
+                closeAndRestoreDemo(demo, level, outsideTerrain);
+            } else {
+                outsideTerrain.forEach((position, state) -> level.setBlock(position, state, 3));
+            }
+        } catch (Throwable cleanupFailure) {
+            failure.addSuppressed(cleanupFailure);
+        }
+        helper.fail(message + ": " + failure);
+    }
+
+    private static final class DemoMiningObservation {
+        private int targetProgressSamples;
+        private int targetProgressResets;
+        private float previousTargetProgress;
+        private boolean targetWasBreaking;
+
+        private void sample(DemoSession demo) {
+            WorkerEntityController controller = (WorkerEntityController) demo.runtime.getPlayerContext().playerController();
+            boolean targetBreaking = demo.target().equals(controller.breakingBlock());
+            float progress = controller.breakProgress();
+            if (targetWasBreaking && (!targetBreaking || progress + 0.000001F < previousTargetProgress)) {
+                targetProgressResets++;
+            }
+            if (targetBreaking && progress > 0.0F && progress < 1.0F) {
+                targetProgressSamples++;
+                previousTargetProgress = progress;
+            }
+            targetWasBreaking = targetBreaking;
+        }
+
+        private String describe(DemoSession demo) {
+            return "targetProgressSamples=" + targetProgressSamples
+                    + ", targetProgressResets=" + targetProgressResets
+                    + ", mineActive=" + demo.runtime.getMineProcess().isActive()
+                    + ", pathing=" + demo.runtime.getPathingBehavior().isPathing()
+                    + ", inProgress=" + demo.runtime.getPathingBehavior().getInProgress().isPresent()
+                    + ", worker=" + demo.worker.position()
+                    + ", target=" + demo.target();
+        }
     }
 
     private static void succeedAndClose(GameTestHelper helper, NativeMiningFixture fixture) {
@@ -138,7 +339,7 @@ public final class WorkerNativeMineProcessGameTest {
     }
 
     static final class DemoSession {
-        private static final double DEMO_BLOCK_BREAK_SPEED = 0.025D;
+        private static final double DEMO_BLOCK_BREAK_SPEED = 1.0D;
 
         private final MiningChamber chamber;
         private final WorkerEntity worker;

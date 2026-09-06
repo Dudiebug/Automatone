@@ -441,3 +441,35 @@ are delegated to the human.
    and the unfinished ore stays intact for at least five seconds.
 5. Start once more and confirm mining resumes normally. Report any missing
    visual/audio behavior; only mark the manual observation PASS after seeing it.
+
+## Manual preview defect: slow mining repeatedly restarts
+
+Human tested the published preview `55f82e33` in Prism/NeoForge and reported
+slow repeated breaking without completion. Supplied launcher log confirms the
+actual demo command and 2.5% speed, plus native unreachable-target blacklisting
+in the surrounding normal world. Prior GameTests exercised the normal-speed
+fixture, not the actual slowed DemoSession; their PASS did not establish demo
+completion. Reopened M3.4. Focused acceptance: reproduce actual demo completion,
+keep native cost consistent with BLOCK_BREAK_SPEED, and use normal speed by
+default for the user. No scanner/path engine replacement or timeout relaxation.
+
+Focused cost regression RED: 32 worker tests, exactly the new cost case failed;
+normal and .025-speed workers both estimated 0.06666667 progress/tick when
+considerPotionEffects=false. Existing 31 tests passed. ToolSet constructor now
+snapshots BLOCK_BREAK_SPEED (fallback 1 for hosts lacking it), combined with
+optional potion multiplier; no timeout changes. Reused Luna reviewer revalidated
+sole ToolSet disposition ID71 as VALID: narrow getDestroySpeed catch at line205
+and its contract unchanged. Canonical source SHA256
+`5d7803719939fe9509557e746ede411d7a3edf946775f34d5dc3f6452d249739`;
+updated only source hash/evidence, no frozen eligibility or threshold changes.
+
+Human requested prompt push/new release and no further tests for the confirmed
+cause. Honored that override: post-fix runtime/static suites NOT RUN, not PASS.
+Final packaging command `:jar :worker:jar :worker:compileGameTestJava
+:worker:processGameTestResources --no-daemon --console=plain` PASS (10s).
+Terra retained an explicit .025 ratio regression and a compiled slow demo
+completion case with outside ore; the latter was not runtime-run. Demo default
+is now 1.0 (normal speed), with matching chat. Independent readonly Terra review
+found no source blocker. Native timeout/ownership and analysis thresholds remain
+unchanged. Release `m3-preview-mining-fix-20260906` awaits human in-game retest;
+prior milestone acceptance remains incomplete.

@@ -42,7 +42,7 @@ public final class WorkerGameTestMod {
         viewer.teleportTo(level, view.getX() + 0.5D, view.getY(), view.getZ() + 0.5D, -60.0F, 27.0F);
         demo.start();
         source.sendSuccess(() -> Component.literal("M3 demo started at " + view + "; target=" + demo.target()
-                + ". The worker mines at 2.5% speed for visible progressive cracks. Use /worker_m3_demo cancel to stop it."), false);
+                + ". The worker mines at normal speed. Use /worker_m3_demo cancel to stop it."), false);
         return Command.SINGLE_SUCCESS;
     }
 

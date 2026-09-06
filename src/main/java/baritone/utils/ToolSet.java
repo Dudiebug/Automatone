@@ -66,13 +66,13 @@ public class ToolSet {
         this.inventory = context.inventory();
         this.selectedSlot = context.selectedSlot();
 
-        if (Baritone.settings().considerPotionEffects.value) {
-            double amplifier = potionAmplifier();
-            Function<Double, Double> amplify = x -> amplifier * x;
-            backendCalculation = amplify.compose(this::getBestDestructionTime);
-        } else {
-            backendCalculation = this::getBestDestructionTime;
-        }
+        // Capture the host's breaking speed before this tool set is used by path calculation.
+        var breakSpeed = player.getAttribute(Attributes.BLOCK_BREAK_SPEED);
+        double attributeMultiplier = breakSpeed == null ? 1.0D : breakSpeed.getValue();
+        double amplifier = attributeMultiplier
+                * (Baritone.settings().considerPotionEffects.value ? potionAmplifier() : 1.0D);
+        Function<Double, Double> amplify = x -> amplifier * x;
+        backendCalculation = amplify.compose(this::getBestDestructionTime);
     }
 
     /**

@@ -488,9 +488,9 @@
       "id": 71,
       "status": "APPROVED",
       "reviewer": "luna_old_coder",
-      "sourceSha256": "5f83c1507b9387645cc05502febbe9ca668a1b78a0d6cc1416550af723702a6a",
+      "sourceSha256": "5d7803719939fe9509557e746ede411d7a3edf946775f34d5dc3f6452d249739",
       "contract": "Compatibility fallback contract: the catch narrowly surrounds BlockState.getDestroySpeed(null, null), whose pinned NeoForge implementation returns the stored destroy speed without dereferencing either argument. Unknown exceptional behavior maps to unbreakable; later item-speed work is outside the catch.",
-      "evidence": ".agents/decisions/QUALITY-CLEANUP-EVIDENCE.md#exact-warning-dispositions"
+      "evidence": ".agents/decisions/M3-EVIDENCE.md#manual-preview-defect-slow-mining-repeatedly-restarts"
     },
     {
       "id": 72,
