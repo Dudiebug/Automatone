@@ -62,7 +62,8 @@ after M4.4 and supersedes no-loading/no-auto-resume assumptions in this index.
 | M4.2 | Implement finite and unlimited execution | INFERRED: M4.1 | high | default, architecture_sensitive, runtime_minecraft | Milestone 4 / Tasks / M4.2 | PLANNED |
 | M4.3 | Make Stop simple, synchronous, and idempotent | INFERRED: M4.2 | critical | default, architecture_sensitive, runtime_minecraft | Milestone 4 / Tasks / M4.3 | PLANNED |
 | M4.4 | Quantity/cancellation GameTests | INFERRED: M4.3 | high | default, architecture_sensitive, runtime_minecraft | Milestone 4 / Tasks / M4.4 | PLANNED |
-| M5.1 | Controller item and binding | INFERRED: M4.4 | high | default, architecture_sensitive, runtime_minecraft | Milestone 5 / Tasks / M5.1 | PLANNED |
+| M4.5 | Chunk loading and automatic resume | EXPLICIT: M4.4 | critical | default, architecture_sensitive, runtime_minecraft | docs/M4_JOBS_AND_CHUNK_LOADING.md | PLANNED |
+| M5.1 | Controller item and binding | EXPLICIT: M4.5 | high | default, architecture_sensitive, runtime_minecraft | Milestone 5 / Tasks / M5.1 | PLANNED |
 | M5.2 | Minimal one-screen GUI and block picker | INFERRED: M5.1 | medium | default, architecture_sensitive, runtime_minecraft | Milestone 5 / Tasks / M5.2 | PLANNED |
 | M5.3 | Start/Stop payloads and centralized server validation | INFERRED: M5.2 | critical | default, architecture_sensitive, runtime_minecraft, network_security | Milestone 5 / Tasks / M5.3 | PLANNED |
 | M5.4 | Authoritative status/progress updates | INFERRED: M5.3 | high | default, architecture_sensitive, runtime_minecraft, network_security | Milestone 5 / Tasks / M5.4 | PLANNED |
@@ -72,7 +73,7 @@ after M4.4 and supersedes no-loading/no-auto-resume assumptions in this index.
 | M6.3 | Add typed native failure reporting and user error mapping | INFERRED: M6.2 | high | default, architecture_sensitive, runtime_minecraft | Milestone 6 / Tasks / M6.3 | PLANNED |
 | M6.4 | Full MVP security, persistence, and failure matrix | INFERRED: M6.3 | critical | default, architecture_sensitive, runtime_minecraft, network_security, persistence | Milestone 6 / Tasks / M6.4 | PLANNED |
 
-There are exactly 26 rows above: M1 has 5, M2 has 4, M3 has 4, M4 has 4,
+There are exactly 27 rows above: M1 has 5, M2 has 4, M3 has 4, M4 has 5,
 M5 has 5, and M6 has 4.
 
 ## Approved source baseline ledger

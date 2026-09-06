@@ -2,7 +2,9 @@
 
 Human approved docs/M4_JOBS_AND_CHUNK_LOADING.md on 2026-09-06.
 Baseline f2568be8 is M3 ACCEPTED after manual preview satisfaction, worker34PASS,
-and independent affected static PASS. M4.5 active. Milestone gate PENDING.
+and independent affected static PASS. M4.1-M4.5 COMPLETE; M4 ACCEPTED on
+14762d261c107f7020930aa73d905e47359f3d04. Historical pending/failure entries below
+are resolved by the final acceptance entry.
 
 M4.1 COMPLETE: immutable session snapshot and post-destruction source callback; three focused state tests PASS (:worker:test --tests automatone.worker.MiningSessionTest, logs/m4-session-state.log). Controller confirms callback occurs only after actual level.destroyBlock success. Native end-to-end quantity matrix remains PENDING for M4.4; milestone profile PENDING.
 
@@ -67,3 +69,22 @@ deleting the old test directory. Added an optional workerRestartDirectory Gradle
 property so the verifier can use a fresh isolated build directory while preserving
 the failed world's evidence. This launch-only adjustment does not invalidate the
 passing product/static/runtime checks. New write/read measurement remains PENDING.
+
+## Final acceptance
+
+M4.5 COMPLETE and M4 ACCEPTED on 14762d261c107f7020930aa73d905e47359f3d04.
+The same independent verifier supplied the affected repair record
+(.agents/evidence/M4/affected-repair-verification.json): fresh write/read both PASS,
+normal process exit 0 and no failure markers (logs/m45-repair-restart-write.log,
+29 seconds; logs/m45-repair-restart-read.log, 28 seconds). Finite work saved at 1
+and completed at exactly 6 actual source blocks; unlimited work advanced from 1
+to 10. Owner UUID, inventory slots/tool selection, terminal inactivity, playerless
+mining and orphan cleanup assertions all passed. Persistent tickets remained saved
+after clean shutdown. This resolves all M4.5 acceptance criteria.
+
+Reuse the independent complete profile's root 28 + worker 49 GameTests, unit and
+architecture results, with the repair's fresh affected static checks and 15 M4
+runtime cases. Only one complete milestone profile ran. Controller confirms scope
+and native/consumer ownership; no unresolved required M4 check or architectural
+violation remains. M5 GUI/controller and cross-dimension request authorization,
+plus M6 final hardening, remain future work as approved. No manual M4 check is owed.

@@ -1,15 +1,15 @@
 schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
-accepted_baseline: 30561e6bad934087848cc252796b352c0630444d
-active_task: M4.5
-active_gate: M4
+accepted_baseline: 14762d261c107f7020930aa73d905e47359f3d04
+active_task: null
+active_gate: null
 
 milestones:
   M4:
-    state: IN_PROGRESS
-    candidate: null
-    last_verdict: null
+    state: ACCEPTED
+    candidate: 14762d261c107f7020930aa73d905e47359f3d04
+    last_verdict: PASS
     last_evidence: .agents/decisions/M4-EVIDENCE.md
     implementation_plan: docs/M4_JOBS_AND_CHUNK_LOADING.md
     execution_authorization: Human approved M4 prerequisites and M4.5 chunk loading/automatic resume; update M5-M6 specs.
@@ -189,10 +189,10 @@ tasks:
     last_verdict: PASS
     blocker: null
   M4.5:
-    state: IMPLEMENTING
-    baseline: null
-    candidate: null
-    last_verdict: null
+    state: COMPLETE
+    baseline: 35a7efdf2e606cb01316f38d5bd0dd4eebfe4d1f
+    candidate: 14762d261c107f7020930aa73d905e47359f3d04
+    last_verdict: PASS
     blocker: null
     last_evidence: .agents/decisions/M4-EVIDENCE.md
   M5.1:
