@@ -62,10 +62,7 @@ public class GoalGetToBlock implements Goal, IGoalRenderPos {
 
     @Override
     public double heuristic(Settings settings, int x, int y, int z) {
-        int xDiff = x - this.x;
-        int yDiff = y - this.y;
-        int zDiff = z - this.z;
-        return GoalBlock.calculate(settings, xDiff, yDiff < 0 ? yDiff + 1 : yDiff, zDiff);
+        return GoalTwoBlocks.calculate(settings, x - this.x, y - this.y, z - this.z);
     }
 
     @Override

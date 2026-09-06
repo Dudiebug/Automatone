@@ -88,7 +88,7 @@ public final class WorkerRelocation {
     }
 
     // Deterministic columns and shorter deadlines exercise the same terrain/ticket state machine in GameTests.
-    public WorkerRelocation(MinecraftServer server, WorkerRoster roster,
+    private WorkerRelocation(MinecraftServer server, WorkerRoster roster,
                      BiFunction<ServerLevel, RandomSource, BlockPos> sampler, Limits limits) {
         this.server = Objects.requireNonNull(server);
         this.roster = Objects.requireNonNull(roster);
@@ -286,7 +286,9 @@ public final class WorkerRelocation {
                 }
             }
         }
-        return true;
+        // Full terrain can be available before vanilla exposes its entity section.
+        // Wait for saved entities as well before installing a worker with a persistent UUID.
+        return level.areEntitiesLoaded(center.toLong());
     }
 
     public static BlockPos findSafeFloor(ServerLevel level, BlockPos column) {

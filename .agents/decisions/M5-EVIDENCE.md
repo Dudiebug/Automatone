@@ -349,3 +349,28 @@ mutation or coverage target is assumed. Final independent gate remains PENDING.
   scope and behavioral evidence review. No identical preliminary gate was run.
 - Human GPU checks remain PENDING even if every automated sensor passes. Final
   acceptance requires their results; no exception or waiver is inferred.
+- Independent clean candidate `7f400c5a`: compile, unit tests, Checkstyle,
+  Error Prone and architecture PASS; CPD, SpotBugs disposition and GameTests FAIL.
+  Worker runtime measured 76/77. Raw evidence is in the verification worktree at
+  `.agents/evidence/M5/independent-verification{.json,.raw/checks.txt}`.
+- Repairs consolidate the identical two-block goal-distance calculation; make
+  Baritone final, publish disposal through a volatile flag and serialize disposal;
+  keep roster/relocation construction internal. GameTest's deterministic relocation
+  constructor is now accessed reflectively inside the separate test module.
+  No production fixture API or module split-package is introduced.
+- A cold-world reproduction located WORKER_UNAVAILABLE immediately after transfer;
+  terrain loading precedes vanilla entity visibility/loading. Relocation now waits
+  for `areEntitiesLoaded` at its center as well as prepared terrain. Menu fixtures
+  prepare their destination with a bounded ticket and release it in finally;
+  all original stale-click, identity, ownership and inventory assertions remain.
+  Current fresh-world menu+relocation 14/14 PASS (M5-menu-relocation-repair.log).
+  Earlier warm-world 77/77 was diagnostic, before final lifecycle repairs; it is
+  not claimed as the repaired candidate's independent runtime result.
+- Root and worker CPD PASS. Repaired unsuppressed SpotBugs reports contain exactly
+  66 native and two worker findings, all historical; the five new findings are
+  eliminated (M5-analyzer-repair.log). Disposition validation remains FAIL because
+  source approvals need revalidation and ten unchanged warnings moved lines.
+  No frozen eligibility, validator or threshold was changed. Human decision on
+  exact recorded line migrations is pending; concrete proposal retained at
+  `.agents/evidence/M5/spotbugs-line-migration-proposal.md`. Remaining affected
+  independent checks PENDING. Task and milestone remain IN_PROGRESS/PENDING.

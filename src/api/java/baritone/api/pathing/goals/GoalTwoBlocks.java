@@ -69,9 +69,11 @@ public class GoalTwoBlocks implements Goal, IGoalRenderPos {
 
     @Override
     public double heuristic(Settings settings, int x, int y, int z) {
-        int xDiff = x - this.x;
-        int yDiff = y - this.y;
-        int zDiff = z - this.z;
+        return calculate(settings, x - this.x, y - this.y, z - this.z);
+    }
+
+    /** Shared lower-block distance used by mining and adjacent-block goals. */
+    static double calculate(Settings settings, int xDiff, int yDiff, int zDiff) {
         return GoalBlock.calculate(settings, xDiff, yDiff < 0 ? yDiff + 1 : yDiff, zDiff);
     }
 

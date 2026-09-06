@@ -414,7 +414,15 @@ public final class WorkerRelocationGameTest {
     private static WorkerRelocation relocation(ServerLevel level, WorkerRoster roster, BlockPos column,
                                                WorkerRelocation.Limits limits) {
         BiFunction<ServerLevel, RandomSource, BlockPos> deterministic = (ignored, random) -> column;
-        return new WorkerRelocation(level.getServer(), roster, deterministic, limits);
+        try {
+            var constructor = WorkerRelocation.class.getDeclaredConstructor(
+                    net.minecraft.server.MinecraftServer.class, WorkerRoster.class, BiFunction.class,
+                    WorkerRelocation.Limits.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(level.getServer(), roster, deterministic, limits);
+        } catch (ReflectiveOperationException failure) {
+            throw new LinkageError("The internal relocation fixture constructor changed", failure);
+        }
     }
 
     private static WorkerEntity directWorker(WorkerRoster roster, UUID owner, ServerLevel level, BlockPos feet) {

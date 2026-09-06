@@ -27,6 +27,7 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -52,6 +53,10 @@ public final class WorkerMenuGameTest {
 
     @GameTest(template = "provider_smoke", batch = "worker_m5_menu_scope", timeoutTicks = 120)
     public static void controllerOpensScopedMenusAndCrossDimensionAccess(GameTestHelper helper) {
+        withPreparedNether(helper, () -> scopedMenusAndCrossDimensionAccess(helper));
+    }
+
+    private static void scopedMenusAndCrossDimensionAccess(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);
         try {
             ServerPlayer owner = fixture.player();
@@ -94,6 +99,10 @@ public final class WorkerMenuGameTest {
 
     @GameTest(template = "provider_smoke", batch = "worker_m5_menu_relocation", timeoutTicks = 160)
     public static void relocatedWorkerRebindsMenuInventoryAcrossDimensions(GameTestHelper helper) {
+        withPreparedNether(helper, () -> relocatedMenuInventory(helper));
+    }
+
+    private static void relocatedMenuInventory(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);
         try {
             ServerPlayer owner = fixture.player();
@@ -700,6 +709,33 @@ public final class WorkerMenuGameTest {
             return;
         }
         helper.fail(message + "; action unexpectedly succeeded");
+    }
+
+    /** Match the production relocation service's asynchronous destination preparation. */
+    private static void withPreparedNether(GameTestHelper helper, Runnable test) {
+        ServerLevel nether = helper.getLevel().getServer().getLevel(Level.NETHER);
+        helper.assertTrue(nether != null, "The dedicated server must provide the Nether");
+        ChunkPos chunk = new ChunkPos(0, 0);
+        UUID ticket = UUID.randomUUID();
+        int deadline = nether.getServer().getTickCount() + 100;
+        boolean[] finished = {false};
+        nether.getChunkSource().addRegionTicket(WorkerRelocation.PREPARATION, chunk, 1, ticket);
+        // Generation is fixture setup; allow real tick-thread visibility to settle below.
+        for (int x = -1; x <= 1; x++) {
+            for (int z = -1; z <= 1; z++) { nether.getChunk(x, z); }
+        }
+        helper.onEachTick(() -> {
+            if (finished[0]) { return; }
+            boolean ready = WorkerRelocation.prepared(nether, chunk);
+            if (!ready && nether.getServer().getTickCount() < deadline) { return; }
+            finished[0] = true;
+            try {
+                helper.assertTrue(ready, "The fixture destination must finish preparation before menu checks");
+                test.run();
+            } finally {
+                nether.getChunkSource().removeRegionTicket(WorkerRelocation.PREPARATION, chunk, 1, ticket);
+            }
+        });
     }
 
     private static final class Fixture {

@@ -91,7 +91,7 @@ public final class WorkerRoster extends SavedData {
         private Entry(UUID owner) { this.owner = owner; }
     }
 
-    public WorkerRoster(MinecraftServer server) { this.server = Objects.requireNonNull(server); }
+    private WorkerRoster(MinecraftServer server) { this.server = Objects.requireNonNull(server); }
 
     public static WorkerRoster get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
