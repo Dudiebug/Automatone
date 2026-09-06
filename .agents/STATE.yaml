@@ -2,8 +2,8 @@ schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
 accepted_baseline: 30561e6bad934087848cc252796b352c0630444d
-active_task: M3.3
-active_gate: null
+active_task: M3.4
+active_gate: M3
 
 milestones:
   M3:
@@ -145,16 +145,17 @@ tasks:
   M3.3:
     state: COMPLETE
     baseline: 3e0e253d
-    candidate: null
+    candidate: e944b15b
     last_verdict: PASS
     blocker: null
     last_evidence: .agents/decisions/M3-EVIDENCE.md
   M3.4:
-    state: PLANNED
-    baseline: null
+    state: COMPLETE
+    baseline: e944b15b
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PASS
+    blocker: null
+    last_evidence: .agents/decisions/M3-EVIDENCE.md
   M4.1:
     state: PLANNED
     baseline: null

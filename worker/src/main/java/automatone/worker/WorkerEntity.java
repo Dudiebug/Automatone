@@ -59,6 +59,8 @@ public class WorkerEntity extends Mob implements Container {
     public void aiStep() {
         updateSwingTime();
         if (!level().isClientSide()) {
+            // Native look owns entity yaw; expose the same facing through vanilla head tracking.
+            setYHeadRot(getYRot());
             ((WorkerEntityController) context.playerController()).validateBreakingTarget();
             getNavigation().stop();
             if (onGround() && xxa == 0.0F && zza == 0.0F) {

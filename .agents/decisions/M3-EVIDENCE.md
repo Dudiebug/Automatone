@@ -1,6 +1,6 @@
 # M3 evidence
 
-Status: IN_PROGRESS. M3.1 and M3.2 COMPLETE; M3.3 COMPLETE; M3.4 is next.
+Status: IN_PROGRESS. M3.1–M3.4 focused work COMPLETE; independent gate PENDING; client observation UNVERIFIED.
 
 ## Authority and starting point
 
@@ -18,10 +18,10 @@ Status: IN_PROGRESS. M3.1 and M3.2 COMPLETE; M3.3 COMPLETE; M3.4 is next.
 ## Measurements
 
 - Initial git status: clean. M2 prerequisite ancestry check: PASS.
-- M3 focused checks: PENDING.
+- M3.1–M3.4 focused checks: PASS (measurements below).
 - Final default + architecture_sensitive + runtime_minecraft union: PENDING.
 - Three fresh native mining worker-server runs: PENDING.
-- Actual client visual/audio observation: PENDING.
+- Actual client visual/audio observation: UNVERIFIED (host OpenGL unavailable).
 
 ## Explicit boundaries
 
@@ -245,3 +245,86 @@ Windows host; fresh context; no code/tests/analyzer run or milestone acceptance.
   or native engine. Full profiles and end-to-end mining/visual proof stay PENDING.
 
 Graphify refresh after M3.3: PASS (4,932 nodes, 13,501 edges, 271 communities); advisory community labels changed. No full sensor profile run before the independent milestone gate.
+
+## M3.4 development
+
+M3.3 completed candidate: `e944b15b`. M3.4 begins from that commit.
+Added `:worker:runM3Client`, loading the production mods and existing GameTest
+source set, with structures staged into `worker/build/m3-client`. It enables
+NeoForge's development GameTests without a new dependency. Client launch and
+actual visual/audio observation remain PENDING. Desktop window enumeration
+succeeded; a Minecraft window has not yet been launched.
+Graphify scoped preflight located WorkerEntity, native LookBehavior, the renderer
+and existing worker fixtures. Pinned BodyRotationControl source only clamps head
+rotation while moving; the native server look changes entity yaw/pitch. The new
+ore proof will measure head alignment before any presentation repair.
+Client preparation PASS: `./gradlew.bat :worker:prepareM3ClientRun --no-daemon
+--console=plain`, 7 seconds, assets cached (`logs/m3-4-prepare-client.log`).
+This validates the new run configuration, not actual client presentation.
+The first proof server attempt failed before executing mining: the new fixture
+was initially placed outside the staged structures directory. The test author
+is correcting the fixture location; this is a harness failure, not a native
+mining result.
+The first real 31-test server run failed only the native ore proof after 700
+accelerated ticks: mining active and goal present, but no path, movement or
+breaking. Native `MineProcess.searchWorld` skipped WorldScanner for tracked ore
+when the cache was empty and `extendCacheOnThreshold` was false. Settings.java
+explicitly documents that option as extending a nonzero cache result. Restored
+the empty-result fallback to the existing native scanner. The proof retains
+default settings; no consumer scanner, coordinates or cache seeding is added.
+After the cache fallback repair, the frozen proof advanced through native path,
+movement, ray and progressive destruction and failed solely at head-yaw
+convergence (31 tests, one failure). Raw:
+`logs/m3-4-native-mine-after-cache-repair-20260905-194321.stdout.log`.
+This demonstrates the predicted presentation gap. WorkerEntity now mirrors its
+native authoritative yaw into vanilla head tracking on the next server entity
+tick. No rotation target, movement decision or client protocol is introduced.
+Drop/wear assertions occur after the failed head assertion and are not yet PASS.
+The next run after the head repair failed before path execution: 700 GameTest
+ticks elapsed in only 422 ms (19:45:27.602–19:45:28.024), below the native
+500 ms primary / 2,000 ms failure pathfinder budgets. Root compilation was
+correctly UP-TO-DATE because MineProcess had not changed since the previous run.
+This is not evidence of stale build outputs. The test author is adding bounded
+observation pacing and diagnostics while retaining production timeouts and the
+same tick/behavior assertions. Raw:
+`logs/m3-4-native-mine-after-head-repair-20260905-194503.stdout.log`.
+First pacing attempt was ineffective: `LockSupport.parkNanos(5ms)` returned early,
+with all 31 tests completing in 2.655s despite a nominal 3.5s proof delay.
+Diagnostics show the correct native GoalBlock for the ore and AStar still in
+progress, proving discovery while path completion remains unmeasured. Raw:
+`logs/m3-4-native-mine-paced-proof-20260905-195012.stdout.log`.
+The test author is replacing the pacing primitive and measuring wall time;
+this failed attempt is retained, not counted as a passing path/head measurement.
+Final focused proof PASS: `:worker:compileGameTestJava` and
+`:worker:runGameTestServer --no-daemon --console=plain`, all 31 required tests,
+35.42 seconds. The fixture uses a measured 50ms observation delay (normal 20TPS)
+without changing the 700-tick proof / 760-tick timeout or native settings. Raw:
+`logs/m3-4-native-mine-50ms-paced-proof-20260905-195337.stdout.log`.
+The earlier 5ms sleep did provide 4,423ms wall time and exposed a real 10-block
+path plus initial movement but timed out before the full chain; that incomplete
+measurement is `logs/m3-4-native-mine-sleep-paced-proof-20260905-195156.stdout.log`.
+
+Controller review confirms M3.4 focused native proof: one block-type request,
+no target coordinates in discovery/pathing input, native goal/path and >2-block
+movement, progressive damage with real reach/ray and head facing, destruction,
+raw iron and tool wear. Existing M3.3 cancellation cases remain green in the
+31-test run. The demo reuses the chamber; only its display run slows the native
+break-speed attribute to 2.5%. Operator command is `/worker_m3_demo start|cancel`;
+use spectator mode for the elevated viewing position. No consumer engine added.
+Three fresh consistency runs and the independent profile union remain PENDING.
+
+Actual client observation: UNVERIFIED. Parent ran `:worker:runM3Client`; NeoForge
+EarlyDisplay failed every GLFW profile from OpenGL 4.6 through 3.2 with
+`WGL: The driver does not appear to support OpenGL`. No Minecraft window was
+available via desktop enumeration. Raw parent launch is `logs/m3-4-client-launch.log`.
+The author inadvertently duplicated the launch despite parent taking ownership,
+producing an additional log-lock warning; both attempts had the same OpenGL
+failure. Parent terminated only the two identified failed task client processes
+(PIDs 6940 and 18720), allowing Gradle to exit. No visual or audio PASS is claimed,
+no driver installed, and no graphics requirement waived. Complete all automated
+verification before reporting this remaining environmental check to the human.
+
+Graphify incremental refresh PASS: 4,986 nodes / 13,714 edges / 268 communities.
+The existing eight Groovy parse advisories and community relabel warning remain
+advisory. M3.4 focused work is controller COMPLETE; milestone remains IN_PROGRESS
+pending the independent gate, fresh-server consistency and client observation.

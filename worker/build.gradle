@@ -26,6 +26,11 @@ def stageGameTestStructures = tasks.register('stageGameTestStructures', Copy) {
     into layout.buildDirectory.dir('gametest-server/gameteststructures')
 }
 
+def stageM3ClientStructures = tasks.register('stageM3ClientStructures', Copy) {
+    from 'src/gameTest/structures'
+    into layout.buildDirectory.dir('m3-client/gameteststructures')
+}
+
 neoForge {
     version = neo_version
     addModdingDependenciesTo sourceSets.gameTest
@@ -39,6 +44,15 @@ neoForge {
         automatone_worker_gametest { sourceSet sourceSets.gameTest }
     }
     runs {
+        m3Client {
+            client()
+            sourceSet = sourceSets.gameTest
+            gameDirectory = layout.buildDirectory.dir('m3-client')
+            systemProperty 'neoforge.enableGameTest', 'true'
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'automatone_worker_gametest'
+            loadedMods = [mods.automatone, mods.automatone_worker, mods.automatone_worker_gametest]
+            taskBefore stageM3ClientStructures
+        }
         server {
             server()
             programArgument '--nogui'
