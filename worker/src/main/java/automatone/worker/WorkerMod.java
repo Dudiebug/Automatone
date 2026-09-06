@@ -42,6 +42,9 @@ public final class WorkerMod {
         NeoForge.EVENT_BUS.addListener(WorkerChunkLoading::tick);
         NeoForge.EVENT_BUS.addListener(WorkerChunkLoading::clear);
         NeoForge.EVENT_BUS.addListener(WorkerRelocation::onServerTick);
+        NeoForge.EVENT_BUS.addListener(WorkerBatch::onServerTick);
+        NeoForge.EVENT_BUS.addListener(WorkerBatch::logout);
+        NeoForge.EVENT_BUS.addListener(WorkerBatch::stop);
         NeoForge.EVENT_BUS.addListener(WorkerRelocation::stop);
         NeoForge.EVENT_BUS.addListener(WorkerNotifications::login);
         NeoForge.EVENT_BUS.addListener(WorkerNotifications::logout);

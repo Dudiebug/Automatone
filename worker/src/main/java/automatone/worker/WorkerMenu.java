@@ -46,6 +46,10 @@ public final class WorkerMenu extends AbstractContainerMenu {
     private boolean compactInventory;
     private boolean showPlayerInventory;
     private boolean openCollection;
+    private boolean openBatch;
+    private CompoundTag batchDraft = new CompoundTag();
+    private List<ItemStack> supplyContents = List.of();
+    private long supplyRevision;
 
     /** Client constructor: no entity lookup and no server-owned inventory references. */
     public WorkerMenu(int id, Inventory playerInventory, RegistryFriendlyByteBuf buffer) {
@@ -125,6 +129,24 @@ public final class WorkerMenu extends AbstractContainerMenu {
                 player.containerMenu instanceof WorkerMenu menu && worker.equals(menu.worker()));
     }
 
+    static Player connectedPlayer(MinecraftServer server, UUID owner) {
+        return server.getPlayerList().getPlayer(owner);
+    }
+
+    List<ItemStack> supplies(long expected) {
+        refreshSupplies();
+        if (expected != supplyRevision) { throw new IllegalStateException("STALE_SUPPLIES"); }
+        return supplyContents.stream().map(ItemStack::copy).toList();
+    }
+
+    private void refreshSupplies() {
+        List<ItemStack> current = player.getInventory().items;
+        if (!ItemStack.listMatches(supplyContents, current)) {
+            supplyContents = current.stream().map(ItemStack::copy).toList();
+            supplyRevision++;
+        }
+    }
+
     /** Validated callers always open a new menu id when selecting another worker. */
     public static void open(Player holder, UUID worker, boolean retired, int requestedPage) {
         if (!(holder instanceof ServerPlayer serverPlayer) || holder.isSpectator() || !hasController(holder)) {
@@ -172,6 +194,17 @@ public final class WorkerMenu extends AbstractContainerMenu {
         if (holder.containerMenu instanceof WorkerMenu menu) {
             menu.collection().query(archives ? 1 : 0, "", selected, "", 0);
             menu.openCollection = true;
+            menu.sendSnapshot();
+        }
+    }
+
+    static void openBatch(Player holder, UUID source) {
+        CompoundTag draft = source == null ? new CompoundTag()
+                : WorkerRoster.get(Objects.requireNonNull(holder.getServer())).jobData(holder.getUUID(), source);
+        open(holder, null, false, 0);
+        if (holder.containerMenu instanceof WorkerMenu menu) {
+            menu.openBatch = true;
+            menu.batchDraft = draft;
             menu.sendSnapshot();
         }
     }
@@ -337,12 +370,30 @@ public final class WorkerMenu extends AbstractContainerMenu {
         List<WorkerRoster.View> rows = roster.list(owner, retired);
         data.putInt("Count", rows.size());
         data.putInt("ActiveCount", roster.list(owner, false).size());
+        data.putInt("FreeSlots", roster.freeSlots(owner));
+        refreshSupplies();
+        data.putLong("SupplyRevision", supplyRevision);
+        ListTag supplies = new ListTag();
+        for (int slot = 0; slot < supplyContents.size(); slot++) {
+            ItemStack stack = supplyContents.get(slot);
+            if (!stack.isEmpty()) {
+                CompoundTag supply = new CompoundTag();
+                supply.putInt("Slot", slot);
+                supply.put("Stack", stack.save(server().registryAccess()));
+                supplies.add(supply);
+            }
+        }
+        data.put("Supplies", supplies);
+        data.put("Batches", WorkerBatch.get(server()).snapshot(owner));
         data.putInt("Page", page);
         data.putBoolean("Retired", retired);
         ListTag workers = new ListTag();
         int from = Math.min(rows.size(), page * 10);
         for (WorkerRoster.View view : rows.subList(from, Math.min(rows.size(), from + 10))) { workers.add(row(view)); }
         data.put("Workers", workers);
+        ListTag activeWorkers = new ListTag();
+        roster.list(owner, false).forEach(view -> activeWorkers.add(row(view)));
+        data.put("ActiveWorkers", activeWorkers);
         WorkerRoster.ProfileView profile = roster.profile(owner);
         data.putLong("ProfileRevision", profile.revision());
         data.put("PersonalSettings", WorkerSettings.save(profile.settings()));
@@ -370,6 +421,8 @@ public final class WorkerMenu extends AbstractContainerMenu {
         data.put("Relocations", pending);
         data.put("Response", response.copy());
         data.putBoolean("OpenCollection", openCollection);
+        data.putBoolean("OpenBatch", openBatch);
+        data.put("BatchDraft", batchDraft.copy());
         if (collection != null) { data.put("Collection", collection.snapshot()); }
         List<WorkerRoster.Completion> inbox = roster.notifications(owner);
         notificationPage = Math.min(notificationPage, Math.max(0, (inbox.size() - 1) / 5));
@@ -394,6 +447,12 @@ public final class WorkerMenu extends AbstractContainerMenu {
         row.putLong("Position", view.position().asLong());
         row.putBoolean("Retired", view.retired());
         row.putBoolean("Pending", relocation().pending(view.worker()));
+        boolean available = true;
+        if (!view.retired()) {
+            try { roster.active(owner, view.worker()); }
+            catch (IllegalStateException unavailable) { available = false; }
+        }
+        row.putBoolean("Available", available);
         row.put("Job", roster.jobData(owner, view.worker()));
         return row;
     }

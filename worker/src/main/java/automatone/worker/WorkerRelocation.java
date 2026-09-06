@@ -48,6 +48,10 @@ public final class WorkerRelocation {
     }
 
     public enum State { PENDING, SUCCEEDED, FAILED, CANCELLED }
+    interface DeploymentCommit {
+        void validate();
+        void equip(WorkerEntity worker);
+    }
     public record Status(UUID request, UUID worker, State state, String error, int attempts,
                          ResourceLocation dimension, BlockPos destination) { }
 
@@ -66,6 +70,7 @@ public final class WorkerRelocation {
         private ChunkPos ticket;
         private BlockPos column;
         private BlockPos destination;
+        private DeploymentCommit commit;
 
         private Job(UUID request, UUID owner, UUID worker, boolean relocation, boolean reactivation,
                     ServerLevel target, int started) {
@@ -135,6 +140,17 @@ public final class WorkerRelocation {
         return job.status();
     }
 
+    Status deployEquipped(UUID owner, UUID request, ResourceKey<Level> dimension, DeploymentCommit commit) {
+        Status status = deploy(owner, request, dimension, null);
+        jobs.get(request).commit = Objects.requireNonNull(commit);
+        return status;
+    }
+
+    int freePreparations() {
+        requireThread();
+        return MAX_CONCURRENT - (int) jobs.values().stream().filter(job -> job.state == State.PENDING).count();
+    }
+
     public Status relocate(UUID owner, UUID request, UUID worker, long revision, ResourceKey<Level> dimension) {
         requireThread();
         ServerLevel target = target(dimension);
@@ -195,7 +211,7 @@ public final class WorkerRelocation {
             try {
                 advance(job);
             } catch (RuntimeException failure) {
-                finish(job, State.FAILED, "RELOCATION_FAILED");
+                finish(job, State.FAILED, job.commit == null ? "RELOCATION_FAILED" : WorkerMenu.errorCode(failure));
             }
         }
     }
@@ -249,10 +265,20 @@ public final class WorkerRelocation {
                 return;
             }
         } else {
+            if (job.commit != null) { job.commit.validate(); }
             result = roster.deploy(job.owner, job.request, job.target, position);
         }
-        result.relocated();
-        roster.changed(result);
+        try {
+            if (job.commit != null) { job.commit.equip(result); }
+            result.relocated();
+            roster.changed(result);
+        } catch (RuntimeException failure) {
+            if (job.commit != null) {
+                WorkerRoster.View failed = roster.view(job.owner, result.getUUID());
+                if (!failed.retired()) { roster.retire(job.owner, result.getUUID(), failed.revision()); }
+            }
+            throw failure;
+        }
         job.destination = destination;
         finish(job, State.SUCCEEDED, "");
     }
@@ -387,6 +413,7 @@ public final class WorkerRelocation {
         }
         job.state = state;
         job.error = error;
+        job.commit = null;
     }
 
     private static void release(Job job) {

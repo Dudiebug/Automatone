@@ -2,6 +2,22 @@
 
 ## Authority and scope
 
+### Human-owned in-game testing
+
+The 2026-09-06 human instruction assigns **all in-game testing to the human**.
+The agent supplies a concise, numbered list of actions and expected results with
+the matching build. Do not launch or control Minecraft clients, GameTest servers,
+or Minecraft restart probes for acceptance unless the human explicitly requests
+that specific run. This environment is not the human's in-game test environment.
+This supersedes earlier instructions below to run GameTests autonomously.
+
+Continue code review, compilation, unit tests and applicable static/architecture
+checks. Hand over the implementation and package when those checks are complete;
+do not delay delivery trying to perform the human's tests. Record in-game results
+as `PENDING — HUMAN TESTING` until the human reports them. Previously measured
+results remain historical evidence; pending tests never become PASS by default.
+Implementation completion and delivery do not claim in-game milestone acceptance.
+
 The approved product/architecture plan defines what to build. This strategy and
 AGENTS.md define how to check it. The human-approved proportional verification
 policy of 2026-09-04 supersedes older task text requiring a full profile, a clean

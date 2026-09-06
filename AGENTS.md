@@ -33,6 +33,14 @@ Graphify is a structural sensor and navigation aid. It does not override source 
 
 ## Proportional verification
 
+The human owns all in-game testing. Provide a numbered in-game checklist with
+expected results and the matching build. Do not launch Minecraft clients,
+GameTest servers or Minecraft restart probes unless the human explicitly asks
+for that run. Use code/build/unit/static checks locally and record the human's
+in-game checks as PENDING. Do not hold back the build trying to do those tests.
+This current instruction supersedes older autonomous GameTest directions below;
+see `EXECUTION_STRATEGY.md` for the handoff and acceptance distinction.
+
 Tasks become `COMPLETE` after their focused acceptance checks pass and the controller confirms scope and architectural invariants. The next task in the same milestone may then begin. Record deferred milestone checks as `PENDING`, never `PASS`; task completion does not accept the milestone.
 
 For a clear, small fix, implement directly and compile affected code when needed. Source evidence plus compilation or an existing focused check can be sufficient; a new regression and a RED/GREEN cycle are not mandatory. Add a regression when it catches a plausible recurrence or resolves uncertainty, not merely because code changed. Once the relevant evidence is sufficient, stop checking and deliver. Do not routinely run full unit, GameTest, architecture, SpotBugs, CPD, or other broad suites after small edits.

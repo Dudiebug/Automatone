@@ -24,8 +24,9 @@ final class WorkerActions {
 
     private final WorkerMenu menu;
     private Batch batch;
+    private final WorkerBatchActions fleet;
 
-    WorkerActions(WorkerMenu menu) { this.menu = menu; }
+    WorkerActions(WorkerMenu menu) { this.menu = menu; this.fleet = new WorkerBatchActions(menu); }
 
     CompoundTag execute(WorkerNetwork.Action action, CompoundTag data) {
         WorkerRoster roster = menu.roster();
@@ -33,7 +34,12 @@ final class WorkerActions {
         CompoundTag result = new CompoundTag();
         result.putString("Kind", "Success");
         switch (action) {
+            case PREVIEW_BATCH, SUBMIT_BATCH, PREVIEW_FLEET, APPLY_FLEET -> { return fleet.execute(action, data); }
             case REFRESH -> keys(data);
+            case OPEN_BATCH -> {
+                keys(data);
+                WorkerMenu.openBatch(menu.player(), menu.worker());
+            }
             case OPEN_COLLECTION -> {
                 keys(data);
                 WorkerMenu.openCollection(menu.player(), menu.retired(), menu.worker());
@@ -104,7 +110,9 @@ final class WorkerActions {
             }
             case DEPLOY -> {
                 keys(data, "Request", "Dimension");
-                WorkerRelocation.Status status = menu.relocation().deploy(owner, uuid(data, "Request"), dimension(data), null);
+                UUID request = uuid(data, "Request");
+                if (WorkerBatch.get(menu.server()).containsRequest(owner, request)) { throw new IllegalStateException("BATCH_REQUEST"); }
+                WorkerRelocation.Status status = menu.relocation().deploy(owner, request, dimension(data), null);
                 result.putUUID("Request", status.request());
             }
             case REACTIVATE -> {
@@ -285,11 +293,11 @@ final class WorkerActions {
         if (menu.relocation().pending(menu.worker())) { throw new IllegalStateException("WORKER_PENDING"); }
     }
 
-    private static boolean busy(WorkerEntity worker) {
+    static boolean busy(WorkerEntity worker) {
         return worker.miningStatus().state() == MiningSession.State.RUNNING || worker.miningStatus().state() == MiningSession.State.PAUSED;
     }
 
-    private static List<ResourceLocation> targets(CompoundTag data) {
+    static List<ResourceLocation> targets(CompoundTag data) {
         require(data, "Targets", Tag.TAG_LIST);
         ListTag list = data.getList("Targets", Tag.TAG_STRING);
         if (list.isEmpty() || list.size() > MiningSession.MAX_TARGET_BLOCKS) { throw new IllegalArgumentException("INVALID_BLOCK"); }
@@ -304,9 +312,9 @@ final class WorkerActions {
         return List.copyOf(targets);
     }
 
-    private static int quantity(CompoundTag data) { return integer(data, "Quantity", 0, MiningSession.MAX_REQUESTED_BLOCKS); }
+    static int quantity(CompoundTag data) { return integer(data, "Quantity", 0, MiningSession.MAX_REQUESTED_BLOCKS); }
 
-    private static List<ResourceLocation> pickupBlocks(CompoundTag data) {
+    static List<ResourceLocation> pickupBlocks(CompoundTag data) {
         require(data, "Blocks", Tag.TAG_LIST);
         ListTag blocks = (ListTag) data.get("Blocks");
         if (blocks.size() > 128 || (!blocks.isEmpty() && blocks.getElementType() != Tag.TAG_STRING)
@@ -316,7 +324,7 @@ final class WorkerActions {
         return blocks.stream().map(value -> ResourceLocation.parse(value.getAsString())).toList();
     }
 
-    private static ResourceKey<Level> dimension(CompoundTag data) {
+    static ResourceKey<Level> dimension(CompoundTag data) {
         ResourceLocation dimension = ResourceLocation.tryParse(string(data, "Dimension", 256));
         if (!Level.OVERWORLD.location().equals(dimension) && !Level.NETHER.location().equals(dimension)) {
             throw new IllegalArgumentException("INVALID_DIMENSION");
@@ -324,7 +332,7 @@ final class WorkerActions {
         return ResourceKey.create(Registries.DIMENSION, dimension);
     }
 
-    private static Map<String, String> settings(CompoundTag data) {
+    static Map<String, String> settings(CompoundTag data) {
         require(data, "Values", Tag.TAG_COMPOUND);
         CompoundTag values = data.getCompound("Values");
         if (values.getAllKeys().size() > 256) { throw new IllegalArgumentException("TOO_MANY_SETTINGS"); }
@@ -336,41 +344,41 @@ final class WorkerActions {
         return Map.copyOf(result);
     }
 
-    private static void revision(CompoundTag data, long expected) {
+    static void revision(CompoundTag data, long expected) {
         require(data, "Revision", Tag.TAG_LONG);
         if (data.getLong("Revision") != expected) { throw new IllegalStateException("STALE_REVISION"); }
     }
 
-    private static int integer(CompoundTag data, String key, int min, int max) {
+    static int integer(CompoundTag data, String key, int min, int max) {
         require(data, key, Tag.TAG_INT);
         int result = data.getInt(key);
         if (result < min || result > max) { throw new IllegalArgumentException("INVALID_" + key.toUpperCase(java.util.Locale.ROOT)); }
         return result;
     }
 
-    private static boolean bool(CompoundTag data, String key) {
+    static boolean bool(CompoundTag data, String key) {
         require(data, key, Tag.TAG_BYTE);
         if (data.getByte(key) != 0 && data.getByte(key) != 1) { throw new IllegalArgumentException("INVALID_BOOLEAN"); }
         return data.getBoolean(key);
     }
 
-    private static String string(CompoundTag data, String key, int max) {
+    static String string(CompoundTag data, String key, int max) {
         require(data, key, Tag.TAG_STRING);
         String result = data.getString(key);
         if (result.length() > max) { throw new IllegalArgumentException("STRING_TOO_LONG"); }
         return result;
     }
 
-    private static UUID uuid(CompoundTag data, String key) {
+    static UUID uuid(CompoundTag data, String key) {
         if (!data.hasUUID(key)) { throw new IllegalArgumentException("INVALID_UUID"); }
         return data.getUUID(key);
     }
 
-    private static void require(CompoundTag data, String key, int type) {
+    static void require(CompoundTag data, String key, int type) {
         if (!data.contains(key, type)) { throw new IllegalArgumentException("INVALID_REQUEST"); }
     }
 
-    private static void keys(CompoundTag data, String... keys) {
+    static void keys(CompoundTag data, String... keys) {
         if (!data.getAllKeys().equals(Set.of(keys))) { throw new IllegalArgumentException("INVALID_REQUEST"); }
     }
 }

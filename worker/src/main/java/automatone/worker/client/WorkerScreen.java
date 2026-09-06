@@ -10,9 +10,11 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -20,6 +22,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -43,7 +47,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     static String translate(String key, Object... args) {
         return Component.translatable("gui.automatone_worker." + key, args).getString();
     }
-    private enum Page { ROSTER, JOB, INVENTORY, COLLECTION, CLEANUP, SETTINGS, OVERRIDES, PERSONAL, RECIPIENTS, REQUESTS, INBOX }
+    private enum Page { ROSTER, JOB, INVENTORY, COLLECTION, CLEANUP, SETTINGS, OVERRIDES, PERSONAL, RECIPIENTS, KITS, REQUESTS, INBOX }
     private record Caption(String text, int x, int y, int color, int maxWidth) { }
     private record BlockCell(Block block, Button button, boolean selected) { }
     private record ItemCell(ItemStack stack, Button button, boolean selected, long count) { }
@@ -102,6 +106,16 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private boolean choosingCollectionWorker;
     private boolean personalPickupRules;
     private boolean collectionMenuInitialized;
+    private boolean batchMenuInitialized;
+    private int newCount;
+    private final Set<Integer> toolSlots = new LinkedHashSet<>();
+    private final Map<Integer, Integer> materialSlots = new LinkedHashMap<>();
+    private boolean suppliesInitialized;
+    private int materialSlot = -1;
+    private String materialQuantity = "64";
+    private List<CompoundTag> fleetOutcomes = List.of();
+    private boolean choosingMaterials;
+    private boolean defaultMaterialMissing;
 
     public WorkerScreen(WorkerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -144,11 +158,13 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         itemCells.clear();
         menu.showInventory(dialog == null && page == Page.INVENTORY);
         if (dialog != null) { buildDialog(); return; }
-        if (fw > 420) { label("AUTOMATONE", fx + 32, fy + 9, GREEN, fw - 304); }
-        button(translate("workers"), fx + fw - 262, fy + 5, 62, () -> navigateRoster(false));
-        button(translate("config"), fx + fw - 198, fy + 5, 56, () -> navigate(Page.PERSONAL));
-        button(translate("requests"), fx + fw - 140, fy + 5, 58, () -> navigate(Page.REQUESTS));
-        button(translate("inbox"), fx + fw - 80, fy + 5, 54, () -> navigate(Page.INBOX));
+        int navWidth = (fw - 34) / 5;
+        String[] tabs = { "overview", "batch_jobs", "collection", "retired", "settings" };
+        Runnable[] routes = { () -> navigateRoster(false), this::openBatch, this::openCollection,
+                () -> navigateRoster(true), () -> navigate(Page.PERSONAL) };
+        for (int tab = 0; tab < tabs.length; tab++) {
+            button(translate(tabs[tab]), fx + 6 + tab * navWidth, fy + 5, navWidth - 2, routes[tab]);
+        }
         button("X", fx + fw - 24, fy + 5, 18, this::onClose);
         if (!initialized) {
             label(translate("waiting"), fx + 12, fy + 48, MUTED, fw - 24);
@@ -156,7 +172,15 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         }
         int x = fx + 10;
         int y = fy + 34;
-        if (menu.worker() != null && page != Page.PERSONAL && page != Page.REQUESTS && page != Page.INBOX && page != Page.COLLECTION
+        if (isBatchPage()) {
+            Page[] steps = { Page.JOB, Page.RECIPIENTS, Page.KITS, Page.REQUESTS };
+            String[] names = { "targets", "workers", "supplies", "progress" };
+            int stepWidth = (fw - 20) / 4;
+            for (int index = 0; index < steps.length; index++) {
+                Page destination = steps[index];
+                button(translate(names[index]), x + index * stepWidth, y, stepWidth - 2, () -> batchPage(destination));
+            }
+        } else if (menu.worker() != null && page != Page.PERSONAL && page != Page.REQUESTS && page != Page.INBOX && page != Page.COLLECTION
                 && !(page == Page.CLEANUP && personalPickupRules)) {
             label(name, x, y + 5, TEXT, Math.max(65, fw - 210));
             button(translate("job"), fx + fw - 190, y, 54, () -> navigate(Page.JOB));
@@ -165,7 +189,8 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         } else {
             label(page == Page.CLEANUP ? translate("pickup_rules") : page == Page.COLLECTION ? translate("collection") : page == Page.PERSONAL ? translate("personal_configuration") : page == Page.REQUESTS ? translate("deployment_relocation")
                     : page == Page.INBOX ? translate("notifications") : menu.retired() ? translate("retired_workers") : translate("your_workers"),
-                    x, y + 5, TEXT, page == Page.INBOX ? fw - 182 : page == Page.PERSONAL ? fw - 210 : fw - 20);
+                    x, y + 5, TEXT, page == Page.INBOX ? fw - 182 : page == Page.PERSONAL ? fw - 210
+                            : page == Page.ROSTER && !menu.retired() ? fw - 160 : fw - 20);
         }
         switch (page) {
             case ROSTER, RECIPIENTS -> buildRoster();
@@ -177,6 +202,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             case OVERRIDES -> buildSettingsPanel(false);
             case PERSONAL -> buildSettings(true);
             case REQUESTS -> buildRequests();
+            case KITS -> buildKits();
             case INBOX -> buildInbox();
         }
         if (waiting > 0) {
@@ -194,20 +220,31 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     }
 
     private void buildRoster() {
-        List<CompoundTag> rows = rows();
         boolean selecting = page == Page.RECIPIENTS;
+        boolean overview = page == Page.ROSTER && !menu.retired();
+        List<CompoundTag> rows = selecting ? activeRows() : rows();
+        int startY = selecting ? 84 : 60;
         int columns = Math.max(1, Math.min(5, (fw - 20) / 125));
         int cardWidth = (fw - 20) / columns;
-        int visibleRows = Math.max(1, (fh - 112) / 72);
-        int slots = rows.size() + (!selecting && !menu.retired() && data.getInt("ActiveCount") < 10 ? 1 : 0);
+        int visibleRows = Math.max(1, (fh - startY - 78) / 72);
+        int slots = rows.size();
         offset = Math.min(offset, Math.max(0, (slots - 1) / columns - visibleRows + 1));
+        if (selecting) {
+            button(translate("select_all"), fx + 10, fy + 60, 66, () -> { rows.forEach(row -> recipients.add(row.getUUID("Worker"))); rebuild = true; });
+            button(translate("clear"), fx + 78, fy + 60, 44, () -> { recipients.clear(); rebuild = true; });
+            button(translate("fill_to_ten"), fx + 124, fy + 60, 84, () -> {
+                recipients.clear(); rows.forEach(row -> recipients.add(row.getUUID("Worker")));
+                newCount = data.getInt("FreeSlots"); chooseDefaultSupplies(); rebuild = true;
+            });
+            label(translate("selected_count", recipients.size()), fx + 212, fy + 66, MUTED, fw - 222);
+        } else if (overview) {
+            button(translate("select_all"), fx + fw - 144, fy + 34, 76, () -> { rows.forEach(row -> recipients.add(row.getUUID("Worker"))); rebuild = true; });
+            button(translate("clear"), fx + fw - 66, fy + 34, 56, () -> { recipients.clear(); rebuild = true; });
+        }
         for (int index = offset * columns; index < Math.min(slots, (offset + visibleRows) * columns); index++) {
-            int x = fx + 10 + index % columns * cardWidth;
-            int y = fy + 60 + (index / columns - offset) * 72;
-            if (index == rows.size()) {
-                button(translate("add_worker"), x, y, cardWidth - 4, 66, () -> chooseDimension(WorkerNetwork.Action.DEPLOY));
-                continue;
-            }
+            int x = fx + 10 + index % columns * cardWidth + (overview ? 24 : 0);
+            int textWidth = cardWidth - (overview ? 40 : 16);
+            int y = fy + startY + (index / columns - offset) * 72;
             CompoundTag row = rows.get(index);
             UUID id = row.getUUID("Worker");
             Button card = addRenderableWidget(Button.builder(Component.empty(), ignored -> {
@@ -219,35 +256,48 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                 }
             }).createNarration(ignored -> Component.literal(row.getString("Name") + ", " + location(row)
                     + ", " + jobSummary(row.getCompound("Job"))))
-                    .bounds(x, y, cardWidth - 4, 66).build());
+                    .bounds(x, y, cardWidth - (overview ? 28 : 4), 66).build());
             card.setTooltip(Tooltip.create(Component.literal(row.getString("Name") + "\n" + location(row)
                     + "\n" + jobSummary(row.getCompound("Job")))));
-            label((selecting && recipients.contains(id) ? "✓ " : "") + row.getString("Name"), x + 6, y + 5, TEXT, cardWidth - 16);
-            label(shortDimension(row.getString("Dimension")), x + 6, y + 17, MUTED, cardWidth - 16);
+            if (overview) { button(recipients.contains(id) ? "✓" : "□", x - 24, y + 2, 20, () -> toggleRecipient(id)); }
+            label((selecting && recipients.contains(id) ? "✓ " : "") + row.getString("Name"), x + 6, y + 5, TEXT, textWidth);
+            label(shortDimension(row.getString("Dimension")), x + 6, y + 17, MUTED, textWidth);
             BlockPos pos = BlockPos.of(row.getLong("Position"));
-            label(pos.getX() + ", " + pos.getY() + ", " + pos.getZ(), x + 6, y + 28, MUTED, cardWidth - 16);
             CompoundTag job = row.getCompound("Job");
+            label(job.getString("Error").isEmpty() ? pos.getX() + ", " + pos.getY() + ", " + pos.getZ() : job.getString("Error"), x + 6, y + 28, MUTED, textWidth);
             label(job.getList("Targets", Tag.TAG_STRING).stream().map(Tag::getAsString).map(WorkerScreen::shortId)
-                    .reduce((a, b) -> a + ", " + b).orElse(translate("no_job")), x + 6, y + 39, TEXT, cardWidth - 16);
-            label((row.getBoolean("Pending") ? translate("preparing") : stateName(job.getString("State"))) + " " + progress(job), x + 6, y + 51, GREEN, cardWidth - 16);
+                    .reduce((a, b) -> a + ", " + b).orElse(translate("no_job")), x + 6, y + 39, TEXT, textWidth);
+            label((row.getBoolean("Pending") ? translate("preparing") : !row.getBoolean("Available") ? translate("unavailable")
+                    : stateName(job.getString("State"))) + " " + progress(job), x + 6, y + 51, GREEN, textWidth);
         }
         int bottom = fy + fh - 46;
         if (selecting) {
-            button(translate("select_all"), fx + 10, bottom, 70, () -> { rows.forEach(row -> recipients.add(row.getUUID("Worker"))); rebuild = true; });
-            button(translate("clear"), fx + 82, bottom, 44, () -> { recipients.clear(); rebuild = true; });
-            button(translate("continue_count", recipients.size()), fx + fw - 120, bottom, 110, () -> { page = Page.JOB; rebuild = true; });
-        } else {
-            button(menu.retired() ? translate("active_workers") : translate("retired_workers"), fx + 10, bottom, 94, () -> navigateRoster(!menu.retired()));
-            if (!menu.retired()) {
-                button(translate("batch_job"), fx + 106, bottom, 70, () -> navigate(Page.RECIPIENTS));
-                button(translate("collection"), fx + 180, bottom, 88, this::openCollection);
+            if (menu.worker() == null) {
+                button("−", fx + 10, bottom, 22, () -> { newCount = Math.max(0, newCount - 1); chooseDefaultSupplies(); rebuild = true; });
+                label(translate("new_workers_count", newCount), fx + 36, bottom + 6, TEXT, 112);
+                button("+", fx + 150, bottom, 22, () -> { newCount = Math.min(data.getInt("FreeSlots"), newCount + 1); chooseDefaultSupplies(); rebuild = true; });
+                button(translate("supplies"), fx + fw - 106, bottom, 96, () -> batchPage(Page.KITS));
+            } else {
+                button(translate("continue_count", recipients.size()), fx + fw - 120, bottom, 110, () -> { page = Page.JOB; rebuild = true; });
             }
-            if (menu.retired()) { button(translate("collection"), fx + 106, bottom, 88, this::openCollection); }
-            if (menu.retired() && data.getInt("Count") > 10) {
+        } else if (overview) {
+            String[] operations = { "START", "PAUSE", "RESUME", "STOP", "RETIRE" };
+            int actionWidth = (fw - 20) / operations.length;
+            for (int index = 0; index < operations.length; index++) {
+                String operation = operations[index];
+                button(translate(operation.toLowerCase(Locale.ROOT)), fx + 10 + index * actionWidth, bottom,
+                        actionWidth - 2, () -> previewFleet(operation)).active = !recipients.isEmpty() && waiting == 0;
+            }
+            button(translate("batch_jobs"), fx + 10, bottom - 24, 110, this::openBatch);
+            label(translate("selected_count", recipients.size()), fx + 124, bottom - 18, MUTED, fw - 188);
+        } else {
+            button(translate("collection"), fx + 10, bottom, 94, this::openCollection);
+            if (data.getInt("Count") > 10) {
                 button("<", fx + fw - 54, bottom, 20, () -> openRoster(true, Math.max(0, menu.page() - 1)));
                 button(">", fx + fw - 32, bottom, 20, () -> openRoster(true, menu.page() + 1));
             }
         }
+        if (slots == 0) { label(translate("no_workers_in_scope"), fx + 12, fy + startY + 12, MUTED, fw - 24); }
         if (slots > visibleRows * columns) {
             button("↑", fx + fw - 52, fy + fh - 70, 20, () -> { offset = Math.max(0, offset - 1); rebuild = true; });
             button("↓", fx + fw - 30, fy + fh - 70, 20, () -> { offset++; rebuild = true; });
@@ -255,14 +305,16 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     }
 
     private void openCollection() {
-        guardDiscard(() -> {
+        Runnable open = () -> {
             if (menu.worker() != null) { send(WorkerNetwork.Action.OPEN_COLLECTION, new CompoundTag()); return; }
             collectionMode = menu.retired() ? 1 : 0;
             collectionWorker = menu.worker() == null ? "" : menu.worker().toString();
             page = Page.COLLECTION;
             offset = 0;
             queryCollection(0);
-        });
+        };
+        if (menu.worker() != null || (settings != null && settings.dirty()) || (page == Page.CLEANUP && cleanupDirty())) { guardDiscard(open); }
+        else { open.run(); }
     }
 
     private void queryCollection(int nextPage) {
@@ -314,12 +366,12 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                 x + 120, fy + 114, MUTED, area - 120);
         ListTag items = collection.getList("Items", Tag.TAG_COMPOUND);
         int columns = Math.max(1, area / 34);
-        int visibleRows = Math.max(1, (fh - 206) / 32);
+        int visibleRows = Math.max(1, (fh - 194) / 32);
         offset = Math.min(offset, Math.max(0, (items.size() - 1) / columns - visibleRows + 1));
         for (int index = offset * columns; index < Math.min(items.size(), (offset + visibleRows) * columns); index++) {
             CompoundTag row = items.getCompound(index);
             ItemStack stack = ItemStack.parseOptional(minecraft.level.registryAccess(), row.getCompound("Stack"));
-            Button cell = button("", x + index % columns * 34, fy + 132 + (index / columns - offset) * 32, 32, 30, () -> {
+            Button cell = button("", x + index % columns * 34, fy + 126 + (index / columns - offset) * 32, 32, 30, () -> {
                 CompoundTag intent = collectionRevision();
                 intent.putUUID("Variant", row.getUUID("Variant"));
                 intent.putBoolean("Selected", !row.getBoolean("Selected"));
@@ -336,7 +388,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             cell.setTooltip(Tooltip.create(Component.literal(String.join("\n", tooltip))));
             itemCells.add(new ItemCell(stack, cell, row.getBoolean("Selected"), row.getLong("Count")));
         }
-        if (items.isEmpty()) { label(translate("no_collectible_items"), x + 4, fy + 142, MUTED, area - 8); }
+        if (items.isEmpty()) { label(translate("no_collectible_items"), x + 4, fy + 136, MUTED, area - 8); }
         int bottom = fy + fh - 70;
         button((retireAfterCollection ? "✓ " : "") + translate("retire_after_collection"), x, bottom, area - 48,
                 () -> { retireAfterCollection = !retireAfterCollection; rebuild = true; })
@@ -350,6 +402,38 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         label((current + 1) + " / " + Math.max(1, (collection.getInt("Count") + 35) / 36), x + area - 90, bottom + 30, MUTED, 42);
         button("<", x + area - 44, bottom + 24, 20, () -> queryCollection(current - 1)).active = current > 0;
         button(">", x + area - 22, bottom + 24, 20, () -> queryCollection(current + 1)).active = (current + 1) * 36 < collection.getInt("Count");
+    }
+
+    private void toggleRecipient(UUID id) {
+        if (!recipients.remove(id)) { recipients.add(id); }
+        rebuild = true;
+    }
+
+    private boolean isBatchPage() {
+        return menu.worker() == null && (page == Page.JOB || page == Page.RECIPIENTS || page == Page.KITS || page == Page.REQUESTS);
+    }
+
+    private void batchPage(Page next) { page = next; settings = null; offset = 0; rebuild = true; }
+
+    private void openBatch() {
+        if (menu.worker() != null) { guardDiscard(() -> send(WorkerNetwork.Action.OPEN_BATCH, new CompoundTag())); }
+        else { navigate(Page.JOB); }
+    }
+
+    private List<CompoundTag> activeRows() {
+        return data.getList("ActiveWorkers", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast).toList();
+    }
+
+    private ListTag recipientRefs() {
+        ListTag refs = new ListTag();
+        activeRows().stream().filter(row -> recipients.contains(row.getUUID("Worker"))).forEach(row -> refs.add(reference(row)));
+        return refs;
+    }
+
+    private void previewFleet(String operation) {
+        CompoundTag intent = new CompoundTag();
+        intent.put("Recipients", recipientRefs()); intent.putString("Operation", operation);
+        send(WorkerNetwork.Action.PREVIEW_FLEET, intent);
     }
 
     private void buildCollectionWorkers(CompoundTag collection) {
@@ -387,8 +471,11 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         edit(translate("quantity"), quantity, x, bottom, 68, 7, value -> quantity = value);
         button((unlimited ? "✓ " : "") + translate("unlimited"), x + 72, bottom, 80, () -> { unlimited = !unlimited; rebuild = true; });
         button(translate("reload"), x + 156, bottom, 54, () -> guardDiscard(() -> { loadJob(); rebuild = true; }));
-        boolean batch = !recipients.isEmpty() || menu.worker() == null;
-        if (batch) {
+        boolean batch = !recipients.isEmpty();
+        if (menu.worker() == null) {
+            label(translate("per_worker_total", unlimited ? "∞" : quantity, batchTotal()), x, bottom + 30, MUTED, area - 106);
+            button(translate("workers"), x + area - 102, bottom + 24, 102, () -> batchPage(Page.RECIPIENTS));
+        } else if (batch) {
             button(translate("recipients_count", recipients.size()), x, bottom + 24, 96, () -> { page = Page.RECIPIENTS; rebuild = true; });
             actionButton(translate("apply_settings"), x + 98, bottom + 24, 94, () -> preview(false));
             actionButton(translate("apply_start"), x + 194, bottom + 24, Math.min(96, area - 194), () -> preview(true));
@@ -581,18 +668,143 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         button(translate("reload"), fx + 10, fy + fh - 45, 64, () -> guardDiscard(() -> { settings = null; rebuild = true; }));
     }
 
+    private ItemStack supplyStack(CompoundTag row) {
+        return ItemStack.parseOptional(minecraft.level.registryAccess(), row.getCompound("Stack"));
+    }
+
+    private List<CompoundTag> supplies() {
+        return data.getList("Supplies", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast).toList();
+    }
+
+    private void chooseDefaultSupplies() {
+        List<Integer> validTools = supplies().stream().filter(row -> supplyStack(row).has(DataComponents.TOOL)).map(row -> row.getInt("Slot")).toList();
+        toolSlots.removeIf(slot -> !validTools.contains(slot));
+        while (toolSlots.size() > newCount) { toolSlots.remove(toolSlots.stream().reduce((left, right) -> right).orElseThrow()); }
+        for (int slot : validTools) { if (toolSlots.size() < newCount) { toolSlots.add(slot); } }
+        if (!suppliesInitialized && newCount > 0) {
+            suppliesInitialized = true;
+            int cobble = supplies().stream().filter(row -> {
+                ItemStack stack = supplyStack(row);
+                return stack.is(Items.COBBLESTONE) && stack.getComponentsPatch().isEmpty();
+            }).mapToInt(row -> row.getInt("Slot")).findFirst().orElse(-1);
+            if (cobble >= 0) { materialSlots.put(cobble, 64); materialSlot = cobble; }
+            else { defaultMaterialMissing = true; }
+        }
+    }
+
+    private String batchTotal() {
+        if (unlimited) { return "∞"; }
+        try { return Long.toString(Long.parseLong(quantity) * (recipients.size() + newCount)); }
+        catch (NumberFormatException invalid) { return "?"; }
+    }
+
+    private void buildKits() {
+        if (!suppliesInitialized) { chooseDefaultSupplies(); }
+        int x = fx + 10;
+        int area = fw - 20;
+        int third = (area - 4) / 3;
+        button((!choosingMaterials ? "✓ " : "") + translate("tools"), x, fy + 60, third, () -> { choosingMaterials = false; offset = 0; rebuild = true; });
+        button((choosingMaterials ? "✓ " : "") + translate("materials"), x + third + 2, fy + 60, third,
+                () -> { choosingMaterials = true; offset = 0; rebuild = true; });
+        button(shortDimension(dimension), x + 2 * (third + 2), fy + 60, third, () -> {
+            dimension = dimension.equals("minecraft:overworld") ? "minecraft:the_nether" : "minecraft:overworld"; rebuild = true;
+        });
+        label(translate("kit_summary", newCount, toolSlots.size(), materialSlots.size()), x, fy + 84, TEXT, area);
+        List<CompoundTag> available = supplies().stream().filter(row -> choosingMaterials
+                ? supplyStack(row).getItem() instanceof BlockItem : supplyStack(row).has(DataComponents.TOOL)).toList();
+        int columns = Math.max(1, area / 34);
+        int visibleRows = Math.max(1, (fh - 186) / 32);
+        offset = Math.min(offset, Math.max(0, (available.size() - 1) / columns - visibleRows + 1));
+        for (int index = offset * columns; index < Math.min(available.size(), (offset + visibleRows) * columns); index++) {
+            CompoundTag row = available.get(index);
+            int slot = row.getInt("Slot");
+            ItemStack stack = supplyStack(row);
+            boolean selected = choosingMaterials ? materialSlots.containsKey(slot) : toolSlots.contains(slot);
+            Button cell = button("", x + index % columns * 34, fy + 100 + (index / columns - offset) * 32, 32, 30, () -> {
+                if (choosingMaterials) {
+                    materialSlot = slot;
+                    materialQuantity = Integer.toString(materialSlots.getOrDefault(slot, 64));
+                } else if (!toolSlots.remove(slot) && toolSlots.size() < newCount) { toolSlots.add(slot); }
+                rebuild = true;
+            });
+            List<String> tooltip = new ArrayList<>(getTooltipFromItem(minecraft, stack).stream().map(Component::getString).toList());
+            tooltip.add(translate("inventory_slot", slot + 1));
+            if (choosingMaterials) { tooltip.add(translate("per_worker_material", materialSlots.getOrDefault(slot, 0))); }
+            cell.setTooltip(Tooltip.create(Component.literal(String.join("\n", tooltip))));
+            itemCells.add(new ItemCell(stack, cell, selected, stack.getCount()));
+        }
+        if (available.isEmpty()) { label(translate("no_kit_items"), x, fy + 108, MUTED, area); }
+        int bottom = fy + fh - 70;
+        if (choosingMaterials) {
+            edit(translate("per_worker_quantity"), materialQuantity, x, bottom, 48, 4, value -> materialQuantity = value);
+            button(translate("set"), x + 50, bottom, 38, () -> {
+                try {
+                    int count = Integer.parseInt(materialQuantity);
+                    if (materialSlot < 0 || count < 1 || count > 2048 || (!materialSlots.containsKey(materialSlot) && materialSlots.size() >= 8)) {
+                        message = translate("choose_material_quantity"); return;
+                    }
+                    ItemStack selected = supplies().stream().filter(row -> row.getInt("Slot") == materialSlot).map(this::supplyStack).findFirst().orElse(ItemStack.EMPTY);
+                    materialSlots.keySet().removeIf(slot -> slot != materialSlot && supplies().stream().filter(row -> row.getInt("Slot") == slot)
+                            .anyMatch(row -> ItemStack.isSameItemSameComponents(supplyStack(row), selected)));
+                    materialSlots.put(materialSlot, count); defaultMaterialMissing = false; rebuild = true;
+                } catch (NumberFormatException invalid) { message = translate("choose_material_quantity"); }
+            });
+            button(translate("remove"), x + 90, bottom, 58, () -> { materialSlots.remove(materialSlot); defaultMaterialMissing = false; rebuild = true; });
+            button(translate("clear"), x + 150, bottom, 44, () -> { materialSlots.clear(); defaultMaterialMissing = false; rebuild = true; });
+        } else {
+            button(translate("auto_select_tools"), x, bottom, Math.min(158, area - 48), () -> { toolSlots.clear(); chooseDefaultSupplies(); rebuild = true; });
+            label(translate("per_worker_total", unlimited ? "∞" : quantity, batchTotal()), x + 162, bottom + 6, MUTED, area - 212);
+        }
+        button("↑", x + area - 44, bottom, 20, () -> { offset = Math.max(0, offset - 1); rebuild = true; });
+        button("↓", x + area - 22, bottom, 20, () -> { offset++; rebuild = true; });
+        int half = (area - 2) / 2;
+        button(translate("deploy_only"), x, bottom + 24, half, () -> previewDeployment(false));
+        button(translate("deploy_start"), x + half + 2, bottom + 24, half, () -> previewDeployment(true));
+        if (defaultMaterialMissing && newCount > 0) { message = translate("default_cobblestone_missing"); }
+    }
+
+    private void previewDeployment(boolean start) {
+        if (defaultMaterialMissing && newCount > 0) { message = translate("default_cobblestone_missing"); return; }
+        CompoundTag intent = jobIntent();
+        if (intent == null) { return; }
+        intent.put("Recipients", recipientRefs()); intent.putBoolean("Start", start);
+        intent.putInt("NewCount", newCount); intent.putString("Dimension", dimension);
+        intent.putLong("SupplyRevision", data.getLong("SupplyRevision"));
+        ListTag tools = new ListTag();
+        if (newCount > 0) { toolSlots.forEach(slot -> tools.add(IntTag.valueOf(slot))); }
+        intent.put("ToolSlots", tools);
+        ListTag materials = new ListTag();
+        if (newCount > 0) {
+            materialSlots.forEach((slot, count) -> { CompoundTag row = new CompoundTag(); row.putInt("Slot", slot); row.putInt("Count", count); materials.add(row); });
+        }
+        intent.put("Materials", materials);
+        send(WorkerNetwork.Action.PREVIEW_BATCH, intent);
+    }
+
     private void buildRequests() {
-        ListTag requests = data.getList("Relocations", Tag.TAG_COMPOUND);
+        List<CompoundTag> requests = new ArrayList<>();
+        List<CompoundTag> batches = data.getList("Batches", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast).toList();
+        Set<UUID> batchRequests = batches.stream().map(row -> row.getUUID("Request")).collect(java.util.stream.Collectors.toSet());
+        data.getList("Relocations", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast)
+                .filter(row -> !batchRequests.contains(row.getUUID("Request"))).forEach(requests::add);
+        requests.addAll(batches);
+        requests.addAll(fleetOutcomes);
         int capacity = Math.max(1, (fh - 100) / 36);
         offset = Math.min(offset, Math.max(0, requests.size() - capacity));
         for (int index = offset; index < Math.min(requests.size(), offset + capacity); index++) {
-            CompoundTag request = requests.getCompound(requests.size() - 1 - index);
+            CompoundTag request = requests.get(requests.size() - 1 - index);
             int y = fy + 62 + (index - offset) * 36;
-            label(shortDimension(request.getString("Dimension")) + " — " + stateName(request.getString("State")), fx + 12, y, TEXT, fw - 90);
-            label(request.getString("Error").isEmpty() ? translate("attempts", request.getInt("Attempts")) : request.getString("Error"), fx + 12, y + 12, MUTED, fw - 90);
+            CompoundTag worker = activeRows().stream().filter(row -> row.getUUID("Worker").equals(request.getUUID("Worker"))).findFirst().orElse(new CompoundTag());
+            String workerName = request.contains("Name") ? request.getString("Name") : worker.isEmpty()
+                    ? request.getUUID("Worker").toString().substring(0, 8) : worker.getString("Name");
+            label(workerName + " — " + stateName(request.getString("State")), fx + 12, y, TEXT, fw - 90);
+            String details = !request.getString("Error").isEmpty() ? request.getString("Error") : worker.isEmpty()
+                    ? shortDimension(request.getString("Dimension")) : jobSummary(worker.getCompound("Job"));
+            label(details, fx + 12, y + 12, MUTED, fw - 90);
+            button("?", fx + fw - 32, y, 20, () -> confirm(workerName, List.of(stateName(request.getString("State")), details), () -> { }));
             String state = request.getString("State");
-            if (state.equals("PENDING")) {
-                button(translate("cancel"), fx + fw - 68, y, 56, () -> {
+            if (state.equals("PENDING") || state.equals("PREPARING")) {
+                button(translate("cancel"), fx + fw - 90, y, 56, () -> {
                     CompoundTag intent = new CompoundTag(); intent.putUUID("Request", request.getUUID("Request"));
                     send(WorkerNetwork.Action.CANCEL_RELOCATION, intent);
                 }).active = waiting == 0;
@@ -657,10 +869,17 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
 
     private void navigate(Page next) {
         if (next == page) { return; }
-        guardDiscard(() -> { page = next; settings = null; offset = 0; loadJob(); rebuild = true; });
+        if (menu.worker() == null) {
+            Runnable change = () -> { page = next; settings = null; offset = 0; rebuild = true; };
+            if ((settings != null && settings.dirty()) || (page == Page.CLEANUP && cleanupDirty())) { guardDiscard(change); }
+            else { change.run(); }
+        } else { guardDiscard(() -> { page = next; settings = null; offset = 0; loadJob(); rebuild = true; }); }
     }
 
-    private void navigateRoster(boolean retired) { guardDiscard(() -> openRoster(retired, 0)); }
+    private void navigateRoster(boolean retired) {
+        if (menu.worker() == null && menu.retired() == retired) { navigate(Page.ROSTER); }
+        else { guardDiscard(() -> openRoster(retired, 0)); }
+    }
     private void openRoster(boolean retired, int pageIndex) {
         CompoundTag intent = new CompoundTag(); intent.putBoolean("Retired", retired); intent.putInt("Page", pageIndex);
         send(WorkerNetwork.Action.OPEN_ROSTER, intent);
@@ -673,7 +892,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
 
     private void navigatePickup(boolean personal) {
         guardDiscard(() -> {
-            personalPickupRules = personal; page = Page.CLEANUP; settings = null; offset = 0; loadJob(); rebuild = true;
+            personalPickupRules = personal; page = Page.CLEANUP; settings = null; offset = 0; loadCleanup(); rebuild = true;
         });
     }
 
@@ -749,7 +968,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (dialog != null) { dialogOffset = Math.max(0, dialogOffset + (vertical < 0 ? 1 : -1)); rebuild = true; return true; }
         if (settings != null && (page == Page.OVERRIDES || page == Page.PERSONAL) && settings.mouseScrolled(vertical)) { return true; }
-        if (page == Page.ROSTER || page == Page.RECIPIENTS || page == Page.JOB || page == Page.CLEANUP || page == Page.REQUESTS || page == Page.COLLECTION) {
+        if (page == Page.ROSTER || page == Page.RECIPIENTS || page == Page.KITS || page == Page.JOB || page == Page.CLEANUP || page == Page.REQUESTS || page == Page.COLLECTION) {
             offset = Math.max(0, offset + (vertical < 0 ? 1 : -1)); rebuild = true; return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
@@ -798,6 +1017,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             boolean stateChanged = !fresh.getCompound("Selected").getCompound("Job").getString("State").equals(selectedJob().getString("State"))
                     || fresh.getBoolean("Pending") != data.getBoolean("Pending");
             data = fresh;
+            recipients.retainAll(activeRows().stream().map(row -> row.getUUID("Worker")).collect(java.util.stream.Collectors.toSet()));
             if (data.getBoolean("OpenCollection") && !collectionMenuInitialized) {
                 CompoundTag collection = data.getCompound("Collection");
                 collectionMode = collection.getInt("Mode");
@@ -807,11 +1027,27 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                 collectionMenuInitialized = true; page = Page.COLLECTION; rebuild = true;
             }
             if (!initialized) { initialized = true; loadJob(); rebuild = true; }
+            if (data.getBoolean("OpenBatch") && !batchMenuInitialized) {
+                batchMenuInitialized = true; page = Page.JOB;
+                CompoundTag draft = data.getCompound("BatchDraft");
+                targets.clear(); draft.getList("Targets", Tag.TAG_STRING).forEach(target -> targets.add(target.getAsString()));
+                quantity = Integer.toString(draft.getInt("Requested") > 0 ? draft.getInt("Requested") : 64);
+                unlimited = !targets.isEmpty() && draft.getInt("Requested") == 0;
+                saveDraft(); rebuild = true;
+            }
             if (waiting > 0 && menu.sequence() >= waiting) {
                 waiting = 0;
                 CompoundTag response = data.getCompound("Response");
                 String kind = response.getString("Kind");
                 if (kind.equals("Error")) { message = translate("server_error", response.getString("Error")); }
+                else if (kind.equals("DeploymentPreview")) { showDeploymentPreview(response); }
+                else if (kind.equals("FleetPreview")) { showFleetPreview(response); }
+                else if (kind.equals("DeploymentResult") || kind.equals("FleetResult")) {
+                    fleetOutcomes = response.getList("Recipients", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast).map(CompoundTag::copy).toList();
+                    if (kind.equals("DeploymentResult")) { saveDraft(); newCount = 0; toolSlots.clear(); }
+                    message = kind.equals("DeploymentResult") ? translate("queued_workers", response.getInt("Queued")) : translate("batch_finished_review_each_result");
+                    batchPage(Page.REQUESTS);
+                }
                 else if (kind.equals("CollectionPreview")) {
                     List<String> lines = new ArrayList<>();
                     lines.add(translate("collection_retire_warning"));
@@ -856,7 +1092,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                     }
                 }
                 rebuild = true;
-            } else if (changed && (page == Page.ROSTER || page == Page.REQUESTS || page == Page.INBOX || page == Page.COLLECTION || stateChanged) && dialog == null) { rebuild = true; }
+            } else if (changed && (page == Page.ROSTER || isBatchPage() || page == Page.INBOX || page == Page.COLLECTION || stateChanged) && dialog == null) { rebuild = true; }
             if (waiting == 0 && !jobDirty() && recipients.isEmpty() && menu.worker() != null) {
                 Set<String> previousTargets = Set.copyOf(targets);
                 String previousQuantity = quantity;
@@ -872,6 +1108,55 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         loadJobDraft();
         name = data.getCompound("Selected").getString("Name");
         loadCleanup();
+    }
+
+    private void showDeploymentPreview(CompoundTag response) {
+        List<String> lines = new ArrayList<>();
+        lines.add(translate("per_worker_total", unlimited ? "∞" : quantity, batchTotal()));
+        lines.add(translate("new_workers_count", response.getInt("NewCount")) + " — " + shortDimension(dimension));
+        lines.add(translate("tools_selected_required", response.getInt("ToolsSelected"), response.getInt("ToolsRequired")));
+        for (Tag tag : response.getList("Supplies", Tag.TAG_COMPOUND)) {
+            CompoundTag supply = (CompoundTag) tag;
+            ItemStack stack = supplyStack(supply);
+            lines.add(String.join(" · ", getTooltipFromItem(minecraft, stack).stream().map(Component::getString).toList()));
+            lines.add(translate("supply_required_available", supply.getInt("Required"), supply.getInt("Available")));
+        }
+        lines.addAll(recipientDescriptions(response));
+        if (!response.getBoolean("CanSubmit")) {
+            lines.add(response.getString("Error"));
+            confirm(translate("kit_shortage"), lines, () -> { });
+            return;
+        }
+        lines.add(translate("batch_close_continues"));
+        UUID token = response.getUUID("Confirmation");
+        confirm(translate(response.getBoolean("Start") ? "deploy_start" : "deploy_only"), lines, () -> {
+            CompoundTag intent = new CompoundTag(); intent.putUUID("Confirmation", token); send(WorkerNetwork.Action.SUBMIT_BATCH, intent);
+        });
+    }
+
+    private List<String> recipientDescriptions(CompoundTag response) {
+        List<String> descriptions = new ArrayList<>();
+        for (Tag tag : response.getList("Recipients", Tag.TAG_COMPOUND)) {
+            CompoundTag row = (CompoundTag) tag;
+            String line = row.getString("Name");
+            if (!row.getString("Error").isEmpty()) { line += ": " + row.getString("Error"); }
+            else if (row.getBoolean("Busy") && (response.getString("Operation").equals("BATCH") || response.getString("Operation").equals("START"))) {
+                line = translate("replaces_busy", line);
+            }
+            else { line += ": " + translate("eligible"); }
+            descriptions.add(line);
+        }
+        return descriptions;
+    }
+
+    private void showFleetPreview(CompoundTag response) {
+        UUID token = response.getUUID("Confirmation");
+        Runnable apply = () -> { CompoundTag intent = new CompoundTag(); intent.putUUID("Confirmation", token); send(WorkerNetwork.Action.APPLY_FLEET, intent); };
+        List<String> lines = recipientDescriptions(response);
+        if (response.getString("Operation").equals("RETIRE")) { lines.add(translate("collection_retire_remainder")); }
+        if (response.getBoolean("ConfirmationRequired")) {
+            confirm(translate(response.getString("Operation").toLowerCase(Locale.ROOT)), lines, apply);
+        } else { apply.run(); }
     }
 
     private void loadJobDraft() {
@@ -902,7 +1187,9 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     }
     private Button button(String text, int x, int y, int size, Runnable action) { return button(text, x, y, size, 20, action); }
     private Button button(String text, int x, int y, int size, int height, Runnable action) {
-        return addRenderableWidget(Button.builder(Component.literal(text), ignored -> action.run()).bounds(x, y, size, height).build());
+        Button button = addRenderableWidget(Button.builder(Component.literal(text), ignored -> action.run()).bounds(x, y, size, height).build());
+        if (font.width(text) > size - 6) { button.setTooltip(Tooltip.create(Component.literal(text))); }
+        return button;
     }
     private EditBox edit(String title, String value, int x, int y, int size, int maximum, java.util.function.Consumer<String> changed) {
         EditBox box = new EditBox(font, x, y, size, 20, Component.literal(title));
@@ -918,7 +1205,6 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         graphics.fill(fx + 3, fy + 3, fx + fw - 3, fy + fh - 3, 0xFF202622);
         graphics.fill(fx + 5, fy + 29, fx + fw - 5, fy + 30, GREEN);
         graphics.fill(fx + 5, fy + fh - 23, fx + fw - 5, fy + fh - 22, 0xFF87928F);
-        if (dialog == null) { graphics.renderItem(new ItemStack(WorkerMod.CONTROLLER.get()), fx + 10, fy + 6); }
         for (int x : new int[] {fx + 3, fx + fw - 8}) {
             for (int y : new int[] {fy + 3, fy + fh - 8}) { graphics.fill(x, y, x + 5, y + 5, 0xFF9C5936); }
         }

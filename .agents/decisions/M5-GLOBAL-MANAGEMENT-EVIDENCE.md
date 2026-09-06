@@ -92,3 +92,38 @@ contract was disproven. Production compilation passed as part of this run.
 Controller confirms focused task completion and architecture/scope conformity.
 Full independent profile, restart, GUI acceptance and packaging remain PENDING
 for M5.14; this does not accept the extension milestone.
+
+## M5.13 — implementation COMPLETE; in-game acceptance PENDING — HUMAN TESTING
+
+Added fleet selection/actions and per-worker eligibility/results; five global
+pages; batch targets, existing recipients, Fill to 10, new-worker count, actual
+kit selection/preview and inline progress. Server previews validate ownership,
+revisions, run state and copied player inventory. All new slots are reserved
+before mutation. The existing four-preparer relocation service receives queued
+children and an actual-inventory deployment commit. Late shortages consume
+nothing; post-transfer failures archive contents. Closing the menu continues;
+logout/shutdown cancel unfinished children and preserve successful workers.
+Queued child request IDs cannot bypass kit commit through the old DEPLOY action.
+
+PASS: production and GameTest source compilation, final raw log
+`.agents/evidence/M5/global-batch-final-compile.log`; all literal GUI labels exist.
+Before the human clarified in-game ownership: old menu/relocation 17/17 PASS
+(`global-batch-existing-runtime.log`); new batch 7/8 PASS (`global-batch-runtime.log`).
+The eighth failed at preview because its inclusive fixture range selected 11
+tools for 10 workers. Corrected range to 1..10 and compiled; runtime rerun remains
+PENDING — HUMAN TESTING. Passing cases include real post-kit failure/archive,
+late kit shortage, successful sibling/start, ownership/stale/repeat checks,
+components/per-worker quantity, close/logout/shutdown and fleet actions.
+Astra reviewed the delegated draft, repaired synchronous completion, typed count
+helper, exact-component preview assertions, lifecycle isolation/timing and packet
+fixture channels, and added the focused commit-failure regression. No product
+assumption was disproven; the cap scenario's runtime result is not called PASS.
+
+The attempted client launch (`global-client-launch.log`) failed before Minecraft
+opened because WGL/OpenGL 3.2–4.6 profiles were unavailable. The human then
+explicitly assigned ALL in-game testing to themselves. AGENTS.md and
+EXECUTION_STRATEGY.md now prohibit agent-launched clients/GameTests/restart probes
+without a specific request. Deliver code/build/static evidence and a numbered
+human checklist; do not hold delivery for human-owned in-game checks. The final
+fresh independent gate will therefore run the non-game profiles only. In-game
+milestone acceptance stays PENDING, including restart and normal/compact GUI.

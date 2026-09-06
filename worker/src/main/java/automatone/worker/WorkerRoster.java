@@ -412,6 +412,13 @@ public final class WorkerRoster extends SavedData {
         setDirty();
     }
 
+    public int freeSlots(UUID owner) {
+        requireThread();
+        long active = entries.values().stream().filter(entry -> entry.owner.equals(owner) && !entry.retired).count();
+        long pending = reservations.values().stream().filter(reservation -> reservation.owner().equals(owner)).count();
+        return (int) Math.max(0, ACTIVE_LIMIT - active - pending);
+    }
+
     public Reservation reserve(UUID owner, UUID request, UUID retiredWorker) {
         requireThread();
         Objects.requireNonNull(owner);
