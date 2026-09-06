@@ -35,3 +35,29 @@ writing/modification requires Terra or Luna. Active policies and helper prompts
 reflect this. Astra reviews, runs checks and integrates; Sol handles only scoped
 production work. No product/test edits. All seven TOMLs parse and scoped
 whitespace verification passes.
+
+## Astra-defined test foundation and Luna Max authoring — 2026-09-06
+
+User approved the recommended default for substantial feature tests: Astra owns
+the project-plan-derived testing foundation and bounded specs, GPT-5.6 Luna at
+max reasoning writes/runs assigned tests, and Astra reviews and integrates results.
+This supersedes the blanket test-authoring restriction above. Astra may author
+foundation/reference tests, repair small tests directly or take over stalled work.
+
+Changes: AGENTS.md and EXECUTION_STRATEGY.md define requirement mapping, test-layer
+selection, fixture/reset and mocking rules, assignment contents and review criteria.
+Orchestrator/implementation/repair templates and the helper README now agree.
+Existing tooling and one-task scope remain the default; fresh independent milestone
+verification remains required. This records the workflow, not a completed test suite
+or a claim that the project-specific foundation/reference tests have been authored.
+
+Checks: git diff --check PASS; scoped search/review of active policies, templates
+and helper instructions confirmed removal of the blanket Astra test-editing ban
+and preservation of production-helper scope limits. No executable code or agent
+configuration changed. Java, GameTests, analyzers and agent dispatch were not run;
+they are unnecessary for this documentation-only change. No product task/milestone
+acceptance changes; existing milestone obligations remain as recorded.
+
+Controller review: requested workflow is reflected in active instructions; no
+implementation assumption was tested or disproven. Detailed test assignments and
+foundation work occur with their feature tasks under this policy.

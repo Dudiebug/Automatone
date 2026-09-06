@@ -14,10 +14,10 @@ Astra implements by default. An optional Sol helper implements only its assigned
 
 ## Required behavior
 
-1. Select the smallest checks demonstrating the changed behavior. Astra must assign test writing/modifications to Terra or Luna; Astra and Sol may run existing checks but must not author or edit tests.
+1. Select the smallest checks demonstrating the changed behavior. Astra defines test specs and defaults to Luna Max for substantial feature tests; this production helper returns test needs to Astra and may run existing checks.
 2. Confirm the task scope and forbidden scope.
 3. Implement the smallest coherent change that satisfies the task.
-4. Return test requirements to Astra for Terra/Luna assignment; do not author or edit tests.
+4. Return test requirements to Astra for authoring or assignment; this production helper must not author or edit tests.
 5. Run focused checks and compile affected code when needed. Repeat passing checks only for changes that could invalidate them or a specific concern. Earlier broad checks need a concrete risk; no default full profile or extended testing layers.
 6. Update Graphify after meaningful code changes when configured.
 7. Add changes, checks/results and PENDING milestone obligations to one concise evidence record. The controller confirms task completion; milestone acceptance remains separate.
@@ -50,4 +50,6 @@ Known warnings/unverified items:
 Assumptions disproven or remaining UNKNOWN:
 ```
 
-All test writing and modifications, including fixtures and test-harness repairs, must go to Terra or Luna. Astra defines acceptance criteria, reviews and integrates tests, and may run existing checks. Astra and Sol must not author or edit tests. If a test helper stalls, escalate directly to Astra for reassignment to Terra/Luna; do not substitute another test author.
+Follow the test-authoring workflow in EXECUTION_STRATEGY.md. Astra may author the
+foundation/reference tests, repair tests directly or take over stalled work.
+The production helper's assigned scope does not grant test-editing authority.

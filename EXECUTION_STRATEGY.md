@@ -15,10 +15,16 @@ graph/evidence-update cadence, including those in older implementation plans and
 task specifications. Use the small-fix path below. Milestone acceptance and
 architecture requirements remain in force.
 
-Astra is the primary implementer and controller. Work directly by default.
-Test authoring and modification may be performed directly by Astra. Delegate
-tests to Terra/Luna, or implementation/repair to another helper, only when the
-assignment saves time or supplies useful independent scrutiny. Follow AGENTS.md's delegation
+The subsequent 2026-09-06 human-approved test-authoring workflow makes Astra
+responsible for the testing foundation and specs, with Luna Max as the default
+author for substantial feature tests and Astra reviewing the results. This
+supersedes older optional-only routing and blanket bans on Astra editing tests.
+Small repairs remain direct; independent milestone verification is unchanged.
+
+Astra is the primary implementer and controller. Work directly by default on
+production and small repairs; use the test-authoring workflow below for
+substantial feature tests. Implementation/repair helpers remain optional.
+Follow AGENTS.md's delegation
 and escalation rules. Astra selects models, takes over stalled work, reviews
 helper changes and evidence, and approves satisfactory work autonomously. Helpers
 escalate directly to Astra, never through an automatic agent chain or to the user.
@@ -76,6 +82,42 @@ remaining obligations under this policy; do not restart completed verification
 without a change or concrete concern. M2 product work stays behind that gate.
 
 ## During a task
+
+### Test foundation, assignments and review
+
+Astra defines the testing foundation from the approved project outline: map
+acceptance criteria to observable behavior, select unit tests or server GameTests,
+establish fixture cleanup/reset and timing rules, define allowed mocks, and supply
+a few reference tests. Reuse the existing tooling. Tests stay within feature tasks;
+do not build a separate testing architecture or prewrite the entire project suite.
+
+For each substantial feature-test batch:
+
+1. Astra resolves contract ambiguity and specifies requirement references, inputs,
+   expected outcomes, failure cases, allowed mocks, owned files, relevant interfaces,
+   focused run commands and escalation conditions in the task or assignment.
+2. GPT-5.6 Luna at max reasoning writes and runs the assigned tests. Helpers may
+   inspect relevant source, but derive expected behavior from the approved spec.
+   They change only assigned tests/fixtures and report contradictions or missing
+   interfaces to Astra; they do not change production behavior to satisfy tests.
+3. Astra reviews assertions for plausible defect detection, coverage of the real
+   integration boundary, isolation, deterministic timing and duplication. Avoid
+   copying implementation logic into the expected result. Use focused behavioral
+   evidence appropriate to risk; do not impose RED/GREEN or mutation on every test.
+4. Astra repairs, returns or integrates the batch after reviewing actual results.
+   Record acceptance-criterion coverage, checks run, unresolved issues and deferred
+   milestone checks in the existing concise evidence record.
+
+For example, an exact-quantity mining GameTest must observe three actual requested
+block destructions with five targets available and no later extra destruction;
+a mocked counter reaching three does not prove native mining stops correctly.
+
+Astra may author the foundation/reference tests, make small test repairs directly,
+or take over/reassign when delegation stops adding value. Luna assignments remain
+bounded within the active task; multiple helpers need disjoint ownership. Routine
+assignments do not require Old Coder unless the task's risk or human request calls
+for it. Astra's test review never substitutes for fresh independent milestone
+verification, and test authors must not grade their own milestone candidate.
 
 ### Small, clear fixes
 

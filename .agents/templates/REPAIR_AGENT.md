@@ -18,7 +18,7 @@ Repair a verified defect in an existing candidate without expanding scope or wea
 2. Identify the smallest root cause consistent with evidence.
 3. Make the smallest correction inside the task scope.
 4. Do not change the failing test/sensor unless evidence proves the spec/test itself is wrong; if so, stop and report a test/spec defect rather than editing it silently.
-5. Run the affected focused checks directly or, when Astra chooses, assign focused test work to Terra/Luna; reuse still-applicable passing evidence. Repeat broader checks only where this repair could invalidate their results, recording why. Do not automatically dispatch another reviewer or full profile.
+5. Run the affected focused checks and return test-editing needs to Astra; helpers do not redelegate. Astra may repair tests directly or assign bounded work, defaulting to Luna Max for substantial feature tests. Reuse still-applicable passing evidence. Repeat broader checks only where this repair could invalidate their results, recording why. Do not automatically dispatch another reviewer or full profile.
 
 ## Forbidden behavior
 
@@ -38,4 +38,6 @@ Focused checks actually run:
 Remaining uncertainty:
 ```
 
-All test writing and modifications, including fixtures and test-harness repairs, must go to Terra or Luna. Astra defines acceptance criteria, reviews and integrates tests, and may run existing checks. Astra and Sol must not author or edit tests. If a test helper stalls, escalate directly to Astra for reassignment to Terra/Luna; do not substitute another test author.
+Follow the test-authoring workflow in EXECUTION_STRATEGY.md. Astra may author the
+foundation/reference tests, repair tests directly or take over stalled work.
+Production repair helpers remain limited to their assigned production scope.

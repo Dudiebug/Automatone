@@ -51,11 +51,13 @@ Use the installed `graphify` skill for structural preflight, impact queries, and
 
 Use the installed `old-coder` skill for explicitly requested high-assurance work or when the risk warrants it. Ordinary focused tests do not require that workflow. Skill workflows do not override this proportional verification policy.
 
-### Astra ownership and optional delegation
+### Astra ownership and test delegation
 
 - Astra is the primary implementer and controller. Implement, diagnose, repair, run checks and integrate directly by default; delegate only when a bounded assignment adds value.
-- Astra may write or modify tests, fixtures and test harnesses directly. Terra/Luna test delegation is optional when it saves time or provides useful independent scrutiny; small fixes must not wait for a separate test author.
-- Implementation, test and repair delegation remain optional. Astra chooses reasoning effort, reviews and integrates results, and may take over work without user approval. Do not add a helper review round to routine work merely to satisfy a preferred routing pattern.
+- Astra owns the testing foundation derived from the approved project plan: requirement-to-behavior mapping, test-layer selection, fixture/reset rules, allowed mocks and reference tests. Reuse existing tooling; define detailed tests one task at a time as contracts become concrete.
+- For substantial feature tests, default to bounded GPT-5.6 Luna agents at max reasoning writing and running tests against Astra-defined specs, followed by Astra review. Each assignment names expected outcomes, failure cases, owned files, allowed mocks, focused checks and escalation conditions. Expected results come from the approved contract, not the current implementation.
+- Astra may write or modify tests, fixtures and harnesses directly, handle small repairs, or take over stalled work. Implementation and repair delegation remain optional; the Luna default is not a mandatory handoff for every edit. Astra chooses exceptions and integrates results without user approval.
+- Astra reviews delegated tests for plausible defect detection, real integration boundaries, deterministic isolation and nonredundant assertions. Helpers must report spec contradictions rather than change production behavior or weaken tests to pass. This review does not replace the fresh independent milestone gate.
 - Assign explicit scope, owned files, acceptance checks and escalation conditions. Helpers are not alone in the checkout: preserve others' changes. Helpers must not redelegate or approve their own work.
 - Every helper escalates directly to Astra on ambiguity, unexpected scope, conflicting evidence, a failed repair or lack of progress. Return current changes, results and the smallest unresolved issue instead of starting a handoff chain.
 - Astra automatically reviews helper changes and evidence, repairs or rejects inadequate work, and approves integration/task completion when checks establish the criteria. Automatic review does not mean automatic PASS. Do not ask the user to review or approve helper output.

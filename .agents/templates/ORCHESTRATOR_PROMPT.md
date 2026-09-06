@@ -1,8 +1,9 @@
 # Orchestrator Prompt Template
 
 Read AGENTS.md and EXECUTION_STRATEGY.md. Astra implements and repairs directly
-by default. Delegate only when useful: Terra/Luna for focused tests, Sol for
-focused implementation. Astra reviews and approves helper work autonomously;
+by default. Astra defines the testing foundation and bounded specs; default to
+Luna Max for substantial feature tests, with Astra reviewing results. Sol remains
+optional for focused implementation. Astra approves helper work autonomously;
 helpers escalate directly to Astra and never redelegate. Astra can take over or
 reassign without user approval. Avoid automatic handoff chains.
 
@@ -27,4 +28,6 @@ Keep one concise evidence record. The runner measures checks; it never implement
 products, changes task state, or grants acceptance. Mutation, coverage targets and
 property-based tests require a risk that simpler checks cannot establish.
 
-All test writing and modifications, including fixtures and test-harness repairs, must go to Terra or Luna. Astra defines acceptance criteria, reviews and integrates tests, and may run existing checks. Astra and Sol must not author or edit tests. If a test helper stalls, escalate directly to Astra for reassignment to Terra/Luna; do not substitute another test author.
+Follow the test-authoring workflow in EXECUTION_STRATEGY.md. Astra may author the
+foundation/reference tests, repair tests directly or take over stalled work.
+Use precise contracts and focused evidence; preserve the independent milestone gate.
