@@ -7,6 +7,13 @@ they do not add product work.
 
 ## Current authority
 
+The human accepted M5 through 0.12.1 and approved `docs/M6_FINAL_RELIABILITY.md`.
+It replaces the historical M6 contracts and gate below with the expanded M5
+product, RUNNING-only resume, typed failures and final release acceptance.
+M6.1 depends on accepted M5; M6.2–M6.4 proceed sequentially. Current task files
+and STATE.yaml govern status. All Minecraft measurements belong to the human;
+historical pending measurements remain pending despite human M5 acceptance.
+
 The approved `docs/M5_GUI_CONTROLLER.md` replaces the historical M5 inventory
 with M5.1-M5.8 task files and rebases conflicting M6 assumptions. The human has
 authorized implementation through that plan. M4 is ACCEPTED; see STATE.yaml.

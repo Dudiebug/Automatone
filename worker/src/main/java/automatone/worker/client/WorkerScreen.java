@@ -44,6 +44,13 @@ import java.util.UUID;
 /** Native widgets and slots over the server-owned controller session. */
 @EventBusSubscriber(modid = WorkerMod.MOD_ID, value = Dist.CLIENT)
 public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
+    private static String errorText(String code) {
+        if (code.isEmpty()) { return ""; }
+        String key = "error." + code.toLowerCase(Locale.ROOT);
+        return net.minecraft.locale.Language.getInstance().has("gui.automatone_worker." + key)
+                ? translate(key) : translate("error.unknown", code);
+    }
+
     static String translate(String key, Object... args) {
         return Component.translatable("gui.automatone_worker." + key, args).getString();
     }
@@ -280,7 +287,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             label(shortDimension(row.getString("Dimension")), x + 6, y + 17, MUTED, textWidth);
             BlockPos pos = BlockPos.of(row.getLong("Position"));
             CompoundTag job = row.getCompound("Job");
-            label(job.getString("Error").isEmpty() ? pos.getX() + ", " + pos.getY() + ", " + pos.getZ() : job.getString("Error"), x + 6, y + 28, MUTED, textWidth);
+            label(job.getString("Error").isEmpty() ? pos.getX() + ", " + pos.getY() + ", " + pos.getZ() : errorText(job.getString("Error")), x + 6, y + 28, MUTED, textWidth);
             label(job.getList("Targets", Tag.TAG_STRING).stream().map(Tag::getAsString).map(WorkerScreen::shortId)
                     .reduce((a, b) -> a + ", " + b).orElse(translate("no_job")), x + 6, y + 39, TEXT, textWidth);
             label((row.getBoolean("Pending") ? translate("preparing") : !row.getBoolean("Available") ? translate("unavailable")
@@ -817,7 +824,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             String workerName = request.contains("Name") ? request.getString("Name") : worker.isEmpty()
                     ? request.getUUID("Worker").toString().substring(0, 8) : worker.getString("Name");
             label(workerName + " — " + stateName(request.getString("State")), fx + 12, y, TEXT, fw - 90);
-            String details = !request.getString("Error").isEmpty() ? request.getString("Error") : worker.isEmpty()
+            String details = !request.getString("Error").isEmpty() ? errorText(request.getString("Error")) : worker.isEmpty()
                     ? shortDimension(request.getString("Dimension")) : jobSummary(worker.getCompound("Job"));
             label(details, fx + 12, y + 12, MUTED, fw - 90);
             button("?", fx + fw - 32, y, 20, () -> confirm(workerName, List.of(stateName(request.getString("State")), details), () -> { }));
@@ -1103,7 +1110,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                 waiting = 0;
                 CompoundTag response = data.getCompound("Response");
                 String kind = response.getString("Kind");
-                if (kind.equals("Error")) { message = translate("server_error", response.getString("Error")); }
+                if (kind.equals("Error")) { message = translate("server_error", errorText(response.getString("Error"))); }
                 else if (kind.equals("DeploymentPreview")) { showDeploymentPreview(response); }
                 else if (kind.equals("FleetPreview")) { showFleetPreview(response); }
                 else if (kind.equals("DeploymentResult") || kind.equals("FleetResult")) {
@@ -1141,7 +1148,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                         CompoundTag row = (CompoundTag) item;
                         String workerName = rows().stream().filter(candidate -> candidate.getUUID("Worker").equals(row.getUUID("Worker")))
                                 .map(candidate -> candidate.getString("Name")).findFirst().orElse(row.getUUID("Worker").toString());
-                        outcomes.add(workerName + ": " + (row.getString("Error").isEmpty() ? translate("applied") : row.getString("Error")));
+                        outcomes.add(workerName + ": " + (row.getString("Error").isEmpty() ? translate("applied") : errorText(row.getString("Error"))));
                     }
                     confirm(translate("batch_results"), outcomes, () -> { });
                     saveDraft(); message = translate("batch_finished_review_each_result");
@@ -1188,7 +1195,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         }
         lines.addAll(recipientDescriptions(response));
         if (!response.getBoolean("CanSubmit")) {
-            lines.add(response.getString("Error"));
+            lines.add(errorText(response.getString("Error")));
             confirm(translate("kit_shortage"), lines, () -> { });
             return;
         }
@@ -1204,7 +1211,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         for (Tag tag : response.getList("Recipients", Tag.TAG_COMPOUND)) {
             CompoundTag row = (CompoundTag) tag;
             String line = row.getString("Name");
-            if (!row.getString("Error").isEmpty()) { line += ": " + row.getString("Error"); }
+            if (!row.getString("Error").isEmpty()) { line += ": " + errorText(row.getString("Error")); }
             else if (row.getBoolean("Busy") && (response.getString("Operation").equals("BATCH") || response.getString("Operation").equals("START"))) {
                 line = translate("replaces_busy", line);
             }
@@ -1247,7 +1254,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private static String shortDimension(String id) { return id.equals("minecraft:overworld") ? translate("overworld") : id.equals("minecraft:the_nether") ? translate("nether") : shortId(id); }
     private static String location(CompoundTag row) { BlockPos pos = BlockPos.of(row.getLong("Position")); return row.getString("Dimension") + "  " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ(); }
     private static String progress(CompoundTag job) { return job.getLong("Completed") + " / " + (job.getInt("Requested") == 0 ? "∞" : job.getInt("Requested")); }
-    private static String jobSummary(CompoundTag job) { return stateName(job.getString("State")) + " — " + progress(job) + (job.getString("Error").isEmpty() ? "" : " — " + job.getString("Error")); }
+    private static String jobSummary(CompoundTag job) { return stateName(job.getString("State")) + " — " + progress(job) + (job.getString("Error").isEmpty() ? "" : " — " + errorText(job.getString("Error"))); }
     private static String stateName(String state) { return Component.translatableWithFallback("gui.automatone_worker.state_" + state.toLowerCase(Locale.ROOT), state).getString(); }
 
     private Button actionButton(String text, int x, int y, int size, Runnable action) {

@@ -93,7 +93,8 @@ public class WorkerEntity extends Mob implements Container {
             ((WorkerEntityController) context.playerController()).validateBreakingTarget();
             if (miningSession.snapshot().state() == MiningSession.State.RUNNING
                     && !pendingResume && runtime != null && !runtime.getMineProcess().isActive()) {
-                miningSession.fail("NATIVE_STOPPED");
+                miningSession.nativeStopped(runtime.getMineProcess().terminationReason()
+                        .orElse(baritone.api.process.IMineProcess.TerminationReason.INTERNAL_FAILURE));
             }
             getNavigation().stop();
             if (onGround() && xxa == 0.0F && zza == 0.0F) {
@@ -112,7 +113,8 @@ public class WorkerEntity extends Mob implements Container {
                             .map(BuiltInRegistries.BLOCK::get).toArray(Block[]::new);
                     runtime.getMineProcess().mine(targets);
                 } catch (RuntimeException failure) {
-                    miningSession.fail("NATIVE_START_FAILED");
+                    miningSession.fail("INTERNAL_FAILURE");
+                    com.mojang.logging.LogUtils.getLogger().error("Cannot start worker mining for {}", getUUID(), failure);
                     cancelNativeMining();
                 }
             }
@@ -202,7 +204,18 @@ public class WorkerEntity extends Mob implements Container {
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
-        super.readAdditionalSaveData(tag);
+        boolean hadRuntime = runtime != null;
+        // Loading into an attached entity must invalidate its old native work too.
+        detachRuntime();
+        try {
+            super.readAdditionalSaveData(tag);
+            readWorkerData(tag);
+        } finally {
+            if (hadRuntime) { attachRuntime(); }
+        }
+    }
+
+    private void readWorkerData(CompoundTag tag) {
         pendingResume = false;
         owner = null;
         inventoryManagement = new WorkerInventoryManagement();

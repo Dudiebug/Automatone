@@ -66,6 +66,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private long scanGeneration;
     private ScanResult pendingScan;
     private boolean scanInFlight;
+    private TerminationReason terminationReason;
 
     public MineProcess(Baritone baritone) {
         super(baritone);
@@ -80,6 +81,25 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         synchronized (scanStateLock) {
             return filter != null;
         }
+    }
+
+    @Override
+    public Optional<TerminationReason> terminationReason() {
+        synchronized (scanStateLock) {
+            return Optional.ofNullable(terminationReason);
+        }
+    }
+
+    private void terminate(TerminationReason reason) {
+        synchronized (scanStateLock) {
+            if (filter == null) { return; }
+            terminationReason = reason;
+            mine(0, (BlockOptionalMetaLookup) null);
+        }
+    }
+
+    private TerminationReason exhaustedReason() {
+        return blacklist.isEmpty() ? TerminationReason.NO_TARGETS : TerminationReason.PATH_FAILED;
     }
 
     @Override
@@ -101,9 +121,13 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             }
             if (curr >= desiredQuantity) {
                 logDirect("Have " + curr + " valid items");
-                cancel();
+                terminate(TerminationReason.COMPLETED);
                 return null;
             }
+        }
+        if (filterFilter() == null) {
+            terminate(TerminationReason.BREAK_DISABLED);
+            return null;
         }
         if (calcFailed) {
             if (!knownOreLocations.isEmpty() && baritone.getSettings().blacklistClosestOnFailure.value) {
@@ -112,7 +136,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                 knownOreLocations.removeIf(blacklist::contains);
             } else {
                 logDirect("Unable to find any path to " + filter + ", canceling mine");
-                cancel();
+                terminate(TerminationReason.PATH_FAILED);
                 return null;
             }
         }
@@ -128,7 +152,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         }
         if (baritone.getSettings().legitMine.value) {
             if (!addNearby()) {
-                cancel();
+                terminate(TerminationReason.BREAK_DISABLED);
                 return null;
             }
         }
@@ -157,7 +181,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         if (command == null) {
             // none in range
             // maybe say something in chat? (ahem impact)
-            cancel();
+            terminate(exhaustedReason());
             return null;
         }
         return command;
@@ -183,7 +207,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
 
     @Override
     public void onLostControl() {
-        mine(0, (BlockOptionalMetaLookup) null);
+        terminate(TerminationReason.CANCELLED);
     }
 
     @Override
@@ -296,13 +320,13 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             pendingScan = null;
             scanInFlight = false;
             if (result.failure != null) {
-                logDirect("Mine scan failed, cancelling: " + result.failure.getMessage());
-                cancel();
+                com.mojang.logging.LogUtils.getLogger().error("Native mine scan failed", result.failure);
+                terminate(TerminationReason.INTERNAL_FAILURE);
                 return;
             }
             if (result.locations.isEmpty() && !baritone.getSettings().exploreForBlocks.value) {
                 logDirect("No locations for " + filter + " known, cancelling");
-                cancel();
+                terminate(exhaustedReason());
                 return;
             }
             knownOreLocations = result.locations;
@@ -598,6 +622,11 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         boolean wasActive;
         synchronized (scanStateLock) {
             wasActive = this.filter != null;
+            if (filter != null) {
+                terminationReason = null;
+            } else if (wasActive && terminationReason == null) {
+                terminationReason = TerminationReason.CANCELLED;
+            }
             scanGeneration++;
             pendingScan = null;
             scanInFlight = false;

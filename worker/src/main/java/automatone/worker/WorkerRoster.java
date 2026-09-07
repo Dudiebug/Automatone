@@ -672,11 +672,14 @@ public final class WorkerRoster extends SavedData {
 
     public void removed(WorkerEntity worker, Entity.RemovalReason reason) {
         requireThread();
+        WorkerEntity live = findLive(worker.getUUID());
+        if (live != null && !live.equals(worker)) { return; }
+        Entry entry = entries.get(worker.getUUID());
+        if (entry != null && !worker.ownerUUID().filter(entry.owner::equals).isPresent()) { return; }
         if (worker.getHealth() <= 0.0F || reason == Entity.RemovalReason.KILLED) {
             archiveDeath(worker);
             return;
         }
-        Entry entry = entries.get(worker.getUUID());
         if (entry != null && !entry.retired) {
             if (reason != null && reason.shouldDestroy()) {
                 entries.remove(worker.getUUID());

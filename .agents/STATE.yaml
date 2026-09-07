@@ -1,13 +1,23 @@
 schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
-accepted_baseline: 14762d261c107f7020930aa73d905e47359f3d04
-active_task: null
-active_gate: M5
+accepted_baseline: 7e781a4b
+active_task: M6.4
+active_gate: M6
 
 milestones:
-  M5:
+  M6:
     state: IN_PROGRESS
+    baseline: 7e781a4b
+    last_verdict: PENDING
+    implementation_plan: docs/M6_FINAL_RELIABILITY.md
+    last_evidence: .agents/decisions/M6-EVIDENCE.md
+    execution_authorization: "Human approved M6 implementation; all Minecraft testing belongs to the human."
+    blocker: null
+  M5:
+    state: ACCEPTED
+    candidate: 7e781a4b
+    acceptance: "Explicit human M5 approval; historical pending measurements remain pending."
     baseline: c8b68bee
     last_verdict: PENDING
     last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
@@ -298,29 +308,36 @@ tasks:
     last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
     deferred: "Implementation/delivery PASS; relocation/scrolling/Collection in-game acceptance PENDING — HUMAN TESTING."
   M6.1:
-    state: PLANNED
-    baseline: null
+    state: COMPLETE
+    baseline: 7e781a4b
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PASS
+    last_evidence: .agents/decisions/M6-EVIDENCE.md
+    blocker: null
+    deferred: "Code checks PASS; in-game acceptance PENDING — HUMAN TESTING."
   M6.2:
-    state: PLANNED
-    baseline: null
+    state: COMPLETE
+    baseline: 7e781a4b
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PASS
+    last_evidence: .agents/decisions/M6-EVIDENCE.md
+    blocker: null
+    deferred: "Code checks PASS; in-game acceptance PENDING — HUMAN TESTING."
   M6.3:
-    state: PLANNED
-    baseline: null
+    state: COMPLETE
+    baseline: 7e781a4b
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PASS
+    last_evidence: .agents/decisions/M6-EVIDENCE.md
+    blocker: null
+    deferred: "Code checks PASS; in-game acceptance PENDING — HUMAN TESTING."
   M6.4:
-    state: PLANNED
-    baseline: null
+    state: IMPLEMENTING
+    baseline: 7e781a4b
     candidate: null
-    last_verdict: null
-    blocker: "No accepted bootstrap baseline; historical work is not independently accepted."
+    last_verdict: PENDING
+    last_evidence: .agents/decisions/M6-EVIDENCE.md
+    blocker: null
 
 # Per-task controller state example:
 # tasks:

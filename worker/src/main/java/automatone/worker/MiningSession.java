@@ -132,6 +132,16 @@ public final class MiningSession {
         setState(State.FAILED, error);
     }
 
+    void nativeStopped(baritone.api.process.IMineProcess.TerminationReason reason) {
+        if (current.state() != State.RUNNING) { return; }
+        fail(switch (reason) {
+            case CANCELLED -> "INTERRUPTED";
+            // Native item-count completion cannot establish consumer source-block completion.
+            case COMPLETED -> "INTERNAL_FAILURE";
+            default -> reason.name();
+        });
+    }
+
     private void setState(State state, String error) {
         current = new Snapshot(current.targets(), current.requested(), current.completed(), state, error, current.runId());
     }

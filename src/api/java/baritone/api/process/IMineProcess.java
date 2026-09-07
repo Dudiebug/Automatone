@@ -19,6 +19,7 @@ package baritone.api.process;
 
 import baritone.api.utils.BlockOptionalMeta;
 import baritone.api.utils.BlockOptionalMetaLookup;
+import java.util.Optional;
 import java.util.stream.Stream;
 import net.minecraft.world.level.block.Block;
 
@@ -27,6 +28,15 @@ import net.minecraft.world.level.block.Block;
  * @since 9/23/2018
  */
 public interface IMineProcess extends IBaritoneProcess {
+
+    enum TerminationReason {
+        CANCELLED, COMPLETED, NO_TARGETS, PATH_FAILED, BREAK_DISABLED, INTERNAL_FAILURE
+    }
+
+    /** Last native termination; empty before work or while active. Reset by a new mining invocation. */
+    default Optional<TerminationReason> terminationReason() {
+        return Optional.empty();
+    }
 
     /**
      * Begin to search for and mine the specified blocks until

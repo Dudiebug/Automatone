@@ -86,7 +86,7 @@ neoForge {
             sourceSet = sourceSets.gameTest
             gameDirectory = layout.buildDirectory.dir('gametest-server')
             systemProperty 'neoforge.enabledGameTestNamespaces', providers.gradleProperty('workerGameTestNamespaces')
-                    .orElse('automatone_worker_gametest,automatone_worker_m4_gametest,automatone_worker_m5_gametest,automatone_worker_m5_roster_gametest,automatone_worker_m5_relocation_gametest,automatone_worker_m5_controller_gametest,automatone_worker_m5_menu_gametest,automatone_worker_m5_notifications_gametest,automatone_worker_m5_inventory_gametest,automatone_worker_m5_placement_gametest,automatone_worker_m5_collection_gametest,automatone_worker_m5_batch_gametest').get()
+                    .orElse('automatone_worker_gametest,automatone_worker_m4_gametest,automatone_worker_m5_gametest,automatone_worker_m5_roster_gametest,automatone_worker_m5_relocation_gametest,automatone_worker_m5_controller_gametest,automatone_worker_m5_menu_gametest,automatone_worker_m5_notifications_gametest,automatone_worker_m5_inventory_gametest,automatone_worker_m5_placement_gametest,automatone_worker_m5_collection_gametest,automatone_worker_m5_batch_gametest,automatone_worker_m6_gametest').get()
             loadedMods = [mods.automatone, mods.automatone_worker, mods.automatone_worker_gametest]
             taskBefore stageGameTestStructures
         }

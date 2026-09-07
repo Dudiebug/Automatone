@@ -135,6 +135,12 @@ public final class WorkerRestartProbe {
             WorkerEntity cancelled = createMiner(new BlockPos(512, 96, 704), false, false);
             WorkerEntity failed = createMiner(new BlockPos(512, 96, 768), false, false);
             WorkerEntity dead = createMiner(new BlockPos(512, 96, 832), true, false);
+            WorkerEntity paused = createMiner(new BlockPos(512, 96, 896), true, false);
+            paused.startMining(TARGET, 11);
+            paused.pauseMining();
+            CompoundTag pausedSave = paused.saveWithoutId(new CompoundTag());
+            pausedSave.getCompound("AutomatoneWorker").getCompound("Job").putLong("Completed", 3);
+            paused.readAdditionalSaveData(pausedSave);
 
             dead.startMining(TARGET, 11);
             dead.setHealth(0.0F);
@@ -157,6 +163,8 @@ public final class WorkerRestartProbe {
             manifest.setProperty("cancelled.uuid", cancelled.getUUID().toString());
             manifest.setProperty("failed.uuid", failed.getUUID().toString());
             manifest.setProperty("dead.uuid", dead.getUUID().toString());
+            manifest.setProperty("paused.uuid", paused.getUUID().toString());
+            manifest.setProperty("paused.run", paused.miningStatus().runId().toString());
             manifest.setProperty("finite.owner", OWNER.toString());
             manifest.setProperty("finite.selected", Integer.toString(finite.selectedSlot()));
             manifest.setProperty("orphan.uuid", ORPHAN.toString());
@@ -222,13 +230,18 @@ public final class WorkerRestartProbe {
             WorkerEntity completed = findWorker("completed.uuid");
             WorkerEntity cancelled = findWorker("cancelled.uuid");
             WorkerEntity failed = findWorker("failed.uuid");
-            if (finite == null || unlimited == null || completed == null || cancelled == null || failed == null) {
+            WorkerEntity paused = findWorker("paused.uuid");
+            if (finite == null || unlimited == null || completed == null || cancelled == null || failed == null || paused == null) {
                 return;
             }
             verifyPersistedIdentity(finite);
             verifyTerminal(completed, MiningSession.State.COMPLETED);
             verifyTerminal(cancelled, MiningSession.State.CANCELLED);
             verifyTerminal(failed, MiningSession.State.FAILED);
+            verifyTerminal(paused, MiningSession.State.PAUSED);
+            require(paused.miningStatus().completed() == 3 && paused.miningStatus().requested() == 11
+                    && paused.miningStatus().runId().toString().equals(manifest.getProperty("paused.run")),
+                    "paused restart changed progress, quantity or run identity");
             long finiteSaved = value("finite.saved");
             long finiteDestroyedSaved = value("finite.destroyed.saved");
             long unlimitedSaved = value("unlimited.saved");
