@@ -146,6 +146,11 @@ public final class ControlHubRegistry extends SavedData {
         return hub != null && hub.owner.equals(owner);
     }
 
+    public boolean hasRemoteController(UUID owner) {
+        requireThread();
+        return hubs.values().stream().anyMatch(hub -> hub.owner.equals(owner) && hub.tier.remoteController());
+    }
+
     public Optional<HubRef> nearestOwnedHub(ServerLevel level, UUID owner, Vec3 position, double maxDistance) {
         requireThread();
         double maximum = maxDistance * maxDistance;
@@ -189,6 +194,7 @@ public final class ControlHubRegistry extends SavedData {
             workerHomes.put(worker.getUUID(), home);
             setDirty();
         }
+        Hub destination = Objects.requireNonNull(hub);
 
         int moved = 0;
         for (int slot = 0; slot < worker.getContainerSize(); slot++) {
@@ -197,7 +203,7 @@ public final class ControlHubRegistry extends SavedData {
                 continue;
             }
             int before = source.getCount();
-            ItemStack remainder = insert(hub.storage, source);
+            ItemStack remainder = insert(destination.storage, source);
             int transferred = before - remainder.getCount();
             if (transferred > 0) {
                 worker.setItem(slot, remainder);
