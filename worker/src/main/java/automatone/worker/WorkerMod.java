@@ -8,6 +8,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.EventPriority;
@@ -22,8 +24,29 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 @Mod(WorkerMod.MOD_ID)
 public final class WorkerMod {
     public static final String MOD_ID = "automatone_worker";
+    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MOD_ID);
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
+
+    public static final DeferredHolder<net.minecraft.world.level.block.Block, ControlHubBlock> CONTROL_HUB_T1 =
+            BLOCKS.register("control_hub_t1", () -> hub(ControlHubTier.BASIC));
+    public static final DeferredHolder<net.minecraft.world.level.block.Block, ControlHubBlock> CONTROL_HUB_T2 =
+            BLOCKS.register("control_hub_t2", () -> hub(ControlHubTier.REINFORCED));
+    public static final DeferredHolder<net.minecraft.world.level.block.Block, ControlHubBlock> CONTROL_HUB_T3 =
+            BLOCKS.register("control_hub_t3", () -> hub(ControlHubTier.ADVANCED));
+    public static final DeferredHolder<net.minecraft.world.level.block.Block, ControlHubBlock> CONTROL_HUB_T4 =
+            BLOCKS.register("control_hub_t4", () -> hub(ControlHubTier.DRAGON));
+
+    public static final DeferredHolder<Item, ControlHubBlockItem> CONTROL_HUB_T1_ITEM = ITEMS.register("control_hub_t1",
+            () -> new ControlHubBlockItem(CONTROL_HUB_T1.get(), ControlHubTier.BASIC));
+    public static final DeferredHolder<Item, ControlHubBlockItem> CONTROL_HUB_T2_ITEM = ITEMS.register("control_hub_t2",
+            () -> new ControlHubBlockItem(CONTROL_HUB_T2.get(), ControlHubTier.REINFORCED));
+    public static final DeferredHolder<Item, ControlHubBlockItem> CONTROL_HUB_T3_ITEM = ITEMS.register("control_hub_t3",
+            () -> new ControlHubBlockItem(CONTROL_HUB_T3.get(), ControlHubTier.ADVANCED));
+    public static final DeferredHolder<Item, ControlHubBlockItem> CONTROL_HUB_T4_ITEM = ITEMS.register("control_hub_t4",
+            () -> new ControlHubBlockItem(CONTROL_HUB_T4.get(), ControlHubTier.DRAGON));
+    public static final DeferredHolder<Item, WorkerCoreItem> WORKER_CORE = ITEMS.register("worker_core", WorkerCoreItem::new);
     public static final DeferredHolder<Item, WorkerControllerItem> CONTROLLER = ITEMS.register("controller", WorkerControllerItem::new);
+
     private static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, MOD_ID);
     public static final DeferredHolder<MenuType<?>, MenuType<WorkerMenu>> MENU = MENUS.register("controller",
             () -> IMenuTypeExtension.create(WorkerMenu::new));
@@ -32,6 +55,7 @@ public final class WorkerMod {
             () -> EntityType.Builder.of(WorkerEntity::new, MobCategory.MISC).sized(0.6F, 1.8F).build(MOD_ID + ":worker"));
 
     public WorkerMod(IEventBus bus) {
+        BLOCKS.register(bus);
         ITEMS.register(bus);
         MENUS.register(bus);
         ENTITIES.register(bus);
@@ -49,11 +73,22 @@ public final class WorkerMod {
         NeoForge.EVENT_BUS.addListener(WorkerNotifications::login);
         NeoForge.EVENT_BUS.addListener(WorkerNotifications::logout);
         NeoForge.EVENT_BUS.addListener(WorkerNotifications::stop);
+        NeoForge.EVENT_BUS.addListener(WorkerPhysicalInteractions::interact);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, BlockDropsEvent.class, WorkerEntity::onBlockDrops);
+    }
+
+    private static ControlHubBlock hub(ControlHubTier tier) {
+        return new ControlHubBlock(tier, BlockBehaviour.Properties.of().strength(5.0F, 6.0F)
+                .sound(SoundType.METAL).requiresCorrectToolForDrops());
     }
 
     private static void creativeItems(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey().equals(CreativeModeTabs.TOOLS_AND_UTILITIES)) {
+            event.accept(WORKER_CORE.get());
+            event.accept(CONTROL_HUB_T1_ITEM.get());
+            event.accept(CONTROL_HUB_T2_ITEM.get());
+            event.accept(CONTROL_HUB_T3_ITEM.get());
+            event.accept(CONTROL_HUB_T4_ITEM.get());
             event.accept(CONTROLLER.get());
         }
     }
