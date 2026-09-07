@@ -1,24 +1,16 @@
 # M6 evidence
 
-
-
 Contract: `docs/M6_FINAL_RELIABILITY.md`, explicitly approved by the human.
 
 Baseline: `7e781a4b` / 0.12.1. Controller: Astra. M6 IN_PROGRESS.
 
-
-
 ## Prerequisite and verification contract
-
-
 
 Human explicitly accepted M5 and authorized M6 implementation. Record M5 ACCEPTED
 
 by human approval; historical M5 runtime/checklist measurements remain as recorded,
 
 including PENDING entries. No previous measurement is upgraded to PASS.
-
-
 
 Reuse existing tooling, dependencies, serializers and ownership policy. Installed
 
@@ -34,11 +26,7 @@ default + architecture_sensitive gate at M6.4. All Minecraft execution, includin
 
 GameTests and restart probes, is PENDING — HUMAN TESTING. No product publication.
 
-
-
 ## M6.1 — implementation COMPLETE; runtime PENDING — HUMAN TESTING
-
-
 
 Rebased the task contracts onto expanded M5 and the approved M6 implementation
 
@@ -57,8 +45,6 @@ Added three real-entity GameTests for v1–v3 paused saves, five invalid-job var
 36 component-bearing inventory slots/equipment, and live/unloaded removal guards.
 
 Registered the M6 namespace. No serialization format change was needed.
-
-
 
 PASS: :worker:compileGameTestJava :worker:test --tests automatone.worker.MiningSession*
 
@@ -82,11 +68,7 @@ focused tests. Disproved assumption: any removal callback with matching UUID is
 
 safe to trust. Controller confirms focused code completion and scope/invariants.
 
-
-
 ## M6.2 — implementation COMPLETE; runtime PENDING — HUMAN TESTING
-
-
 
 Loading into an already attached worker previously retained old native work.
 
@@ -97,8 +79,6 @@ runtime afterward, preserving readiness-gated RUNNING intent. Added a live-reloa
 fixture observing disposal/cancellation, PAUSED progress and provider uniqueness;
 
 extended the existing two-process restart probe with a nonzero paused job/run ID.
-
-
 
 Reviewed existing transfer/death/reactivation/ticket policies and shutdown order:
 
@@ -126,11 +106,7 @@ Controller confirms scope/code completion. Disproved assumption: saved-data load
 
 only ever targets an entity without an existing native runtime.
 
-
-
 ## M6.3 — implementation COMPLETE; runtime PENDING — HUMAN TESTING
-
-
 
 Added additive IMineProcess.TerminationReason/accessor. MineProcess records all
 
@@ -152,8 +128,6 @@ item-count COMPLETED is not accepted as consumer source-count completion. Added
 
 protocol 5, packet shape, save versions and legacy string codes are unchanged.
 
-
-
 PASS: seven focused native lifecycle/generation/termination unit tests
 
 (native-termination-final.log), 21 worker MiningSession unit tests and all GameTest
@@ -167,8 +141,6 @@ completion, and native completion/async internal failure with sticky cleanup.
 Runtime results remain PENDING — HUMAN TESTING. Localization static check PASS:
 
 138 literal screen keys exist, 43 error entries (localization-check.json).
-
-
 
 Luna authored initial cancellation/async tests. First fixture bootstrapped Minecraft
 
@@ -188,17 +160,11 @@ unchanged methods; the independent gate owns their exact disposition checks.
 
 Controller confirms task code completion, native/consumer boundaries and scope.
 
-
-
 ## M6.4 — IMPLEMENTING
-
-
 
 Fresh independent profile, graph update and package validation: PENDING.
 
 All in-game acceptance remains PENDING — HUMAN TESTING.
-
-
 
 ## Final acceptance matrix
 
