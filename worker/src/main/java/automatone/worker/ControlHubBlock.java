@@ -60,6 +60,23 @@ public final class ControlHubBlock extends Block {
                     : "Withdrew " + moved + " items from Control Hub storage."), false);
             return InteractionResult.CONSUME;
         }
+        if (!tier.remoteController()) {
+            int active = WorkerRoster.get(serverLevel.getServer()).list(player.getUUID(), false).size();
+            player.displayClientMessage(Component.literal(tier.displayName() + ": " + active + "/"
+                    + tier.workerSlots() + " worker slots in use. Use an Automatone Core on a golem shell to add a worker."
+                    + " Sneak-right-click this hub to withdraw drop-offs."), false);
+            return InteractionResult.CONSUME;
+        }
+
+        // Mk IV is the progression unlock for the old controller's anywhere-access behavior.
+        if (!WorkerMenu.hasController(player)) {
+            ItemStack controller = new ItemStack(WorkerMod.CONTROLLER.get());
+            player.getInventory().add(controller);
+            if (!controller.isEmpty()) {
+                player.drop(controller, false);
+            }
+            player.displayClientMessage(Component.literal("Remote Automatone controller link unlocked."), false);
+        }
         try {
             WorkerMenu.open(player, null, false, 0);
         } catch (IllegalStateException failure) {
