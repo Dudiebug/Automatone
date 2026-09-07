@@ -174,3 +174,22 @@ guide, including dedicated-server class loading, multiplayer, singleplayer and
 existing-world reload. No Minecraft launch, GameTest or restart probe was run.
 Controller confirms the packaging scope and architectural invariants; publishing
 does not accept M6 or convert any deferred runtime measurement to PASS.
+
+## 1.0 public documentation follow-up
+
+Human approved a README, player/admin wiki, official patch-note expansion and
+default-branch update. Documentation now makes the universal 1.0 JAR the primary
+entry point, redirects stale top-level Fabric/Baritone guides to the current wiki,
+and retains historical branches/tags. Source-controlled wiki pages cover Home,
+installation/upgrades, first worker, mining, fleet management, inventory/collection,
+settings/notifications and troubleshooting with a shared sidebar.
+
+The expanded release notes distinguish the complete 1.0 feature set from changes
+since previews and retain explicit runtime limitations. Claims were checked against
+the controller recipe, protocol 5, active limit 10, inventory size 36, relocation
+concurrency 4, target limit 128, quantity limit 1,000,000 and localized UI/error
+strings. PASS: relative Markdown links and `git diff --check`. No product source,
+release artifact, checksum, version, tag or save/network contract changed; no build
+or Minecraft run was needed. Public README/wiki/release readback and the repository
+default branch are verified after publication. Runtime acceptance remains
+PENDING — HUMAN TESTING.
