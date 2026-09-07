@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "automatone_worker:control_hub_t1",
+    "automatone_worker:control_hub_t2",
+    "automatone_worker:control_hub_t3",
+    "automatone_worker:control_hub_t4"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:block",
+  "pools": [{
+    "rolls": 1,
+    "entries": [{ "type": "minecraft:item", "name": "automatone_worker:control_hub_t3" }],
+    "conditions": [{ "condition": "minecraft:survives_explosion" }]
+  }]
+}

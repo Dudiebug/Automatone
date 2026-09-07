@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": ["IRI", "CBC", "IRI"],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "R": { "item": "minecraft:redstone_block" },
+    "C": { "item": "minecraft:copper_ingot" },
+    "B": { "item": "minecraft:barrel" }
+  },
+  "result": { "id": "automatone_worker:control_hub_t1", "count": 1 }
+}

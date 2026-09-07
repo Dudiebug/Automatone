@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": ["EGE", "BHB", "ACA"],
+  "key": {
+    "E": { "item": "minecraft:ender_eye" },
+    "G": { "item": "minecraft:ghast_tear" },
+    "B": { "item": "minecraft:blaze_rod" },
+    "H": { "item": "automatone_worker:control_hub_t2" },
+    "A": { "item": "minecraft:echo_shard" },
+    "C": { "item": "minecraft:heart_of_the_sea" }
+  },
+  "result": { "id": "automatone_worker:control_hub_t3", "count": 1 }
+}

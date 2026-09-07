@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "automatone_worker:block/control_hub_t1" }
+  }
+}
