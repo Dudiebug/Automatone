@@ -291,6 +291,12 @@ tasks:
     last_verdict: PASS
     last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
     deferred: "Implementation/delivery PASS; all in-game acceptance PENDING — HUMAN TESTING. M5 is not ACCEPTED."
+  M5.15:
+    state: COMPLETE
+    candidate: cc73be4b59027514bd833a74895a2b91a002fbf1
+    last_verdict: PASS
+    last_evidence: .agents/decisions/M5-GLOBAL-MANAGEMENT-EVIDENCE.md
+    deferred: "Implementation/delivery PASS; relocation/scrolling/Collection in-game acceptance PENDING — HUMAN TESTING."
   M6.1:
     state: PLANNED
     baseline: null

@@ -166,3 +166,54 @@ Historical earlier runtime measurements above remain evidence only for those
 runs. The controller completes implementation and handoff; M5 remains unaccepted
 until the human reports the required in-game results or explicitly accepts an
 exception. No later milestone was started.
+
+## M5.15 — implementation/delivery COMPLETE; in-game acceptance PENDING — HUMAN TESTING
+
+Candidate `cc73be4b59027514bd833a74895a2b91a002fbf1`, version 0.12.1 / protocol 5.
+Overview adds selected-worker Relocate with dimension/recipient confirmation,
+draggable scrollbar/track/wheel and visible range. Selection survives scrolling
+and updates; geometry clamps on resize/roster changes. Existing server fleet
+validation feeds relocation children into WorkerBatch and the existing shared
+four-preparer service. Eligible workers pause on enqueue; pending guards cover
+fleet/individual actions, inventory access and collection. No new worker slots
+or supplies are consumed. Cancel/close/logout/shutdown reuse queue lifecycle;
+successful siblings and existing worker contents are preserved. Progress merges
+queued children without duplicate outcome rows. No native engine was changed.
+
+The human additionally reported failed Collection highlighting/transfer and
+confirmed `STALE_COLLECTION` while workers were mining. Source showed ordinary
+item-count/revision updates invalidated the same revision used by every click.
+Separated query/scope revision from exact content generation: selection and
+ordinary transfers use fresh live amounts; scope changes still reject old
+requests, and retirement confirmation still requires unchanged contents. The
+first icon row no longer overlaps the selection controls; selected cells have
+a green tint/outline. Disproved assumption: one revision for live contents and
+all collection interactions remains usable while miners update inventories.
+
+PASS: `:worker:compileJava` (`overview-compile.log`); focused
+`:worker:test :worker:checkstyleMain :worker:spotbugsMain :worker:sensorTest`
+(`overview-code-checks.log`), 22 unit tests and five architecture tests, no failures.
+These checks address the changed server queue/menu boundary and collection
+transfer validation. Existing reviewed SpotBugs dispositions remain unchanged;
+no analyzer suppression or threshold was altered. PASS: UI translation-key
+validation and `git diff --check`.
+
+PASS: `:worker:compileGameTestJava` (`overview-regression-compile.log`). Added
+three focused relocation regressions (six-worker cap/preservation, duplicate/
+stale/foreign rejection, close/logout/shutdown) and one Collection regression
+for inventory updates between snapshot, click and partial-capacity transfer.
+Astra reviewed delegated relocation tests, required a running-job fixture for
+the pause assertion and non-vacuous lifecycle counts. All regression runtime
+results remain PENDING — HUMAN TESTING; compilation does not establish gameplay.
+Existing retirement-staleness and inventory-capacity regressions are retained.
+
+PASS: `jar :worker:jar` (`overview-package.log`), both version descriptors, exact
+worker dependency `[0.12.1]`, absence of GameTest classes, and all four payload
+SHA256 values inside `dist/automatone-0.12.1-overview-update.zip`. ZIP SHA256:
+`d68188f785df8d27b2198066e3bbea3b9500d0c09770e7c5dca8e2ed726f3070`.
+Package contains both JARs, README, manifest and the six-step human checklist
+`docs/M5_OVERVIEW_UPDATE_CHECKLIST.md`. Previous releases/artifacts are unchanged.
+Controller confirms requested scope/invariants and delivery. No full milestone
+profile repeated, no graph rebuild for this local follow-up, and no Minecraft
+client, GameTest server or restart probe launched. M5 remains unaccepted pending
+the human's in-game checks. This package has not been published as a new release.
