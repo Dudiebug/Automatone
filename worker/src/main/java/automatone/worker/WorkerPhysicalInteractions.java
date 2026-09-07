@@ -1,11 +1,14 @@
 package automatone.worker;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+
+import java.util.Objects;
 
 /** Server-owned physical handoff/drop-off interactions for real WorkerEntity instances. */
 final class WorkerPhysicalInteractions {
@@ -21,6 +24,7 @@ final class WorkerPhysicalInteractions {
             finish(event, InteractionResult.FAIL);
             return;
         }
+        MinecraftServer server = Objects.requireNonNull(player.getServer());
 
         ItemStack held = event.getItemStack();
         if (held.is(ItemTags.PICKAXES)) {
@@ -43,7 +47,7 @@ final class WorkerPhysicalInteractions {
                 }
             }
             worker.setChanged();
-            WorkerRoster.get(player.getServer()).changed(worker);
+            WorkerRoster.get(server).changed(worker);
             player.displayClientMessage(Component.literal("Gave " + equipped.getHoverName().getString()
                     + " to " + worker.getName().getString() + ". Tool durability will be consumed normally."), false);
             finish(event, InteractionResult.SUCCESS);
@@ -51,15 +55,16 @@ final class WorkerPhysicalInteractions {
         }
 
         if (held.isEmpty()) {
-            ControlHubRegistry hubs = ControlHubRegistry.get(player.getServer());
-            ControlHubRegistry.DepositResult deposited = hubs.deposit(worker);
+            ControlHubRegistry.DepositResult deposited = ControlHubRegistry.get(server).deposit(worker);
             if (!deposited.hubFound()) {
                 player.displayClientMessage(Component.literal(
                         "Bring this worker within 12 blocks of one of your Control Hubs to drop off its inventory."), false);
+            } else if (deposited.items() == 0 && deposited.storageFull()) {
+                player.displayClientMessage(Component.literal("This Control Hub is full; nothing could be dropped off."), false);
             } else if (deposited.items() == 0) {
                 player.displayClientMessage(Component.literal("This worker has nothing to drop off."), false);
             } else {
-                WorkerRoster.get(player.getServer()).changed(worker);
+                WorkerRoster.get(server).changed(worker);
                 player.displayClientMessage(Component.literal("Worker dropped off " + deposited.items() + " items"
                         + (deposited.storageFull() ? "; the Control Hub filled before everything fit." : ".")), false);
             }
