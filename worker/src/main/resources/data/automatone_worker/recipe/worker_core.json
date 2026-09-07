@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": ["IRI", "EAE", "ICI"],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "R": { "item": "minecraft:redstone" },
+    "E": { "item": "minecraft:ender_pearl" },
+    "A": { "item": "minecraft:amethyst_shard" },
+    "C": { "item": "minecraft:copper_ingot" }
+  },
+  "result": { "id": "automatone_worker:worker_core", "count": 1 }
+}

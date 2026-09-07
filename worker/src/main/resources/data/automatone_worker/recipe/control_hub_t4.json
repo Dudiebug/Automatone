@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": ["EDE", "NHN", "BEB"],
+  "key": {
+    "E": { "item": "minecraft:end_crystal" },
+    "D": { "item": "minecraft:dragon_egg" },
+    "N": { "item": "minecraft:nether_star" },
+    "H": { "item": "automatone_worker:control_hub_t3" },
+    "B": { "item": "minecraft:dragon_breath" }
+  },
+  "result": { "id": "automatone_worker:control_hub_t4", "count": 1 }
+}
