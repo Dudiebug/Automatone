@@ -1,5 +1,10 @@
 # NeoForge 1.21.1 port status
 
+Current release: **Automatone 1.0**, one universal JAR containing the native engine
+and worker module. See the [release guide](M6_RELEASE_GUIDE.md) for installation,
+features and human testing. The sections below preserve the historical foundation
+snapshot and do not describe the current implementation or verification status.
+
 Last updated: 2026-09-04
 Branch: `plan/neoforge-1.21.1-server-worker`
 

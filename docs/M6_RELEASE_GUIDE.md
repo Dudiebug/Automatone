@@ -1,18 +1,25 @@
-# Automatone 0.13.0 — final reliability release
+# Automatone 1.0 — universal JAR release
 
 For Minecraft 1.21.1, Java 21, and NeoForge 21.1.249 or a compatible newer 21.1
-build. Install both `automatone-0.13.0.jar` and `automatone-worker-0.13.0.jar` on
-the server and participating clients. The controller continues to use protocol 5.
-Use the matching pair of JARs; the worker requires exactly native version 0.13.0.
+build. Install only `automatone-bundled-1.0.jar` on the server and participating
+clients, or in your singleplayer installation. This one file includes both
+Automatone and Automatone Worker; both names still appear in the Mods menu.
+The controller continues to use protocol 5. Both internal modules are version 1.0.
+
+Client screens, rendering and notifications load automatically on clients.
+Mining and worker state run on the logical server, including the integrated
+server in singleplayer. No side-selection setting is needed. Multiplayer needs
+the mod on both the server and participating clients.
 
 ## Upgrade
 
-Stop the server normally, copy the world to a backup, and replace both previous
-Automatone JARs. Keep only one version of each mod in the mods folder. Start the
+Stop the server or close the singleplayer world normally and back up the world.
+Remove both previous Automatone JARs (including any older bundled JAR), then put
+only `automatone-bundled-1.0.jar` in the mods folder. Start the
 server normally. Worker saves v1–v3 remain supported; this release does not change
 the save format. Running jobs resume after their chunks become ready. Paused,
 idle and terminal jobs remain stopped. Upgrade testing should use a copy of your
-0.12.1 world. To roll back, restore that backup and the previous matching JARs.
+0.12.1 or 0.13.0 world. To roll back, restore that backup and the previous JARs.
 
 Your existing controller, ten-worker limit, 36-slot inventories, global collection,
 archives, kits, relocation, settings and notifications remain available. See the
@@ -21,6 +28,8 @@ version/protocol paragraph is superseded by this guide.
 
 ## What changed
 
+- One installable JAR contains both modules for clients, dedicated servers and
+  singleplayer. Existing registry IDs, worker saves and controller protocol remain.
 - Native mining failures now identify missing mineable targets, unreachable paths,
   disabled breaking, interruptions and internal errors. Screens show readable
   messages; unexpected scan/start errors include details in the server log.
@@ -34,9 +43,28 @@ combined across selected targets per worker. Drops, pickups and inventory conten
 do not count. Start begins a new run; Pause/Resume retains progress; Stop cancels.
 No work occurs while the server is stopped. No automatic retry is added.
 
-## Numbered in-game acceptance checklist
+## Universal JAR installation checklist
 
-All steps below are **PENDING — HUMAN TESTING**, using the matching 0.13.0 JARs.
+All steps are **PENDING — HUMAN TESTING**, using `automatone-bundled-1.0.jar`.
+Record results with the SHA-256 from the release's `SHA256SUMS.txt`.
+
+1. **Dedicated server.** Install only the bundled JAR in a NeoForge 1.21.1 server.
+   Expected: both internal mods load once and startup completes without missing
+   dependencies, duplicate mods or client-class loading errors.
+2. **Multiplayer client.** Install the same JAR on a matching client and connect.
+   Expected: workers render, the controller opens, mining advances and controls
+   are applied by the server.
+3. **Singleplayer.** Open a world, deploy a worker with supplies and run a finite
+   job. Pause, Resume and Stop it; complete another job.
+   Expected: mining works on the integrated server, controls take effect, and
+   completion produces the configured notification without duplicate execution.
+4. **Existing world.** Upgrade a copy of a 0.12.1 or 0.13.0 world, then save/reopen.
+   Expected: worker identities, inventories and job states survive; RUNNING jobs
+   resume and paused/terminal jobs remain stopped.
+
+## Numbered gameplay acceptance checklist
+
+All steps below are **PENDING — HUMAN TESTING**, using `automatone-bundled-1.0.jar`.
 Record each result and the build/checksums when reporting problems.
 
 1. **Upgrade existing data.** Open the controller in your copied 0.12.1 world.

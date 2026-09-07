@@ -11,7 +11,7 @@ plugins {
 group = rootProject.group
 version = rootProject.version
 apply from: rootProject.file('gradle/dependency-remediation.gradle')
-base.archivesName = 'automatone-worker'
+base.archivesName = 'automatone-bundled'
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 sourceSets {
@@ -100,6 +100,7 @@ neoForge {
 
 dependencies {
     implementation project(':')
+    jarJar(project(':')) { transitive = false }
     testImplementation 'junit:junit:4.13.2'
     gameTestImplementation project(':')
 }

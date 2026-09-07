@@ -130,3 +130,47 @@ GameTest server, restart probe or profiling server was launched by the agents.
 
 Controller confirms implementation scope and architecture. Delivery does not accept
 M6: acceptance awaits the human's runtime/checklist results or an explicit exception.
+
+## 1.0 universal package and release follow-up
+
+Human approved the universal-JAR plan and explicitly requested public version 1.0
+as Latest on Dudiebug/Automatone. This supersedes the earlier two-JAR/no-publishing
+delivery direction for this follow-up; M6 in-game acceptance remains pending.
+
+Changes: both module versions are 1.0; worker archive is automatone-bundled and
+uses ModDevGradle jarJar(project(':')) with transitive=false. The native library
+remains a separate normal dependency and is embedded intact. No Java production
+code, registry IDs, save formats, network protocol 5, side registration or mining
+ownership changed. Existing Dist.CLIENT subscribers/client mixin lists and
+logical-server ticks supply client, dedicated-server and integrated-server roles.
+Updated README/current-status pointer and the installation/controller guides;
+release notes are docs/RELEASE_1.0.md. No task assumption was disproven.
+
+PASS: `./gradlew.bat :sensorCompile :sensorUnitTests :sensorArchunit :worker:jar
+--console=plain` (exit 0; bundled-1.0-checks.log). Both projects' compilation
+accepted current cached classes; unit and architecture tasks executed freshly:
+103 unit tests and 9 architecture tests, zero failures/errors/skips. Existing
+Gradle deprecation notice remains. Reused independent M6 source/static evidence
+above for unchanged Java code; no second full milestone profile was run.
+
+PASS: `python scripts/workflow/verify_bundled_jar.py
+worker/build/libs/automatone-bundled-1.0.jar build/libs/automatone-1.0.jar 1.0`
+(bundled-1.0-package.json). Checks archive integrity/unique entries, both mod IDs
+and versions, exact worker/native dependency, one declared embedded native JAR
+whose bytes equal the standalone build, production assets/classes, JSON/mixin
+registration, client-only toast mixin, and no test/runtime/optional API placeholders
+or further embedded JARs. PASS: git diff --check.
+
+Artifacts: dist/automatone-1.0 contains the single installable JAR, updated M6
+release guide, global controller guide and SHA256SUMS.txt.
+JAR SHA256: cff9105cd9b75e1570712f1feff56787f0d076a5b57cabd1421db07a0c14c75d.
+Embedded native SHA256: 412a58f2480ea926f276670984dcd4ab7f3508ba59b1137c440720a6eda017a5.
+Publication targets tag v1.0 at the verified release commit, title Automatone 1.0,
+non-draft/non-prerelease and Latest. Remote readback and downloaded-asset hashes
+are recorded in .agents/evidence/M6/bundled-1.0-release.json after publication.
+
+PENDING — HUMAN TESTING: all installation and gameplay checks in the attached
+guide, including dedicated-server class loading, multiplayer, singleplayer and
+existing-world reload. No Minecraft launch, GameTest or restart probe was run.
+Controller confirms the packaging scope and architectural invariants; publishing
+does not accept M6 or convert any deferred runtime measurement to PASS.

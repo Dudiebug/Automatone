@@ -1,9 +1,9 @@
-# Automatone 0.12.0 — global management
+# Automatone — global management
 
-Install **both** `automatone-0.12.0.jar` and `automatone-worker-0.12.0.jar` on the
-server and participating clients, replacing both older JARs. Requires Minecraft
-1.21.1 and NeoForge 21.1.249 or newer compatible 21.1 builds. Controller protocol
-4 deliberately rejects older clients. Keep only one version of each mod.
+For version 1.0, install only **`automatone-bundled-1.0.jar`** on the server and
+participating clients, or in singleplayer, removing both previous Automatone JARs.
+Requires Minecraft 1.21.1, Java 21 and NeoForge 21.1.249 or a compatible newer 21.1
+build. Controller protocol is 5. See [installation and testing](M6_RELEASE_GUIDE.md).
 
 ## Using the controller
 

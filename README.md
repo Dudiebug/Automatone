@@ -1,5 +1,5 @@
 # Automatone
-[![Release](https://img.shields.io/github/release/ladysnake/automatone.svg)](https://github.com/ladysnake/automatone/releases/)
+[![Release](https://img.shields.io/github/release/Dudiebug/Automatone.svg)](https://github.com/Dudiebug/Automatone/releases/latest)
 [![License](https://img.shields.io/badge/license-LGPL--3.0%20with%20anime%20exception-green.svg)](LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/%E2%9D%A4-code%20of%20conduct-blue.svg?style=flat)](https://github.com/cabaletta/baritone/blob/master/CODE_OF_CONDUCT.md)
 
@@ -10,11 +10,13 @@ Backwards compatibility is also not being considered at the current time, so avo
 
 There's a [showcase video](https://youtu.be/CZkLXWo4Fg4) made by @Adovin#0730 on Baritone. [Here's](https://www.youtube.com/watch?v=StquF69-_wI) a (very old!) video leijurv made showing off what it can do. [Tutorial playlist](https://www.youtube.com/playlist?list=PLnwnJ1qsS7CoQl9Si-RTluuzCo_4Oulpa)
 
-## NeoForge 1.21.1 development status
+## Automatone 1.0 for NeoForge 1.21.1
 
-The `plan/neoforge-1.21.1-server-worker` branch is an in-progress server-worker port. Its core library boots and passes dedicated-server tests on NeoForge 1.21.1, but it does not yet include the spawnable worker, movement/mining integration, user controls, or a tested release JAR. **Do not treat this branch as ready to install on a normal server.**
+Install **`automatone-bundled-1.0.jar`** from [Releases](https://github.com/Dudiebug/Automatone/releases/latest) on your server and participating clients, or in singleplayer. Remove both older Automatone JARs first. Requires Minecraft 1.21.1, Java 21 and NeoForge 21.1.249 or a compatible newer 21.1 build. The one JAR contains both internal mods and automatically uses the appropriate client and server behavior.
 
-See [Current NeoForge port status](docs/CURRENT_NEOFORGE_STATUS.md) for completed work, verification results, and the next milestone. The older installation, API, Fabric, and Cardinal Components material elsewhere in this README describes the historical release and does not apply to this branch unless explicitly updated.
+Workers support finite/unlimited mining, inventories, fleet controls, collection, archives, relocation and notifications. See the [installation and testing guide](docs/M6_RELEASE_GUIDE.md) and [controller guide](docs/M5_GLOBAL_MANAGEMENT_USER_GUIDE.md). Build/unit/architecture checks are recorded separately from in-game acceptance, which remains **PENDING — HUMAN TESTING**.
+
+The older installation, API, Fabric and Cardinal Components material below is historical; use the NeoForge guide above for this release.
 
 This project is based on Baritone, which is itself an updated version of MineBot,
 the original version of the bot for Minecraft 1.8.9, rebuilt for 1.12.2 through 1.16.5.
