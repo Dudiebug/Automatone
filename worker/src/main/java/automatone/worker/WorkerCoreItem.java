@@ -65,13 +65,18 @@ public final class WorkerCoreItem extends Item {
         }
 
         UUID request = UUID.randomUUID();
-        Map<BlockPos, BlockState> consumed = shell.orElseThrow().states();
+        Shell matched = shell.orElseThrow();
+        Map<BlockPos, BlockState> consumed = matched.states();
+        boolean shellConsumed = false;
+        boolean deployed = false;
         try {
             roster.reserve(owner, request, null);
             consumed.keySet().forEach(pos -> level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL));
-            BlockPos body = shell.orElseThrow().body();
+            shellConsumed = true;
+            BlockPos body = matched.body();
             WorkerEntity worker = roster.deploy(owner, request, level,
                     new Vec3(body.getX() + 0.5D, body.getY(), body.getZ() + 0.5D));
+            deployed = true;
             hubs.bindWorker(worker.getUUID(), hub);
             roster.changed(worker);
             if (!context.getPlayer().getAbilities().instabuild) {
@@ -81,11 +86,15 @@ public final class WorkerCoreItem extends Item {
                     + hub.tier().displayName() + "."), false);
             return InteractionResult.SUCCESS;
         } catch (RuntimeException failure) {
-            consumed.forEach((pos, state) -> level.setBlock(pos, state, Block.UPDATE_ALL));
-            try {
-                roster.cancelReservation(owner, request);
-            } catch (RuntimeException ignored) {
-                // The reservation may already have been committed or rolled back.
+            if (!deployed && shellConsumed) {
+                consumed.forEach((pos, state) -> level.setBlock(pos, state, Block.UPDATE_ALL));
+            }
+            if (!deployed) {
+                try {
+                    roster.cancelReservation(owner, request);
+                } catch (RuntimeException ignored) {
+                    // The reservation may already have been rolled back by deployment validation.
+                }
             }
             context.getPlayer().displayClientMessage(Component.literal("Worker activation failed: "
                     + failure.getMessage()), false);
