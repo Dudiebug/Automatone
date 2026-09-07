@@ -88,6 +88,13 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private boolean initialized;
     private boolean rebuild;
     private int offset;
+    private int rosterScrollX;
+    private int rosterScrollTop;
+    private int rosterScrollHeight;
+    private int rosterScrollThumb;
+    private int rosterScrollMaximum;
+    private boolean draggingRosterScroll;
+    private double rosterScrollGrab;
     private int dialogOffset;
     private int fx;
     private int fy;
@@ -223,9 +230,10 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         boolean selecting = page == Page.RECIPIENTS;
         boolean overview = page == Page.ROSTER && !menu.retired();
         List<CompoundTag> rows = selecting ? activeRows() : rows();
-        int startY = selecting ? 84 : 60;
-        int columns = Math.max(1, Math.min(5, (fw - 20) / 125));
-        int cardWidth = (fw - 20) / columns;
+        int startY = selecting ? 84 : overview ? 74 : 60;
+        int area = fw - (overview ? 34 : 20);
+        int columns = Math.max(1, Math.min(5, area / 125));
+        int cardWidth = area / columns;
         int visibleRows = Math.max(1, (fh - startY - 78) / 72);
         int slots = rows.size();
         offset = Math.min(offset, Math.max(0, (slots - 1) / columns - visibleRows + 1));
@@ -240,6 +248,14 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         } else if (overview) {
             button(translate("select_all"), fx + fw - 144, fy + 34, 76, () -> { rows.forEach(row -> recipients.add(row.getUUID("Worker"))); rebuild = true; });
             button(translate("clear"), fx + fw - 66, fy + 34, 56, () -> { recipients.clear(); rebuild = true; });
+            label(translate("showing_workers", slots == 0 ? 0 : offset * columns + 1,
+                    Math.min(slots, (offset + visibleRows) * columns), slots), fx + 10, fy + 60, MUTED, fw - 34);
+            rosterScrollX = fx + fw - 18;
+            rosterScrollTop = fy + startY;
+            rosterScrollHeight = Math.max(20, fh - startY - 76);
+            rosterScrollMaximum = Math.max(0, (slots + columns - 1) / columns - visibleRows);
+            rosterScrollThumb = Math.min(rosterScrollHeight, Math.max(16,
+                    rosterScrollHeight * visibleRows / Math.max(visibleRows, (slots + columns - 1) / columns)));
         }
         for (int index = offset * columns; index < Math.min(slots, (offset + visibleRows) * columns); index++) {
             int x = fx + 10 + index % columns * cardWidth + (overview ? 24 : 0);
@@ -289,7 +305,9 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                         actionWidth - 2, () -> previewFleet(operation)).active = !recipients.isEmpty() && waiting == 0;
             }
             button(translate("batch_jobs"), fx + 10, bottom - 24, 110, this::openBatch);
-            label(translate("selected_count", recipients.size()), fx + 124, bottom - 18, MUTED, fw - 188);
+            button(translate("relocate"), fx + 122, bottom - 24, 90, () -> chooseDimension(WorkerNetwork.Action.RELOCATE))
+                    .active = !recipients.isEmpty() && waiting == 0;
+            label(translate("selected_count", recipients.size()), fx + 216, bottom - 18, MUTED, Math.max(0, fw - 226));
         } else {
             button(translate("collection"), fx + 10, bottom, 94, this::openCollection);
             if (data.getInt("Count") > 10) {
@@ -298,7 +316,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             }
         }
         if (slots == 0) { label(translate("no_workers_in_scope"), fx + 12, fy + startY + 12, MUTED, fw - 24); }
-        if (slots > visibleRows * columns) {
+        if (!overview && slots > visibleRows * columns) {
             button("↑", fx + fw - 52, fy + fh - 70, 20, () -> { offset = Math.max(0, offset - 1); rebuild = true; });
             button("↓", fx + fw - 30, fy + fh - 70, 20, () -> { offset++; rebuild = true; });
         }
@@ -366,12 +384,12 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                 x + 120, fy + 114, MUTED, area - 120);
         ListTag items = collection.getList("Items", Tag.TAG_COMPOUND);
         int columns = Math.max(1, area / 34);
-        int visibleRows = Math.max(1, (fh - 194) / 32);
+        int visibleRows = Math.max(1, (fh - 200) / 32);
         offset = Math.min(offset, Math.max(0, (items.size() - 1) / columns - visibleRows + 1));
         for (int index = offset * columns; index < Math.min(items.size(), (offset + visibleRows) * columns); index++) {
             CompoundTag row = items.getCompound(index);
             ItemStack stack = ItemStack.parseOptional(minecraft.level.registryAccess(), row.getCompound("Stack"));
-            Button cell = button("", x + index % columns * 34, fy + 126 + (index / columns - offset) * 32, 32, 30, () -> {
+            Button cell = button("", x + index % columns * 34, fy + 132 + (index / columns - offset) * 32, 32, 30, () -> {
                 CompoundTag intent = collectionRevision();
                 intent.putUUID("Variant", row.getUUID("Variant"));
                 intent.putBoolean("Selected", !row.getBoolean("Selected"));
@@ -388,7 +406,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             cell.setTooltip(Tooltip.create(Component.literal(String.join("\n", tooltip))));
             itemCells.add(new ItemCell(stack, cell, row.getBoolean("Selected"), row.getLong("Count")));
         }
-        if (items.isEmpty()) { label(translate("no_collectible_items"), x + 4, fy + 136, MUTED, area - 8); }
+        if (items.isEmpty()) { label(translate("no_collectible_items"), x + 4, fy + 142, MUTED, area - 8); }
         int bottom = fy + fh - 70;
         button((retireAfterCollection ? "✓ " : "") + translate("retire_after_collection"), x, bottom, area - 48,
                 () -> { retireAfterCollection = !retireAfterCollection; rebuild = true; })
@@ -433,6 +451,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
     private void previewFleet(String operation) {
         CompoundTag intent = new CompoundTag();
         intent.put("Recipients", recipientRefs()); intent.putString("Operation", operation);
+        if (operation.equals("RELOCATE")) { intent.putString("Dimension", dimension); }
         send(WorkerNetwork.Action.PREVIEW_FLEET, intent);
     }
 
@@ -788,7 +807,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         data.getList("Relocations", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast)
                 .filter(row -> !batchRequests.contains(row.getUUID("Request"))).forEach(requests::add);
         requests.addAll(batches);
-        requests.addAll(fleetOutcomes);
+        requests.addAll(fleetOutcomes.stream().filter(row -> !row.hasUUID("Request") || !batchRequests.contains(row.getUUID("Request"))).toList());
         int capacity = Math.max(1, (fh - 100) / 36);
         offset = Math.min(offset, Math.max(0, requests.size() - capacity));
         for (int index = offset; index < Math.min(requests.size(), offset + capacity); index++) {
@@ -803,7 +822,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
             label(details, fx + 12, y + 12, MUTED, fw - 90);
             button("?", fx + fw - 32, y, 20, () -> confirm(workerName, List.of(stateName(request.getString("State")), details), () -> { }));
             String state = request.getString("State");
-            if (state.equals("PENDING") || state.equals("PREPARING")) {
+            if (state.equals("PENDING") || state.equals("PREPARING") || state.equals("QUEUED")) {
                 button(translate("cancel"), fx + fw - 90, y, 56, () -> {
                     CompoundTag intent = new CompoundTag(); intent.putUUID("Request", request.getUUID("Request"));
                     send(WorkerNetwork.Action.CANCEL_RELOCATION, intent);
@@ -822,6 +841,7 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                 List.of(translate("find_a_safe_random_destination_inside_the_world_border"), action == WorkerNetwork.Action.DEPLOY
                         ? translate("new_workers_have_36_empty_slots_bring_your_own_equipment") : translate("unfinished_jobs_stay_paused_remaining_inventory_is_retained"),
                         translate("preparation_can_be_cancelled_from_requests")), () -> {
+                    if (action == WorkerNetwork.Action.RELOCATE && menu.worker() == null) { previewFleet("RELOCATE"); return; }
                     CompoundTag intent = action == WorkerNetwork.Action.DEPLOY ? new CompoundTag() : revision();
                     intent.putUUID("Request", UUID.randomUUID()); intent.putString("Dimension", dimension);
                     send(action, intent);
@@ -966,12 +986,56 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        if (overviewScrollbar()) {
+            if (vertical == 0 || mouseY < rosterScrollTop || mouseY >= rosterScrollTop + rosterScrollHeight
+                    || mouseX < fx + 10 || mouseX > fx + fw - 6) { return super.mouseScrolled(mouseX, mouseY, horizontal, vertical); }
+            offset = Math.max(0, Math.min(rosterScrollMaximum, offset + (vertical < 0 ? 1 : -1)));
+            rebuild = true; return true;
+        }
         if (dialog != null) { dialogOffset = Math.max(0, dialogOffset + (vertical < 0 ? 1 : -1)); rebuild = true; return true; }
         if (settings != null && (page == Page.OVERRIDES || page == Page.PERSONAL) && settings.mouseScrolled(vertical)) { return true; }
         if (page == Page.ROSTER || page == Page.RECIPIENTS || page == Page.KITS || page == Page.JOB || page == Page.CLEANUP || page == Page.REQUESTS || page == Page.COLLECTION) {
             offset = Math.max(0, offset + (vertical < 0 ? 1 : -1)); rebuild = true; return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
+    }
+
+    private boolean overviewScrollbar() { return page == Page.ROSTER && !menu.retired() && dialog == null && waiting == 0; }
+
+    private int rosterThumbY() {
+        return rosterScrollTop + (rosterScrollMaximum == 0 ? 0 : (rosterScrollHeight - rosterScrollThumb) * offset / rosterScrollMaximum);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && overviewScrollbar() && rosterScrollMaximum > 0 && mouseX >= rosterScrollX && mouseX < rosterScrollX + 10
+                && mouseY >= rosterScrollTop && mouseY < rosterScrollTop + rosterScrollHeight) {
+            int thumbY = rosterThumbY();
+            rosterScrollGrab = mouseY >= thumbY && mouseY < thumbY + rosterScrollThumb ? mouseY - thumbY : rosterScrollThumb / 2.0;
+            draggingRosterScroll = true;
+            scrollRosterTo(mouseY);
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private void scrollRosterTo(double mouseY) {
+        int travel = rosterScrollHeight - rosterScrollThumb;
+        offset = travel <= 0 ? 0 : Math.max(0, Math.min(rosterScrollMaximum,
+                (int) Math.round((mouseY - rosterScrollTop - rosterScrollGrab) * rosterScrollMaximum / travel)));
+        rebuild = true;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (button == 0 && draggingRosterScroll && overviewScrollbar()) { scrollRosterTo(mouseY); return true; }
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && draggingRosterScroll) { draggingRosterScroll = false; return true; }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     private void sendJob(WorkerNetwork.Action action) {
@@ -1045,7 +1109,8 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
                 else if (kind.equals("DeploymentResult") || kind.equals("FleetResult")) {
                     fleetOutcomes = response.getList("Recipients", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast).map(CompoundTag::copy).toList();
                     if (kind.equals("DeploymentResult")) { saveDraft(); newCount = 0; toolSlots.clear(); }
-                    message = kind.equals("DeploymentResult") ? translate("queued_workers", response.getInt("Queued")) : translate("batch_finished_review_each_result");
+                    message = kind.equals("DeploymentResult") || response.getString("Operation").equals("RELOCATE")
+                            ? translate("queued_workers", response.getInt("Queued")) : translate("batch_finished_review_each_result");
                     batchPage(Page.REQUESTS);
                 }
                 else if (kind.equals("CollectionPreview")) {
@@ -1153,6 +1218,10 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         UUID token = response.getUUID("Confirmation");
         Runnable apply = () -> { CompoundTag intent = new CompoundTag(); intent.putUUID("Confirmation", token); send(WorkerNetwork.Action.APPLY_FLEET, intent); };
         List<String> lines = recipientDescriptions(response);
+        if (response.getString("Operation").equals("RELOCATE")) {
+            lines.add(0, translate("dimension", shortDimension(response.getString("Dimension"))));
+            lines.add(translate("relocation_queue_help"));
+        }
         if (response.getString("Operation").equals("RETIRE")) { lines.add(translate("collection_retire_remainder")); }
         if (response.getBoolean("ConfirmationRequired")) {
             confirm(translate(response.getString("Operation").toLowerCase(Locale.ROOT)), lines, apply);
@@ -1205,6 +1274,12 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         graphics.fill(fx + 3, fy + 3, fx + fw - 3, fy + fh - 3, 0xFF202622);
         graphics.fill(fx + 5, fy + 29, fx + fw - 5, fy + 30, GREEN);
         graphics.fill(fx + 5, fy + fh - 23, fx + fw - 5, fy + fh - 22, 0xFF87928F);
+        if (page == Page.ROSTER && !menu.retired() && dialog == null) {
+            graphics.fill(rosterScrollX, rosterScrollTop, rosterScrollX + 10, rosterScrollTop + rosterScrollHeight, 0xFF101411);
+            int thumbY = rosterThumbY();
+            graphics.fill(rosterScrollX + 2, thumbY, rosterScrollX + 8, thumbY + rosterScrollThumb,
+                    rosterScrollMaximum > 0 ? GREEN : 0xFF424A40);
+        }
         for (int x : new int[] {fx + 3, fx + fw - 8}) {
             for (int y : new int[] {fy + 3, fy + fh - 8}) { graphics.fill(x, y, x + 5, y + 5, 0xFF9C5936); }
         }
@@ -1239,7 +1314,10 @@ public final class WorkerScreen extends AbstractContainerScreen<WorkerMenu> {
         }
         for (ItemCell cell : itemCells) {
             int x = cell.button().getX(); int y = cell.button().getY();
-            if (cell.selected()) { graphics.renderOutline(x, y, cell.button().getWidth(), cell.button().getHeight(), GREEN); }
+            if (cell.selected()) {
+                graphics.fill(x + 1, y + 1, x + cell.button().getWidth() - 1, y + cell.button().getHeight() - 1, 0x804C7028);
+                graphics.renderOutline(x, y, cell.button().getWidth(), cell.button().getHeight(), GREEN);
+            }
             graphics.renderItem(cell.stack(), x + 8, y + 2);
             String count = cell.count() < 10_000 ? Long.toString(cell.count()) : (cell.count() / 1000) + "k";
             graphics.drawString(font, count, x + 30 - font.width(count), y + 20, TEXT, true);

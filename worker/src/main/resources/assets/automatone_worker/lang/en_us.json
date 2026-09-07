@@ -181,7 +181,7 @@
   "gui.automatone_worker.deploy_only": "Deploy only",
   "gui.automatone_worker.deploy_start": "Deploy & start",
   "gui.automatone_worker.default_cobblestone_missing": "Default kit needs 64 cobblestone per worker. Add cobblestone, or choose/clear materials.",
-  "gui.automatone_worker.queued_workers": "Queued %s new workers. Review each result.",
+  "gui.automatone_worker.queued_workers": "Queued %s workers. Review each result.",
   "gui.automatone_worker.tools_selected_required": "Tools selected: %s / required: %s",
   "gui.automatone_worker.supply_required_available": "Required: %s · available: %s",
   "gui.automatone_worker.kit_shortage": "Supplies or capacity unavailable",
@@ -190,5 +190,8 @@
   "gui.automatone_worker.state_queued": "Queued",
   "gui.automatone_worker.state_preparing": "Preparing",
   "gui.automatone_worker.state_deployed": "Deployed",
-  "gui.automatone_worker.targets": "Targets"
+  "gui.automatone_worker.targets": "Targets",
+  "gui.automatone_worker.showing_workers": "Showing %s–%s of %s",
+  "gui.automatone_worker.relocation_queue_help": "Selected workers pause now and relocate four at a time as preparation slots become free. Inventory and progress are preserved; use Resume after relocation.",
+  "gui.automatone_worker.state_relocated": "Relocated"
 }

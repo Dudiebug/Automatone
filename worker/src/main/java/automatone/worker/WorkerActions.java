@@ -130,7 +130,8 @@ final class WorkerActions {
             }
             case CANCEL_RELOCATION -> {
                 keys(data, "Request");
-                menu.relocation().cancel(owner, uuid(data, "Request"));
+                UUID request = uuid(data, "Request");
+                if (!WorkerBatch.get(menu.server()).cancelRequest(owner, request)) { menu.relocation().cancel(owner, request); }
             }
             case CONFIGURE_JOB, START -> {
                 keys(data, "Revision", "Targets", "Quantity");
@@ -281,7 +282,7 @@ final class WorkerActions {
 
     private WorkerEntity available(UUID id, long expected) {
         if (menu.roster().view(menu.owner(), id).revision() != expected) { throw new IllegalStateException("STALE_REVISION"); }
-        if (menu.relocation().pending(id)) { throw new IllegalStateException("WORKER_PENDING"); }
+        if (menu.pending(id)) { throw new IllegalStateException("WORKER_PENDING"); }
         return menu.roster().active(menu.owner(), id);
     }
 
@@ -290,7 +291,7 @@ final class WorkerActions {
         WorkerRoster.View view = menu.roster().view(menu.owner(), menu.worker());
         revision(data, view.revision());
         if (view.retired() != retired) { throw new IllegalStateException("WORKER_UNAVAILABLE"); }
-        if (menu.relocation().pending(menu.worker())) { throw new IllegalStateException("WORKER_PENDING"); }
+        if (menu.pending(menu.worker())) { throw new IllegalStateException("WORKER_PENDING"); }
     }
 
     static boolean busy(WorkerEntity worker) {

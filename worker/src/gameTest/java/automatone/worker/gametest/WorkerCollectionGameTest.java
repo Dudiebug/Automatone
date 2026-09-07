@@ -334,6 +334,47 @@ public final class WorkerCollectionGameTest {
         helper.succeed();
     }
 
+    @GameTest(template = "provider_smoke", batch = "worker_m5_collection_live_updates", timeoutTicks = 180)
+    public static void collectionClicksAndTransfersSurviveLivePickupUpdates(GameTestHelper helper) {
+        Fixture fixture = new Fixture(helper);
+        try {
+            ServerPlayer owner = fixture.player();
+            WorkerEntity worker = fixture.spawnOwned(owner, helper.getLevel(), helper.absolutePos(new BlockPos(0, 1, 0)));
+            worker.setItem(0, new ItemStack(Items.DIAMOND, 4));
+            WorkerMenu menu = openRoster(owner);
+            send(owner, menu, 1, WorkerNetwork.Action.COLLECTION_QUERY, queryData(0, "", "", "", 0));
+            CompoundTag original = collection(menu);
+            long revision = original.getLong("Revision");
+            UUID variant = findVariant(helper, original, new ItemStack(Items.DIAMOND)).getUUID("Variant");
+
+            // A mining pickup reaches the server after the client's last rendered snapshot.
+            worker.setItem(0, new ItemStack(Items.DIAMOND, 7));
+            send(owner, menu, 2, WorkerNetwork.Action.COLLECTION_SELECT, selectData(revision, variant, true));
+            CompoundTag selected = collection(menu);
+            helper.assertTrue(selected.getInt("Selected") == 1 && selected.getLong("SelectedAmount") == 7
+                            && findVariant(helper, selected, new ItemStack(Items.DIAMOND)).getBoolean("Selected"),
+                    "Live item count changes must not reject a click or lose its green selected state");
+
+            owner.getInventory().setItem(1, new ItemStack(Items.DIAMOND, 62));
+            for (int slot = 2; slot < 36; slot++) { owner.getInventory().setItem(slot, new ItemStack(Items.STONE, 64)); }
+            worker.setItem(0, new ItemStack(Items.DIAMOND, 9));
+            worker.setItem(1, new ItemStack(Items.COBBLESTONE, 64));
+            send(owner, menu, 3, WorkerNetwork.Action.COLLECTION_TRANSFER, revisionData(revision));
+            CompoundTag result = response(menu);
+            helper.assertTrue(result.getString("Kind").equals("CollectionResult") && result.getLong("Collected") == 2
+                            && result.getLong("Remaining") == 7 && worker.getItem(0).getCount() == 7
+                            && worker.getItem(1).getCount() == 64 && playerCount(owner, new ItemStack(Items.DIAMOND)) == 64,
+                    "Transfer must use fresh live amounts, move only what fits and preserve the source remainder and working stock");
+
+            send(owner, menu, 4, WorkerNetwork.Action.COLLECTION_QUERY, queryData(0, "", "", "emerald", 0));
+            send(owner, menu, 5, WorkerNetwork.Action.COLLECTION_TRANSFER, revisionData(revision));
+            assertError(helper, menu, "STALE_COLLECTION");
+            helper.assertTrue(worker.getItem(0).getCount() == 7 && playerCount(owner, new ItemStack(Items.DIAMOND)) == 64,
+                    "A request from an old query scope must still fail without transferring anything");
+        } finally { fixture.close(); }
+        helper.succeed();
+    }
+
     @GameTest(template = "provider_smoke", batch = "worker_m5_collection_archive", timeoutTicks = 220)
     public static void archiveCollectionWithdrawsEquipmentOnceAndReactivationKeepsRemainder(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);

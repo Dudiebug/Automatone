@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Product queue over the existing terrain preparer. Holds identities and kit copies, never a menu. */
+/** Deployment and relocation queue over the existing terrain preparer; never holds a menu. */
 final class WorkerBatch {
     private static final Map<MinecraftServer, WorkerBatch> SERVICES = new HashMap<>();
     private final MinecraftServer server;
@@ -35,6 +35,7 @@ final class WorkerBatch {
         private final List<ResourceLocation> targets;
         private final int quantity;
         private final boolean start;
+        private final boolean relocating;
         private String state = "QUEUED";
         private String error = "";
 
@@ -48,9 +49,23 @@ final class WorkerBatch {
             this.targets = List.copyOf(targets);
             this.quantity = quantity;
             this.start = start;
+            this.relocating = false;
+        }
+
+        private Child(UUID batch, UUID worker, ResourceKey<Level> dimension) {
+            this.batch = batch;
+            this.request = UUID.randomUUID();
+            this.worker = worker;
+            this.dimension = dimension;
+            this.kit = List.of();
+            this.targets = List.of();
+            this.quantity = 0;
+            this.start = false;
+            this.relocating = true;
         }
 
         private boolean pending() { return state.equals("QUEUED") || state.equals("PREPARING"); }
+        private String completedState() { return relocating ? "RELOCATED" : start ? "RUNNING" : "DEPLOYED"; }
     }
 
     private WorkerBatch(MinecraftServer server) {
@@ -65,6 +80,23 @@ final class WorkerBatch {
 
     boolean containsRequest(UUID owner, UUID request) {
         return histories.getOrDefault(owner, List.of()).stream().anyMatch(child -> child.request.equals(request));
+    }
+
+    boolean pending(UUID worker) {
+        return histories.values().stream().flatMap(List::stream).anyMatch(child -> child.worker.equals(worker) && child.pending());
+    }
+
+    UUID relocate(UUID owner, UUID batch, UUID worker, long revision, ResourceKey<Level> dimension) {
+        WorkerEntity active = roster.active(owner, worker);
+        if (roster.view(owner, worker).revision() != revision) { throw new IllegalStateException("STALE_REVISION"); }
+        if (pending(worker) || WorkerRelocation.get(server).pending(worker)) { throw new IllegalStateException("WORKER_PENDING"); }
+        Child child = new Child(batch, worker, dimension);
+        active.pauseMining();
+        roster.changed(active);
+        List<Child> history = histories.computeIfAbsent(owner, ignored -> new ArrayList<>());
+        history.add(child);
+        trim(history);
+        return child.request;
     }
 
     void submit(UUID owner, UUID batch, List<List<ItemStack>> kits, ResourceKey<Level> dimension,
@@ -83,6 +115,10 @@ final class WorkerBatch {
             throw failure;
         }
         history.addAll(reserved);
+        trim(history);
+    }
+
+    private static void trim(List<Child> history) {
         while (history.size() > 100) {
             Child oldest = history.stream().filter(child -> !child.pending()).findFirst().orElseThrow();
             history.remove(oldest);
@@ -104,7 +140,7 @@ final class WorkerBatch {
                     WorkerRelocation.Status status = relocation.status(owner, child.request);
                     if (status.state() != WorkerRelocation.State.PENDING) {
                         child.state = switch (status.state()) {
-                            case SUCCEEDED -> child.start ? "RUNNING" : "DEPLOYED";
+                            case SUCCEEDED -> child.completedState();
                             case CANCELLED -> "CANCELLED";
                             case FAILED -> "FAILED";
                             default -> throw new IllegalStateException("INVALID_JOB_STATE");
@@ -114,6 +150,11 @@ final class WorkerBatch {
                 }
                 if (!child.state.equals("QUEUED") || relocation.freePreparations() == 0) { continue; }
                 try {
+                    if (child.relocating) {
+                        relocation.relocate(owner, child.request, child.worker, roster.view(owner, child.worker).revision(), child.dimension);
+                        child.state = "PREPARING";
+                        continue;
+                    }
                     relocation.deployEquipped(owner, child.request, child.dimension, new WorkerRelocation.DeploymentCommit() {
                         @Override
                         public void validate() { requireKit(owner, child.kit); }
@@ -140,7 +181,7 @@ final class WorkerBatch {
                     });
                     child.state = "PREPARING";
                 } catch (RuntimeException failure) {
-                    roster.cancelReservation(owner, child.request);
+                    if (!child.relocating) { roster.cancelReservation(owner, child.request); }
                     child.state = "FAILED";
                     child.error = WorkerMenu.errorCode(failure);
                 }
@@ -186,18 +227,29 @@ final class WorkerBatch {
 
     private void cancel(UUID owner, String reason) {
         for (Child child : histories.getOrDefault(owner, List.of())) {
-            if (!child.pending()) { continue; }
-            if (child.state.equals("PREPARING")) {
-                WorkerRelocation.Status status = WorkerRelocation.get(server).cancel(owner, child.request);
-                if (status.state() == WorkerRelocation.State.SUCCEEDED) {
-                    child.state = child.start ? "RUNNING" : "DEPLOYED";
-                    continue;
-                }
-            }
-            roster.cancelReservation(owner, child.request);
-            child.state = "CANCELLED";
-            child.error = reason;
+            cancel(owner, child, reason);
         }
+    }
+
+    boolean cancelRequest(UUID owner, UUID request) {
+        for (Child child : histories.getOrDefault(owner, List.of())) {
+            if (child.request.equals(request)) { cancel(owner, child, ""); return true; }
+        }
+        return false;
+    }
+
+    private void cancel(UUID owner, Child child, String reason) {
+        if (!child.pending()) { return; }
+        if (child.state.equals("PREPARING")) {
+            WorkerRelocation.Status status = WorkerRelocation.get(server).cancel(owner, child.request);
+            if (status.state() == WorkerRelocation.State.SUCCEEDED) {
+                child.state = child.completedState();
+                return;
+            }
+        }
+        if (!child.relocating) { roster.cancelReservation(owner, child.request); }
+        child.state = "CANCELLED";
+        child.error = reason;
     }
 
     static void logout(PlayerEvent.PlayerLoggedOutEvent event) {
@@ -218,6 +270,7 @@ final class WorkerBatch {
             row.putUUID("Batch", child.batch);
             row.putUUID("Request", child.request);
             row.putUUID("Worker", child.worker);
+            row.putString("Kind", child.relocating ? "RELOCATE" : "DEPLOY");
             row.putString("State", child.state);
             row.putString("Error", child.error);
             row.putString("Dimension", child.dimension.location().toString());

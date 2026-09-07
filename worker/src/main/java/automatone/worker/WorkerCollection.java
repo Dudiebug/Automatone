@@ -26,7 +26,7 @@ final class WorkerCollection {
     static final int PAGE_SIZE = 36;
     private record Source(WorkerRoster.View view, boolean available, List<ItemStack> stacks) { }
     private record Identity(UUID id, ItemStack stack) { }
-    private record Preview(UUID token, long revision, Set<UUID> selected, int tick) { }
+    private record Preview(UUID token, long revision, long contentsRevision, Set<UUID> selected, int tick) { }
     private static final class Variant {
         private final Identity identity;
         private final Map<UUID, Integer> amounts = new LinkedHashMap<>();
@@ -46,6 +46,7 @@ final class WorkerCollection {
     private int page;
     private int sourcePage;
     private long revision;
+    private long contentsRevision;
     private Preview preview;
 
     WorkerCollection(WorkerMenu menu) { this.menu = menu; }
@@ -86,7 +87,7 @@ final class WorkerCollection {
         if (sources.stream().anyMatch(source -> !source.view.retired() && !source.available)) {
             throw new IllegalStateException("WORKER_UNAVAILABLE");
         }
-        preview = new Preview(UUID.randomUUID(), revision, Set.copyOf(selected), menu.server().getTickCount());
+        preview = new Preview(UUID.randomUUID(), revision, contentsRevision, Set.copyOf(selected), menu.server().getTickCount());
         CompoundTag result = new CompoundTag();
         result.putString("Kind", "CollectionPreview");
         result.putUUID("Confirmation", preview.token());
@@ -113,6 +114,7 @@ final class WorkerCollection {
             throw new IllegalStateException("INVALID_CONFIRMATION");
         }
         validate(confirmed.revision());
+        if (confirmed.contentsRevision() != contentsRevision) { throw new IllegalStateException("STALE_COLLECTION"); }
         return transfer(true);
     }
 
@@ -174,7 +176,7 @@ final class WorkerCollection {
             if ((!dimension.isEmpty() && !dimension.equals(view.dimension()))
                     || (worker != null && !worker.equals(view.worker()))) { continue; }
             List<ItemStack> stacks = new ArrayList<>();
-            boolean available = !menu.relocation().pending(view.worker());
+            boolean available = !menu.pending(view.worker());
             if (available) {
                 try {
                     if (view.retired()) {
@@ -195,7 +197,9 @@ final class WorkerCollection {
             next.add(new Source(view, available, List.copyOf(stacks)));
         }
         if (sameSources(next)) { return; }
-        revision++;
+        // Mining changes counts between a snapshot and a click. Variant selection and ordinary
+        // transfer use the current live amounts; only retirement freezes exact source contents.
+        contentsRevision++;
         sources = next;
         Map<UUID, Variant> grouped = new LinkedHashMap<>();
         for (Source source : sources) {

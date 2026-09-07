@@ -123,15 +123,18 @@ final class WorkerBatchActions {
 
     private CompoundTag previewFleet(CompoundTag data) {
         preview = null;
-        keys(data, "Recipients", "Operation");
         String operation = string(data, "Operation", 16);
-        if (!Set.of("START", "PAUSE", "RESUME", "STOP", "RETIRE").contains(operation)) {
+        keys(data, operation.equals("RELOCATE") ? new String[] { "Recipients", "Operation", "Dimension" }
+                : new String[] { "Recipients", "Operation" });
+        if (!Set.of("START", "PAUSE", "RESUME", "STOP", "RETIRE", "RELOCATE").contains(operation)) {
             throw new IllegalArgumentException("INVALID_OPERATION");
         }
+        ResourceKey<Level> destination = operation.equals("RELOCATE") ? dimension(data) : Level.OVERWORLD;
+        if (menu.server().getLevel(destination) == null) { throw new IllegalStateException("DIMENSION_UNAVAILABLE"); }
         List<Ref> refs = references(data);
         if (refs.isEmpty()) { throw new IllegalArgumentException("INVALID_RECIPIENTS"); }
         preview = new Preview(UUID.randomUUID(), menu.server().getTickCount(), operation, refs,
-                List.of(), 0, false, Level.OVERWORLD, List.of(), 0);
+                List.of(), 0, false, destination, List.of(), 0);
         return describe(preview, "FleetPreview");
     }
 
@@ -140,9 +143,10 @@ final class WorkerBatchActions {
         result.putString("Kind", kind);
         result.putUUID("Confirmation", proposed.token);
         result.putString("Operation", proposed.operation);
+        result.putString("Dimension", proposed.dimension.location().toString());
         result.putBoolean("Start", proposed.start);
         ListTag rows = new ListTag();
-        boolean confirm = proposed.operation.equals("RETIRE");
+        boolean confirm = proposed.operation.equals("RETIRE") || proposed.operation.equals("RELOCATE");
         for (Ref ref : proposed.recipients) {
             CompoundTag row = new CompoundTag();
             row.putUUID("Worker", ref.id);
@@ -184,7 +188,7 @@ final class WorkerBatchActions {
 
     private String eligibility(Ref ref, String operation) {
         try {
-            if (menu.relocation().pending(ref.id)) { return "WORKER_PENDING"; }
+            if (menu.pending(ref.id)) { return "WORKER_PENDING"; }
             menu.roster().active(menu.owner(), ref.id);
             if ((operation.equals("PAUSE") && !ref.state.equals("RUNNING"))
                     || (operation.equals("RESUME") && !ref.state.equals("PAUSED"))
@@ -239,20 +243,24 @@ final class WorkerBatchActions {
                         case "RESUME" -> worker.resumeMining();
                         case "STOP" -> worker.stopMining();
                         case "RETIRE" -> menu.roster().retire(menu.owner(), ref.id, ref.revision);
+                        case "RELOCATE" -> outcome.putUUID("Request", WorkerBatch.get(menu.server()).relocate(
+                                menu.owner(), token, ref.id, ref.revision, approved.dimension));
                         default -> throw new IllegalStateException("INVALID_OPERATION");
                     }
-                    if (!approved.operation.equals("RETIRE")) { menu.roster().changed(worker); }
+                    if (!approved.operation.equals("RETIRE") && !approved.operation.equals("RELOCATE")) { menu.roster().changed(worker); }
                 } catch (RuntimeException failure) { error = WorkerMenu.errorCode(failure); }
             }
             outcome.putString("Error", error);
-            outcome.putString("State", error.isEmpty() ? "SUCCEEDED" : "FAILED");
+            outcome.putString("State", error.isEmpty() ? approved.operation.equals("RELOCATE") ? "QUEUED" : "SUCCEEDED" : "FAILED");
             outcomes.add(outcome);
         }
         CompoundTag result = new CompoundTag();
         result.putString("Kind", deployment ? "DeploymentResult" : "FleetResult");
+        result.putString("Operation", approved.operation);
         result.putUUID("Batch", token);
         result.put("Recipients", outcomes);
-        result.putInt("Queued", approved.kits.size());
+        result.putInt("Queued", approved.operation.equals("RELOCATE")
+                ? (int) outcomes.stream().filter(row -> ((CompoundTag) row).getString("State").equals("QUEUED")).count() : approved.kits.size());
         return result;
     }
 }

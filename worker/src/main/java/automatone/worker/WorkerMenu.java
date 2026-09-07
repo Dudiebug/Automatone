@@ -232,7 +232,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
     private boolean canUseWorkerInventory() {
         if (worker == null) { return false; }
         if (roster == null) { return !clientData.getBoolean("Pending"); }
-        return stillValid(player) && roster.view(owner, worker).revision() == boundRevision && !relocation().pending(worker);
+        return stillValid(player) && roster.view(owner, worker).revision() == boundRevision && !pending(worker);
     }
 
     @Override
@@ -402,7 +402,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
             WorkerRoster.View view = roster.view(owner, worker);
             data.put("Selected", row(view));
             data.put("Overrides", WorkerSettings.save(roster.overrides(owner, worker)));
-            data.putBoolean("Pending", relocation().pending(worker));
+            data.putBoolean("Pending", pending(worker));
             data.putInt("SelectedSlot", retired ? -1 : roster.active(owner, worker).selectedSlot());
             if (!retired) { data.put("InventoryManagement", roster.active(owner, worker).inventoryManagementSettings()); }
         }
@@ -446,7 +446,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
         row.putString("Dimension", view.dimension());
         row.putLong("Position", view.position().asLong());
         row.putBoolean("Retired", view.retired());
-        row.putBoolean("Pending", relocation().pending(view.worker()));
+        row.putBoolean("Pending", pending(view.worker()));
         boolean available = true;
         if (!view.retired()) {
             try { roster.active(owner, view.worker()); }
@@ -483,6 +483,7 @@ public final class WorkerMenu extends AbstractContainerMenu {
     WorkerRoster roster() { return Objects.requireNonNull(roster); }
     MinecraftServer server() { return Objects.requireNonNull(player.getServer()); }
     WorkerRelocation relocation() { return WorkerRelocation.get(server()); }
+    boolean pending(UUID id) { return relocation().pending(id) || WorkerBatch.get(server()).pending(id); }
 
     static String errorCode(RuntimeException failure) {
         String message = failure.getMessage();

@@ -608,6 +608,282 @@ public final class WorkerBatchGameTest {
         }
     }
 
+    @GameTest(template = "provider_smoke", batch = "worker_m5_fleet_relocation", timeoutTicks = 420)
+    public static void fleetRelocatesExistingWorkersThroughBoundedQueueAndPreservesState(GameTestHelper helper) {
+        Fixture fixture = new Fixture(helper);
+        BlockFixture blocks = new BlockFixture();
+        try {
+            ServerPlayer owner = fixture.player();
+            ServerLevel level = helper.getLevel();
+            WorkerRoster roster = WorkerRoster.get(level.getServer());
+            List<BlockPos> destinations = columns(helper, 6);
+            for (BlockPos destination : destinations) {
+                prepareColumn(blocks, level, destination, Blocks.STONE.defaultBlockState());
+                ensurePrepared(level, destination);
+            }
+            fixture.installRelocation(destinations, new WorkerRelocation.Limits(8, 220, 60));
+
+            List<WorkerEntity> originals = new ArrayList<>();
+            List<ItemStack> tools = new ArrayList<>();
+            List<ItemStack> storage = new ArrayList<>();
+            for (int index = 0; index < destinations.size(); index++) {
+                WorkerEntity worker = fixture.spawnOwned(owner, level,
+                        helper.absolutePos(new BlockPos(index * 3, 1, 0)));
+                ItemStack tool = named(Items.IRON_PICKAXE, 1, "fleet-tool-" + index);
+                tool.setDamageValue(index + 1);
+                ItemStack contents = named(Items.DIAMOND, index + 1, "fleet-storage-" + index);
+                worker.setItem(0, tool.copy());
+                worker.setItem(2, contents.copy());
+                worker.setItem(WorkerEntity.INVENTORY_SIZE - 1,
+                        named(Items.EMERALD, 2 + index, "fleet-reserve-" + index));
+                worker.setSelectedSlot(2);
+                worker.startMining(List.of(IRON_ORE), 4 + index);
+                originals.add(worker);
+                tools.add(tool);
+                storage.add(contents);
+            }
+            int initialRosterSize = roster.list(owner.getUUID(), false).size();
+            int initialFreeSlots = roster.freeSlots(owner.getUUID());
+            ItemStack controller = owner.getInventory().getItem(0).copy();
+
+            WorkerMenu.open(owner, null, false, 0);
+            WorkerMenu menu = requireMenu(owner);
+            List<CompoundTag> refs = originals.stream()
+                    .map(worker -> ref(worker, roster.view(owner.getUUID(), worker.getUUID()).revision()))
+                    .toList();
+            send(owner, menu, 1, WorkerNetwork.Action.PREVIEW_FLEET,
+                    fleetData(refs, "RELOCATE", Level.OVERWORLD.location().toString()));
+            CompoundTag preview = response(menu);
+            ListTag previewRows = preview.getList("Recipients", Tag.TAG_COMPOUND);
+            helper.assertTrue(preview.getString("Kind").equals("FleetPreview")
+                            && preview.getString("Operation").equals("RELOCATE")
+                            && preview.getString("Dimension").equals(Level.OVERWORLD.location().toString())
+                            && preview.getBoolean("ConfirmationRequired")
+                            && previewRows.size() == originals.size()
+                            && previewRows.stream().allMatch(row -> ((CompoundTag) row).getBoolean("Eligible")
+                            && ((CompoundTag) row).getString("Error").isEmpty()),
+                    "Relocation preview must confirm the destination and expose every eligible owned worker");
+
+            send(owner, menu, 2, WorkerNetwork.Action.APPLY_FLEET,
+                    confirmationData(preview.getUUID("Confirmation")));
+            CompoundTag applied = response(menu);
+            ListTag outcomes = applied.getList("Recipients", Tag.TAG_COMPOUND);
+            helper.assertTrue(applied.getString("Kind").equals("FleetResult")
+                            && applied.getString("Operation").equals("RELOCATE")
+                            && applied.getInt("Queued") == originals.size()
+                            && outcomes.size() == originals.size()
+                            && outcomes.stream().allMatch(row -> ((CompoundTag) row).getString("State").equals("QUEUED")
+                            && ((CompoundTag) row).getString("Error").isEmpty())
+                            && originals.stream().allMatch(worker ->
+                            worker.miningStatus().state() == MiningSession.State.PAUSED)
+                            && roster.list(owner.getUUID(), false).size() == initialRosterSize
+                            && roster.freeSlots(owner.getUUID()) == initialFreeSlots
+                            && matches(owner.getInventory().getItem(0), controller),
+                    "Applying relocation must pause and queue existing workers without reservations or kits");
+            List<MiningSession.Snapshot> pausedJobs = originals.stream().map(WorkerEntity::miningStatus).toList();
+
+            int[] maxPreparers = {0};
+            awaitBatch(helper, fixture, blocks, owner, menu, 380,
+                    snapshot -> {
+                        maxPreparers[0] = Math.max(maxPreparers[0],
+                                fixture.relocation().pendingRequests(owner.getUUID()).size());
+                        return allStates(snapshot.getList("Batches", Tag.TAG_COMPOUND), "RELOCATED");
+                    }, () -> {
+                        helper.assertTrue(maxPreparers[0] == WorkerRelocation.MAX_CONCURRENT,
+                                "Relocation children must share the four-preparer limit");
+                        for (int index = 0; index < originals.size(); index++) {
+                            WorkerEntity moved = roster.active(owner.getUUID(), originals.get(index).getUUID());
+                            MiningSession.Snapshot job = moved.miningStatus();
+                            helper.assertTrue(moved.getUUID().equals(originals.get(index).getUUID())
+                                            && job.equals(pausedJobs.get(index))
+                                            && job.state() == MiningSession.State.PAUSED
+                                            && matches(moved.getItem(0), tools.get(index))
+                                            && matches(moved.getItem(2), storage.get(index))
+                                            && moved.getItem(WorkerEntity.INVENTORY_SIZE - 1)
+                                            .get(DataComponents.CUSTOM_NAME) != null,
+                                    "Relocation must preserve identity, components, storage and paused job progress");
+                        }
+                        helper.assertTrue(roster.list(owner.getUUID(), false).size() == initialRosterSize
+                                        && roster.freeSlots(owner.getUUID()) == initialFreeSlots
+                                        && fixture.relocation().pendingRequests(owner.getUUID()).isEmpty(),
+                                "Completed relocation must not create roster reservations or leave searches pending");
+                    });
+        } catch (Throwable failure) {
+            finish(helper, fixture, blocks, failure);
+        }
+    }
+
+    @GameTest(template = "provider_smoke", batch = "worker_m5_fleet_relocation_validation", timeoutTicks = 220)
+    public static void fleetRelocationRejectsDuplicateStaleAndForeignRequests(GameTestHelper helper) {
+        Fixture fixture = new Fixture(helper);
+        try {
+            ServerPlayer owner = fixture.player();
+            ServerPlayer stranger = fixture.player();
+            ServerLevel level = helper.getLevel();
+            WorkerRoster roster = WorkerRoster.get(level.getServer());
+            WorkerEntity first = fixture.spawnOwned(owner, level, helper.absolutePos(new BlockPos(0, 1, 0)));
+            WorkerEntity second = fixture.spawnOwned(owner, level, helper.absolutePos(new BlockPos(3, 1, 0)));
+            WorkerEntity foreign = fixture.spawnOwned(stranger, level, helper.absolutePos(new BlockPos(6, 1, 0)));
+            first.startMining(List.of(IRON_ORE), 3);
+            MiningSession.Snapshot secondBefore = second.miningStatus();
+            MiningSession.Snapshot foreignBefore = foreign.miningStatus();
+            WorkerMenu.open(owner, null, false, 0);
+            WorkerMenu menu = requireMenu(owner);
+            int sequence = 0;
+
+            long firstRevision = roster.view(owner.getUUID(), first.getUUID()).revision();
+            send(owner, menu, ++sequence, WorkerNetwork.Action.PREVIEW_FLEET,
+                    fleetData(List.of(ref(first, firstRevision)), "RELOCATE", Level.OVERWORLD.location().toString()));
+            send(owner, menu, ++sequence, WorkerNetwork.Action.APPLY_FLEET,
+                    confirmationData(response(menu).getUUID("Confirmation")));
+            helper.assertTrue(response(menu).getString("Kind").equals("FleetResult")
+                            && rows(menu.snapshot()).size() == 1
+                            && fixture.relocation().pendingRequests(owner.getUUID()).isEmpty()
+                            && first.miningStatus().state() == MiningSession.State.PAUSED,
+                    "The first relocation must queue one existing worker before duplicate validation");
+
+            long pendingRevision = roster.view(owner.getUUID(), first.getUUID()).revision();
+            send(owner, menu, ++sequence, WorkerNetwork.Action.PREVIEW_FLEET,
+                    fleetData(List.of(ref(first, pendingRevision)), "RELOCATE", Level.OVERWORLD.location().toString()));
+            CompoundTag duplicatePreview = response(menu);
+            helper.assertTrue(duplicatePreview.getList("Recipients", Tag.TAG_COMPOUND).getCompound(0)
+                            .getString("Error").equals("WORKER_PENDING")
+                            && !duplicatePreview.getList("Recipients", Tag.TAG_COMPOUND).getCompound(0)
+                            .getBoolean("Eligible"),
+                    "A queued worker must be reported as WORKER_PENDING in a duplicate relocation preview");
+            send(owner, menu, ++sequence, WorkerNetwork.Action.APPLY_FLEET,
+                    confirmationData(duplicatePreview.getUUID("Confirmation")));
+            helper.assertTrue(outcomeError(response(menu), first).equals("WORKER_PENDING")
+                            && rows(menu.snapshot()).size() == 1
+                            && fixture.relocation().pendingRequests(owner.getUUID()).isEmpty(),
+                    "A duplicate relocation must never append a second batch child or native request");
+
+            long secondRevision = roster.view(owner.getUUID(), second.getUUID()).revision();
+            send(owner, menu, ++sequence, WorkerNetwork.Action.PREVIEW_FLEET,
+                    fleetData(List.of(ref(second, secondRevision)), "RELOCATE", Level.OVERWORLD.location().toString()));
+            UUID staleConfirmation = response(menu).getUUID("Confirmation");
+            roster.rename(owner.getUUID(), second.getUUID(), secondRevision, "changed after relocation preview");
+            send(owner, menu, ++sequence, WorkerNetwork.Action.APPLY_FLEET,
+                    confirmationData(staleConfirmation));
+            assertError(helper, menu, "STALE_PREVIEW");
+            helper.assertTrue(second.miningStatus().equals(secondBefore)
+                            && rows(menu.snapshot()).size() == 1,
+                    "A stale relocation confirmation must not pause or queue its worker");
+
+            long foreignRevision = roster.view(stranger.getUUID(), foreign.getUUID()).revision();
+            send(owner, menu, ++sequence, WorkerNetwork.Action.PREVIEW_FLEET,
+                    fleetData(List.of(ref(foreign, foreignRevision)), "RELOCATE", Level.OVERWORLD.location().toString()));
+            assertError(helper, menu, "NOT_OWNER");
+            helper.assertTrue(foreign.miningStatus().equals(foreignBefore)
+                            && rows(menu.snapshot()).size() == 1
+                            && roster.list(owner.getUUID(), false).size() == 2,
+                    "A foreign relocation reference must be rejected before any owner state mutation");
+            finish(helper, fixture, new BlockFixture(), null);
+        } catch (Throwable failure) {
+            finish(helper, fixture, new BlockFixture(), failure);
+        }
+    }
+
+    @GameTest(template = "provider_smoke", batch = "worker_m5_fleet_relocation_lifecycle", timeoutTicks = 360)
+    public static void closingFleetRelocationContinuesAndLifecycleCancelsPendingChildren(GameTestHelper helper) {
+        Fixture fixture = new Fixture(helper);
+        BlockFixture blocks = new BlockFixture();
+        try {
+            ServerPlayer owner = fixture.player();
+            ServerPlayer secondOwner = fixture.player();
+            ServerLevel level = helper.getLevel();
+            WorkerRoster roster = WorkerRoster.get(level.getServer());
+            List<BlockPos> destinations = columns(helper, 2);
+            for (BlockPos destination : destinations) {
+                prepareColumn(blocks, level, destination, Blocks.STONE.defaultBlockState());
+                ensurePrepared(level, destination);
+            }
+            fixture.installRelocation(destinations, new WorkerRelocation.Limits(8, 220, 60));
+            WorkerEntity success = fixture.spawnOwned(owner, level, helper.absolutePos(new BlockPos(0, 1, 0)));
+            WorkerEntity queued = fixture.spawnOwned(owner, level, helper.absolutePos(new BlockPos(3, 1, 0)));
+            WorkerEntity queuedSibling = fixture.spawnOwned(owner, level, helper.absolutePos(new BlockPos(6, 1, 0)));
+            WorkerEntity shutdown = fixture.spawnOwned(secondOwner, level, helper.absolutePos(new BlockPos(9, 1, 0)));
+            ItemStack successContents = named(Items.DIAMOND, 2, "successful-relocation");
+            ItemStack queuedContents = named(Items.EMERALD, 3, "queued-relocation");
+            ItemStack siblingContents = named(Items.GOLD_INGOT, 4, "queued-sibling");
+            ItemStack shutdownContents = named(Items.REDSTONE, 5, "shutdown-relocation");
+            success.setItem(0, successContents.copy());
+            queued.setItem(0, queuedContents.copy());
+            queuedSibling.setItem(0, siblingContents.copy());
+            shutdown.setItem(0, shutdownContents.copy());
+
+            WorkerMenu.open(owner, null, false, 0);
+            WorkerMenu firstMenu = requireMenu(owner);
+            send(owner, firstMenu, 1, WorkerNetwork.Action.PREVIEW_FLEET,
+                    fleetData(List.of(ref(success, roster.view(owner.getUUID(), success.getUUID()).revision())),
+                            "RELOCATE", Level.OVERWORLD.location().toString()));
+            send(owner, firstMenu, 2, WorkerNetwork.Action.APPLY_FLEET,
+                    confirmationData(response(firstMenu).getUUID("Confirmation")));
+            owner.closeContainer();
+            awaitUntil(helper, fixture, blocks, owner, firstMenu, 180,
+                    snapshot -> allStates(snapshot.getList("Batches", Tag.TAG_COMPOUND), "RELOCATED"),
+                    () -> {
+                        WorkerMenu secondMenu = null;
+                        try {
+                            WorkerMenu.open(owner, null, false, 0);
+                            secondMenu = requireMenu(owner);
+                            List<CompoundTag> queuedRefs = List.of(
+                                    ref(queued, roster.view(owner.getUUID(), queued.getUUID()).revision()),
+                                    ref(queuedSibling, roster.view(owner.getUUID(), queuedSibling.getUUID()).revision()));
+                            send(owner, secondMenu, 1, WorkerNetwork.Action.PREVIEW_FLEET,
+                                    fleetData(queuedRefs, "RELOCATE", Level.OVERWORLD.location().toString()));
+                            send(owner, secondMenu, 2, WorkerNetwork.Action.APPLY_FLEET,
+                                    confirmationData(response(secondMenu).getUUID("Confirmation")));
+                            owner.closeContainer();
+                            invokeBatchLifecycle("logout", new PlayerEvent.PlayerLoggedOutEvent(owner));
+                            List<CompoundTag> afterLogout = rows(secondMenu.snapshot());
+                            helper.assertTrue(afterLogout.size() == 3
+                                            && countState(afterLogout, "RELOCATED") == 1
+                                            && countState(afterLogout, "CANCELLED") == 2
+                                            && afterLogout.stream().filter(row -> row.getUUID("Worker").equals(success.getUUID()))
+                                            .allMatch(row -> row.getString("State").equals("RELOCATED"))
+                                            && afterLogout.stream().filter(row -> row.getUUID("Worker").equals(queued.getUUID())
+                                            || row.getUUID("Worker").equals(queuedSibling.getUUID()))
+                                            .allMatch(row -> row.getString("State").equals("CANCELLED")
+                                            && row.getString("Error").equals("OWNER_DISCONNECTED"))
+                                            && matches(roster.active(owner.getUUID(), queued.getUUID()).getItem(0), queuedContents)
+                                            && matches(roster.active(owner.getUUID(), queuedSibling.getUUID()).getItem(0), siblingContents)
+                                            && matches(roster.active(owner.getUUID(), success.getUUID()).getItem(0), successContents),
+                                    "Logout must cancel queued relocation children while preserving items and successful siblings");
+
+                            WorkerMenu.open(secondOwner, null, false, 0);
+                            WorkerMenu shutdownMenu = requireMenu(secondOwner);
+                            send(secondOwner, shutdownMenu, 1, WorkerNetwork.Action.PREVIEW_FLEET,
+                                    fleetData(List.of(ref(shutdown, roster.view(secondOwner.getUUID(), shutdown.getUUID()).revision())),
+                                            "RELOCATE", Level.OVERWORLD.location().toString()));
+                            send(secondOwner, shutdownMenu, 2, WorkerNetwork.Action.APPLY_FLEET,
+                                    confirmationData(response(shutdownMenu).getUUID("Confirmation")));
+                            Object service = batchService(level.getServer());
+                            Method tick = service.getClass().getDeclaredMethod("tick");
+                            tick.setAccessible(true);
+                            tick.invoke(service);
+                            helper.assertTrue(rows(shutdownMenu.snapshot()).stream()
+                                            .anyMatch(row -> row.getUUID("Worker").equals(shutdown.getUUID())
+                                            && row.getString("State").equals("PREPARING")),
+                                    "Shutdown setup must expose a real preparing relocation child");
+                            invokeBatchLifecycle("stop", new ServerStoppingEvent(level.getServer()));
+                            ListTag history = invokeBatchSnapshot(service, secondOwner.getUUID());
+                            helper.assertTrue(history.size() == 1
+                                            && history.getCompound(0).getString("State").equals("CANCELLED")
+                                            && history.getCompound(0).getString("Error").equals("SERVER_STOPPING")
+                                            && fixture.relocation().pendingRequests(secondOwner.getUUID()).isEmpty()
+                                            && matches(roster.active(secondOwner.getUUID(), shutdown.getUUID()).getItem(0), shutdownContents),
+                                    "Shutdown must cancel a preparing relocation without removing its worker or contents");
+                            finish(helper, fixture, blocks, null);
+                        } catch (Throwable failure) {
+                            finish(helper, fixture, blocks, failure);
+                        }
+                    });
+        } catch (Throwable failure) {
+            finish(helper, fixture, blocks, failure);
+        }
+    }
+
     @GameTest(template = "provider_smoke", batch = "worker_m5_batch_commit_failure", timeoutTicks = 360)
     public static void lateKitShortageAndPostCommitFailurePreserveSuppliesAndSuccessfulSibling(GameTestHelper helper) {
         Fixture fixture = new Fixture(helper);
@@ -770,6 +1046,12 @@ public final class WorkerBatchGameTest {
         recipients.forEach(recipientList::add);
         data.put("Recipients", recipientList);
         data.putString("Operation", operation);
+        return data;
+    }
+
+    private static CompoundTag fleetData(List<CompoundTag> recipients, String operation, String dimension) {
+        CompoundTag data = fleetData(recipients, operation);
+        data.putString("Dimension", dimension);
         return data;
     }
 
