@@ -18,7 +18,6 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,8 +26,8 @@ import java.util.UUID;
 /** Overworld-owned persistence for physical hubs, their storage and worker-to-hub bindings. */
 public final class ControlHubRegistry extends SavedData {
     public static final int STORAGE_SLOTS = 27;
-    private static final double LOCAL_ACCESS_DISTANCE_SQR = 8.5D * 8.5D;
-    private static final double DEPOSIT_DISTANCE_SQR = 12.0D * 12.0D;
+    private static final double DEPOSIT_DISTANCE = 12.0D;
+    private static final double DEPOSIT_DISTANCE_SQR = DEPOSIT_DISTANCE * DEPOSIT_DISTANCE;
 
     public record HubRef(ResourceLocation dimension, BlockPos pos, ControlHubTier tier) { }
     public record DepositResult(int items, boolean hubFound, boolean storageFull) { }
@@ -88,8 +87,10 @@ public final class ControlHubRegistry extends SavedData {
             CompoundTag saved = (CompoundTag) value;
             ResourceLocation dimension = ResourceLocation.tryParse(saved.getString("Dimension"));
             if (dimension != null && saved.hasUUID("Worker")) {
-                result.workerHomes.put(saved.getUUID("Worker"),
-                        new HubKey(dimension, BlockPos.of(saved.getLong("Position"))));
+                HubKey key = new HubKey(dimension, BlockPos.of(saved.getLong("Position")));
+                if (result.hubs.containsKey(key)) {
+                    result.workerHomes.put(saved.getUUID("Worker"), key);
+                }
             }
         }
         return result;
@@ -145,26 +146,6 @@ public final class ControlHubRegistry extends SavedData {
         return hub != null && hub.owner.equals(owner);
     }
 
-    public int workerLimit(UUID owner) {
-        requireThread();
-        return hubs.values().stream().filter(hub -> hub.owner.equals(owner)).map(hub -> hub.tier)
-                .max(Comparator.comparingInt(ControlHubTier::workerSlots)).map(ControlHubTier::workerSlots).orElse(0);
-    }
-
-    /** Mk I-III are local terminals; Mk IV grants the legacy controller's anywhere access. */
-    public boolean canAccess(Player player) {
-        requireThread();
-        UUID owner = player.getUUID();
-        if (hubs.values().stream().anyMatch(hub -> hub.owner.equals(owner) && hub.tier.remoteController())) {
-            return true;
-        }
-        ResourceLocation dimension = player.level().dimension().location();
-        Vec3 position = player.position();
-        return hubs.entrySet().stream().anyMatch(entry -> entry.getValue().owner.equals(owner)
-                && entry.getKey().dimension().equals(dimension)
-                && position.distanceToSqr(Vec3.atCenterOf(entry.getKey().pos())) <= LOCAL_ACCESS_DISTANCE_SQR);
-    }
-
     public Optional<HubRef> nearestOwnedHub(ServerLevel level, UUID owner, Vec3 position, double maxDistance) {
         requireThread();
         double maximum = maxDistance * maxDistance;
@@ -178,7 +159,11 @@ public final class ControlHubRegistry extends SavedData {
 
     public void bindWorker(UUID worker, HubRef hub) {
         requireThread();
-        workerHomes.put(Objects.requireNonNull(worker), new HubKey(hub.dimension(), hub.pos().immutable()));
+        HubKey key = new HubKey(hub.dimension(), hub.pos().immutable());
+        if (!hubs.containsKey(key)) {
+            throw new IllegalStateException("CONTROL_HUB_UNAVAILABLE");
+        }
+        workerHomes.put(Objects.requireNonNull(worker), key);
         setDirty();
     }
 
@@ -194,7 +179,7 @@ public final class ControlHubRegistry extends SavedData {
                 && home.dimension().equals(level.dimension().location())
                 && worker.position().distanceToSqr(Vec3.atCenterOf(home.pos())) <= DEPOSIT_DISTANCE_SQR;
         if (!usableHome) {
-            Optional<HubRef> nearest = nearestOwnedHub(level, owner, worker.position(), Math.sqrt(DEPOSIT_DISTANCE_SQR));
+            Optional<HubRef> nearest = nearestOwnedHub(level, owner, worker.position(), DEPOSIT_DISTANCE);
             if (nearest.isEmpty()) {
                 return new DepositResult(0, false, false);
             }
@@ -206,35 +191,31 @@ public final class ControlHubRegistry extends SavedData {
         }
 
         int moved = 0;
-        boolean changed = false;
         for (int slot = 0; slot < worker.getContainerSize(); slot++) {
             ItemStack source = worker.getItem(slot);
             if (source.isEmpty()) {
                 continue;
             }
             int before = source.getCount();
-            ItemStack remainder = insert(hub.storage, source.copy());
+            ItemStack remainder = insert(hub.storage, source);
             int transferred = before - remainder.getCount();
             if (transferred > 0) {
                 worker.setItem(slot, remainder);
                 moved += transferred;
-                changed = true;
             }
         }
-        if (changed) {
+        if (moved > 0) {
             worker.setChanged();
             setDirty();
         }
-        boolean full = false;
-        if (changed) {
-            for (int slot = 0; slot < worker.getContainerSize(); slot++) {
-                if (!worker.getItem(slot).isEmpty()) {
-                    full = true;
-                    break;
-                }
+        boolean itemsRemain = false;
+        for (int slot = 0; slot < worker.getContainerSize(); slot++) {
+            if (!worker.getItem(slot).isEmpty()) {
+                itemsRemain = true;
+                break;
             }
         }
-        return new DepositResult(moved, true, full);
+        return new DepositResult(moved, true, itemsRemain);
     }
 
     public int withdrawAll(ServerLevel level, BlockPos pos, Player player) {
@@ -265,10 +246,12 @@ public final class ControlHubRegistry extends SavedData {
 
     public void removeAndDrop(ServerLevel level, BlockPos pos) {
         requireThread();
-        Hub removed = hubs.remove(key(level, pos));
+        HubKey key = key(level, pos);
+        Hub removed = hubs.remove(key);
         if (removed == null) {
             return;
         }
+        workerHomes.entrySet().removeIf(entry -> entry.getValue().equals(key));
         for (ItemStack stack : removed.storage) {
             if (!stack.isEmpty()) {
                 ItemEntity item = new ItemEntity(level, pos.getX() + 0.5D, pos.getY() + 0.75D,
@@ -281,12 +264,14 @@ public final class ControlHubRegistry extends SavedData {
 
     private static ItemStack insert(NonNullList<ItemStack> storage, ItemStack source) {
         ItemStack remainder = source.copy();
-        for (int slot = 0; slot < storage.size() && !remainder.isEmpty(); slot++) {
-            ItemStack target = storage.get(slot);
+        for (ItemStack target : storage) {
+            if (remainder.isEmpty()) {
+                break;
+            }
             if (target.isEmpty() || !ItemStack.isSameItemSameComponents(target, remainder)) {
                 continue;
             }
-            int room = Math.min(target.getMaxStackSize(), storage.get(slot).getMaxStackSize()) - target.getCount();
+            int room = target.getMaxStackSize() - target.getCount();
             if (room > 0) {
                 int transfer = Math.min(room, remainder.getCount());
                 target.grow(transfer);
