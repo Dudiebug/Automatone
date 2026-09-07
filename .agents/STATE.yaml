@@ -1,14 +1,18 @@
 schema_version: 1
 
 project_plan: docs/NEOFORGE_1.21.1_SERVER_WORKER_MILESTONES.md
-accepted_baseline: 7e781a4b
-active_task: M6.4
+accepted_baseline: 7e781a4b9627092fec115d9ebc08679a500fa295
+active_task: null
 active_gate: M6
 
 milestones:
   M6:
     state: IN_PROGRESS
-    baseline: 7e781a4b
+    baseline: 7e781a4b9627092fec115d9ebc08679a500fa295
+    candidate: 735a36e08f597dec9bf26c0fd47559e7a798cf9a
+    independent_evidence: .agents/evidence/M6/independent-profile.json
+    code_verdict: PASS
+    deferred: "Implementation/delivery COMPLETE; all in-game acceptance PENDING — HUMAN TESTING."
     last_verdict: PENDING
     implementation_plan: docs/M6_FINAL_RELIABILITY.md
     last_evidence: .agents/decisions/M6-EVIDENCE.md
@@ -310,7 +314,7 @@ tasks:
   M6.1:
     state: COMPLETE
     baseline: 7e781a4b
-    candidate: null
+    candidate: 735a36e08f597dec9bf26c0fd47559e7a798cf9a
     last_verdict: PASS
     last_evidence: .agents/decisions/M6-EVIDENCE.md
     blocker: null
@@ -318,7 +322,7 @@ tasks:
   M6.2:
     state: COMPLETE
     baseline: 7e781a4b
-    candidate: null
+    candidate: 735a36e08f597dec9bf26c0fd47559e7a798cf9a
     last_verdict: PASS
     last_evidence: .agents/decisions/M6-EVIDENCE.md
     blocker: null
@@ -326,18 +330,19 @@ tasks:
   M6.3:
     state: COMPLETE
     baseline: 7e781a4b
-    candidate: null
+    candidate: 735a36e08f597dec9bf26c0fd47559e7a798cf9a
     last_verdict: PASS
     last_evidence: .agents/decisions/M6-EVIDENCE.md
     blocker: null
     deferred: "Code checks PASS; in-game acceptance PENDING — HUMAN TESTING."
   M6.4:
-    state: IMPLEMENTING
+    state: COMPLETE
     baseline: 7e781a4b
-    candidate: null
-    last_verdict: PENDING
+    candidate: 735a36e08f597dec9bf26c0fd47559e7a798cf9a
+    last_verdict: PASS
     last_evidence: .agents/decisions/M6-EVIDENCE.md
     blocker: null
+    deferred: "Independent code gate and package PASS; in-game milestone acceptance PENDING — HUMAN TESTING."
 
 # Per-task controller state example:
 # tasks:
